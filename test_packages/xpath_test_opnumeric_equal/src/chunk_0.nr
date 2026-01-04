@@ -1,9 +1,7 @@
 //! Test chunk 0 for op:numeric-equal
 //! Contains 50 tests
 
-use dep::xpath::{
-    numeric_equal_int,
-};
+use dep::xpath::numeric_equal_int;
 
 #[test]
 fn op_numeric_equalint2args_1() {

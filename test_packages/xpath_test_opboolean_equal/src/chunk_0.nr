@@ -1,9 +1,7 @@
 //! Test chunk 0 for op:boolean-equal
 //! Contains 41 tests
 
-use dep::xpath::{
-    boolean_equal,
-};
+use dep::xpath::boolean_equal;
 
 #[test]
 fn op_boolean_equal2args_1() {

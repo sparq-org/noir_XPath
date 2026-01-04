@@ -1,9 +1,7 @@
 //! Test chunk 1 for op:numeric-less-than
 //! Contains 8 tests
 
-use dep::xpath::{
-    numeric_less_than_int,
-};
+use dep::xpath::numeric_less_than_int;
 
 #[test]
 fn op_numeric_less_thansht2args_1() {
@@ -37,18 +35,18 @@ fn op_numeric_less_thansht2args_5() {
 
 #[test]
 fn k_numericlt_1() {
-    //  *******************************************************  Test: K-NumericLT-1  
+    //  *******************************************************  Test: K-NumericLT-1
     assert(numeric_less_than_int(-1, 1) == true);
 }
 
 #[test]
 fn k_numericlt_3() {
-    //  *******************************************************  Test: K-NumericLT-3  
+    //  *******************************************************  Test: K-NumericLT-3
     assert(numeric_less_than_int(-1, 1) == true);
 }
 
 #[test]
 fn k_numericlt_22() {
-    //  *******************************************************  Test: K-NumericLT-22 
+    //  *******************************************************  Test: K-NumericLT-22
     assert(numeric_less_than_int(0, 4) == true);
 }

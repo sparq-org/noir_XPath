@@ -1,10 +1,7 @@
 //! Test chunk 0 for xs:float-from-int
 //! Contains 17 tests
 
-use dep::xpath::{
-    cast_integer_to_float,
-    XsdFloat,
-};
+use dep::xpath::{cast_integer_to_float, XsdFloat};
 
 #[test]
 fn casthc2() {

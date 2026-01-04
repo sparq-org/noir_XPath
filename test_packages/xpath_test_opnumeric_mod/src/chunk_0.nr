@@ -1,9 +1,7 @@
 //! Test chunk 0 for op:numeric-mod
 //! Contains 20 tests
 
-use dep::xpath::{
-    numeric_mod_int,
-};
+use dep::xpath::numeric_mod_int;
 
 #[test]
 fn op_numeric_modint2args_1() {
@@ -115,12 +113,12 @@ fn op_numeric_modsht2args_1() {
 
 #[test]
 fn op_numeric_modmix2args_3() {
-    //  Simple mod test, second operator cast string to integer 
+    //  Simple mod test, second operator cast string to integer
     assert(numeric_mod_int(1, 1) == 0);
 }
 
 #[test]
 fn k2_numericmod_1() {
-    //  Divisor is small negative xs:integer. 
+    //  Divisor is small negative xs:integer.
     assert(numeric_mod_int(-1, -1) == 0);
 }

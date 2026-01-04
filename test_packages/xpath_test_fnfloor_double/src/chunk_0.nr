@@ -1,10 +1,7 @@
 //! Test chunk 0 for fn:floor-double
 //! Contains 3 tests
 
-use dep::xpath::{
-    floor_double,
-    XsdDouble,
-};
+use dep::xpath::{floor_double, XsdDouble};
 
 #[test]
 fn fn_floordbl1args_1() {

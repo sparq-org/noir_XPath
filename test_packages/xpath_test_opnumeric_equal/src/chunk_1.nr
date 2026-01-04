@@ -1,9 +1,7 @@
 //! Test chunk 1 for op:numeric-equal
 //! Contains 13 tests
 
-use dep::xpath::{
-    numeric_equal_int,
-};
+use dep::xpath::numeric_equal_int;
 
 #[test]
 fn op_numeric_equalsht2args_1() {
@@ -37,37 +35,37 @@ fn op_numeric_equalsht2args_5() {
 
 #[test]
 fn k_numericequal_1() {
-    //  A test whose essence is: `xs:integer(1) eq xs:integer(1)`. 
+    //  A test whose essence is: `xs:integer(1) eq xs:integer(1)`.
     assert(numeric_equal_int(1, 1) == true);
 }
 
 #[test]
 fn k_numericequal_3() {
-    //  A test whose essence is: `xs:integer(1) eq xs:integer(1)`. 
+    //  A test whose essence is: `xs:integer(1) eq xs:integer(1)`.
     assert(numeric_equal_int(1, 1) == true);
 }
 
 #[test]
 fn k_numericequal_4() {
-    //  A test whose essence is: `xs:integer(-1) eq xs:integer(-1)`. 
+    //  A test whose essence is: `xs:integer(-1) eq xs:integer(-1)`.
     assert(numeric_equal_int(-1, -1) == true);
 }
 
 #[test]
 fn k_numericequal_6() {
-    //  A test whose essence is: `xs:decimal(1.1) eq xs:decimal(1.1)`. 
+    //  A test whose essence is: `xs:decimal(1.1) eq xs:decimal(1.1)`.
     assert(numeric_equal_int(1, 1) == true);
 }
 
 #[test]
 fn k_numericequal_8() {
-    //  A test whose essence is: `xs:decimal(1.1) eq xs:decimal(1.1)`. 
+    //  A test whose essence is: `xs:decimal(1.1) eq xs:decimal(1.1)`.
     assert(numeric_equal_int(1, 1) == true);
 }
 
 #[test]
 fn k_numericequal_9() {
-    //  A test whose essence is: `xs:decimal(-1.1) eq xs:decimal(-1.1)`. 
+    //  A test whose essence is: `xs:decimal(-1.1) eq xs:decimal(-1.1)`.
     assert(numeric_equal_int(-1, -1) == true);
 }
 
@@ -79,6 +77,6 @@ fn k_numericequal_41() {
 
 #[test]
 fn k_numericequal_45() {
-    //  Test automatic xs:untypedAtomic conversion. 
+    //  Test automatic xs:untypedAtomic conversion.
     assert(numeric_equal_int(3, 3) == true);
 }

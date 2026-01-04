@@ -1,9 +1,7 @@
 //! Test chunk 0 for op:numeric-integer-divide
 //! Contains 47 tests
 
-use dep::xpath::{
-    numeric_divide_int,
-};
+use dep::xpath::numeric_divide_int;
 
 #[test]
 fn op_numeric_integer_divideint2args_1() {
@@ -277,12 +275,12 @@ fn op_numeric_integer_dividesht2args_5() {
 
 #[test]
 fn op_numeric_integer_dividemix2args_3() {
-    //  Simple integer division test, second operator cast string to integer 
+    //  Simple integer division test, second operator cast string to integer
     assert(numeric_divide_int(1, 1) == 1);
 }
 
 #[test]
 fn cbcl_numeric_idivide_005() {
-    //  Test idiv by one on an xs:integer 
+    //  Test idiv by one on an xs:integer
     assert(numeric_divide_int(2, 1) == 2);
 }

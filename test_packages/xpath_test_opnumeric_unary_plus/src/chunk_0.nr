@@ -1,9 +1,7 @@
 //! Test chunk 0 for op:numeric-unary-plus
 //! Contains 33 tests
 
-use dep::xpath::{
-    numeric_unary_plus_int,
-};
+use dep::xpath::numeric_unary_plus_int;
 
 #[test]
 fn op_numeric_unary_plusint1args_1() {
