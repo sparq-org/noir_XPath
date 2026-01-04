@@ -1,9 +1,7 @@
 //! Test chunk 1 for op:numeric-add
 //! Contains 4 tests
 
-use dep::xpath::{
-    numeric_add_int,
-};
+use dep::xpath::numeric_add_int;
 
 #[test]
 fn op_numeric_add_derived_2() {

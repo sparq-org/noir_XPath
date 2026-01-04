@@ -1,10 +1,7 @@
 //! Test chunk 0 for fn:ceiling-float
 //! Contains 3 tests
 
-use dep::xpath::{
-    ceil_float,
-    XsdFloat,
-};
+use dep::xpath::{ceil_float, XsdFloat};
 
 #[test]
 fn fn_ceilingflt1args_1() {

@@ -1,10 +1,7 @@
 //! Test chunk 0 for xs:integer-from-double
 //! Contains 3 tests
 
-use dep::xpath::{
-    cast_double_to_integer,
-    XsdDouble,
-};
+use dep::xpath::{cast_double_to_integer, XsdDouble};
 
 #[test]
 fn castas214() {

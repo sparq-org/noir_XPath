@@ -1,10 +1,7 @@
 //! Test chunk 0 for fn:minutes-from-dateTime
 //! Contains 7 tests
 
-use dep::xpath::{
-    minutes_from_datetime,
-    datetime_from_epoch_microseconds_with_tz,
-};
+use dep::xpath::{datetime_from_epoch_microseconds_with_tz, minutes_from_datetime};
 
 #[test]
 fn fn_minutes_from_datetime1args_1() {
@@ -43,14 +40,14 @@ fn fn_minutes_from_datetime_2() {
 
 #[test]
 fn fn_minutes_from_datetime_6() {
-    //  Evaluates The 'minutes-from-dateTime' function that returns 0. 
+    //  Evaluates The 'minutes-from-dateTime' function that returns 0.
     let dt = datetime_from_epoch_microseconds_with_tz(928198800000000, -300);
     assert(minutes_from_datetime(dt) == 0);
 }
 
 #[test]
 fn fn_minutes_from_datetime_7() {
-    //  Evaluates The 'minutes-from-dateTime' function that returns 59. 
+    //  Evaluates The 'minutes-from-dateTime' function that returns 59.
     let dt = datetime_from_epoch_microseconds_with_tz(928213140000000, -300);
     assert(minutes_from_datetime(dt) == 59);
 }

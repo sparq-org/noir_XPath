@@ -1,10 +1,7 @@
 //! Test chunk 0 for fn:day-from-dateTime
 //! Contains 7 tests
 
-use dep::xpath::{
-    day_from_datetime,
-    datetime_from_epoch_microseconds_with_tz,
-};
+use dep::xpath::{datetime_from_epoch_microseconds_with_tz, day_from_datetime};
 
 #[test]
 fn fn_day_from_datetime1args_1() {
@@ -50,7 +47,7 @@ fn fn_day_from_datetime_3() {
 
 #[test]
 fn fn_day_from_datetime_6() {
-    //  Evaluates The 'day-from-dateTime' function that returns 1. 
+    //  Evaluates The 'day-from-dateTime' function that returns 1.
     let dt = datetime_from_epoch_microseconds_with_tz(915168000000000, -300);
     assert(day_from_datetime(dt) == 1);
 }

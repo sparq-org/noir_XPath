@@ -1,9 +1,7 @@
 //! Test chunk 0 for fn:floor
 //! Contains 33 tests
 
-use dep::xpath::{
-    floor_int,
-};
+use dep::xpath::floor_int;
 
 #[test]
 fn fn_floorint1args_1() {

@@ -1,9 +1,7 @@
 //! Test chunk 0 for fn:round
 //! Contains 31 tests
 
-use dep::xpath::{
-    round_int,
-};
+use dep::xpath::round_int;
 
 #[test]
 fn fn_roundint1args_2() {

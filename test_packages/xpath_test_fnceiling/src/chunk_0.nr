@@ -1,9 +1,7 @@
 //! Test chunk 0 for fn:ceiling
 //! Contains 33 tests
 
-use dep::xpath::{
-    ceil_int,
-};
+use dep::xpath::ceil_int;
 
 #[test]
 fn fn_ceilingint1args_1() {

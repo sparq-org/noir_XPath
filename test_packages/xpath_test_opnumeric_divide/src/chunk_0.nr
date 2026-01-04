@@ -1,9 +1,7 @@
 //! Test chunk 0 for op:numeric-divide
 //! Contains 25 tests
 
-use dep::xpath::{
-    numeric_divide_int,
-};
+use dep::xpath::numeric_divide_int;
 
 #[test]
 fn op_numeric_divideint2args_1() {
@@ -151,6 +149,6 @@ fn op_numeric_dividesht2args_1() {
 
 #[test]
 fn op_numeric_dividemix2args_3() {
-    //  Simple division test, second operator cast string to integer 
+    //  Simple division test, second operator cast string to integer
     assert(numeric_divide_int(1, 1) == 1);
 }

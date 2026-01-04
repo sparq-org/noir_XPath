@@ -1,9 +1,7 @@
 //! Test chunk 0 for op:numeric-subtract
 //! Contains 50 tests
 
-use dep::xpath::{
-    numeric_subtract_int,
-};
+use dep::xpath::numeric_subtract_int;
 
 #[test]
 fn op_numeric_subtractint2args_1() {
