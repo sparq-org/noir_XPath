@@ -1,19 +1,16 @@
-//! Tests for hash functions
+//! Tests for SPARQL 1.1 hash functions (Section 17.4.6)
 
-use dep::xpath::{
-    hash_blake2s, hash_blake3, hash_equal, hash_keccak256, hash_pedersen, hash_poseidon,
-    hash_poseidon2, hash_sha256,
-};
+use dep::xpath::{bytes_to_hex, hash_equal, hex_to_bytes, sha256_bytes, string_to_bytes};
 
 // ============================================================================
-// SHA256 Tests
+// SHA256 Tests (SPARQL SHA256 function)
 // ============================================================================
 
 #[test]
-fn test_hash_sha256_empty() {
+fn test_sha256_empty() {
     // SHA256 of empty input
     let input: [u8; 0] = [];
-    let hash = hash_sha256(input);
+    let hash = sha256_bytes(input);
     // SHA256("") = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
     assert(hash[0] == 0xe3);
     assert(hash[1] == 0xb0);
@@ -21,217 +18,133 @@ fn test_hash_sha256_empty() {
 }
 
 #[test]
-fn test_hash_sha256_hello() {
+fn test_sha256_hello() {
     // SHA256 of "hello" = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
     let input: [u8; 5] = [104, 101, 108, 108, 111]; // "hello"
-    let hash = hash_sha256(input);
+    let hash = sha256_bytes(input);
     assert(hash[0] == 0x2c);
     assert(hash[1] == 0xf2);
     assert(hash[31] == 0x24);
 }
 
 #[test]
-fn test_hash_sha256_deterministic() {
+fn test_sha256_deterministic() {
     // Same input should produce same output
     let input: [u8; 4] = [1, 2, 3, 4];
-    let hash1 = hash_sha256(input);
-    let hash2 = hash_sha256(input);
+    let hash1 = sha256_bytes(input);
+    let hash2 = sha256_bytes(input);
     assert(hash_equal(hash1, hash2));
 }
 
 // ============================================================================
-// Keccak256 Tests
+// String to Bytes Conversion Tests
 // ============================================================================
 
 #[test]
-fn test_hash_keccak256_empty() {
-    // Keccak256 of empty input
-    let input: [u8; 0] = [];
-    let hash = hash_keccak256(input);
-    // Keccak256("") = c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
-    assert(hash[0] == 0xc5);
-    assert(hash[1] == 0xd2);
-    assert(hash[31] == 0x70);
+fn test_string_to_bytes_hello() {
+    let bytes = string_to_bytes("hello");
+    assert(bytes[0] == 104); // 'h'
+    assert(bytes[1] == 101); // 'e'
+    assert(bytes[2] == 108); // 'l'
+    assert(bytes[3] == 108); // 'l'
+    assert(bytes[4] == 111); // 'o'
 }
 
 #[test]
-fn test_hash_keccak256_hello() {
-    // Keccak256 of "hello" = 1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac8
+fn test_string_to_bytes_empty() {
+    let bytes: [u8; 0] = string_to_bytes("");
+    assert(bytes.len() == 0);
+}
+
+#[test]
+fn test_string_to_bytes_single_char() {
+    let bytes = string_to_bytes("a");
+    assert(bytes[0] == 97); // 'a'
+}
+
+// ============================================================================
+// Bytes to Hex Conversion Tests
+// ============================================================================
+
+#[test]
+fn test_bytes_to_hex_zeros() {
+    let bytes: [u8; 32] = [0; 32];
+    let hex = bytes_to_hex(bytes);
+    // All zeros should produce "00" repeated 32 times
+    for i in 0..64 {
+        assert(hex[i] == 48); // '0'
+    }
+}
+
+#[test]
+fn test_bytes_to_hex_ff() {
+    let mut bytes: [u8; 32] = [0; 32];
+    bytes[0] = 0xff;
+    let hex = bytes_to_hex(bytes);
+    // First byte 0xff -> "ff"
+    assert(hex[0] == 102); // 'f'
+    assert(hex[1] == 102); // 'f'
+}
+
+#[test]
+fn test_bytes_to_hex_sha256_hello() {
+    // SHA256 of "hello" = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
     let input: [u8; 5] = [104, 101, 108, 108, 111]; // "hello"
-    let hash = hash_keccak256(input);
-    assert(hash[0] == 0x1c);
-    assert(hash[1] == 0x8a);
-    assert(hash[31] == 0xc8);
-}
-
-#[test]
-fn test_hash_keccak256_deterministic() {
-    let input: [u8; 4] = [1, 2, 3, 4];
-    let hash1 = hash_keccak256(input);
-    let hash2 = hash_keccak256(input);
-    assert(hash_equal(hash1, hash2));
+    let hash = sha256_bytes(input);
+    let hex = bytes_to_hex(hash);
+    // First four hex chars should be "2cf2"
+    assert(hex[0] == 50); // '2'
+    assert(hex[1] == 99); // 'c'
+    assert(hex[2] == 102); // 'f'
+    assert(hex[3] == 50); // '2'
 }
 
 // ============================================================================
-// Blake2s Tests
+// Hex to Bytes Conversion Tests
 // ============================================================================
 
 #[test]
-fn test_hash_blake2s_empty() {
-    let input: [u8; 0] = [];
-    let hash = hash_blake2s(input);
-    // Blake2s produces a 32-byte hash
-    // Just verify it's a valid 32-byte output
-    assert(hash.len() == 32);
+fn test_hex_to_bytes_zeros() {
+    // "00" repeated 32 times
+    let hex: [u8; 64] = [48; 64]; // all '0's
+    let bytes = hex_to_bytes(hex);
+    for i in 0..32 {
+        assert(bytes[i] == 0);
+    }
 }
 
 #[test]
-fn test_hash_blake2s_hello() {
-    let input: [u8; 5] = [104, 101, 108, 108, 111]; // "hello"
-    let hash = hash_blake2s(input);
-    assert(hash.len() == 32);
+fn test_hex_to_bytes_ff() {
+    // "ff" followed by "00"s
+    let mut hex: [u8; 64] = [48; 64]; // all '0's
+    hex[0] = 102; // 'f'
+    hex[1] = 102; // 'f'
+    let bytes = hex_to_bytes(hex);
+    assert(bytes[0] == 0xff);
+    assert(bytes[1] == 0);
 }
 
 #[test]
-fn test_hash_blake2s_deterministic() {
-    let input: [u8; 4] = [1, 2, 3, 4];
-    let hash1 = hash_blake2s(input);
-    let hash2 = hash_blake2s(input);
-    assert(hash_equal(hash1, hash2));
-}
-
-// ============================================================================
-// Blake3 Tests
-// ============================================================================
-
-#[test]
-fn test_hash_blake3_empty() {
-    let input: [u8; 0] = [];
-    let hash = hash_blake3(input);
-    assert(hash.len() == 32);
+fn test_hex_to_bytes_uppercase() {
+    // Test uppercase hex characters "FF"
+    let mut hex: [u8; 64] = [48; 64]; // all '0's
+    hex[0] = 70; // 'F'
+    hex[1] = 70; // 'F'
+    let bytes = hex_to_bytes(hex);
+    assert(bytes[0] == 0xff);
 }
 
 #[test]
-fn test_hash_blake3_hello() {
-    let input: [u8; 5] = [104, 101, 108, 108, 111]; // "hello"
-    let hash = hash_blake3(input);
-    assert(hash.len() == 32);
-}
-
-#[test]
-fn test_hash_blake3_deterministic() {
-    let input: [u8; 4] = [1, 2, 3, 4];
-    let hash1 = hash_blake3(input);
-    let hash2 = hash_blake3(input);
-    assert(hash_equal(hash1, hash2));
-}
-
-// ============================================================================
-// Poseidon Tests (ZK-Friendly)
-// ============================================================================
-
-#[test]
-fn test_hash_poseidon_single() {
-    let input: [Field; 1] = [42];
-    let hash = hash_poseidon(input);
-    // Poseidon returns a Field element
-    // Just verify it produces a valid Field
-    assert(hash != 0);
-}
-
-#[test]
-fn test_hash_poseidon_multiple() {
-    let input: [Field; 3] = [1, 2, 3];
-    let hash = hash_poseidon(input);
-    assert(hash != 0);
-}
-
-#[test]
-fn test_hash_poseidon_deterministic() {
-    let input: [Field; 2] = [100, 200];
-    let hash1 = hash_poseidon(input);
-    let hash2 = hash_poseidon(input);
-    assert(hash1 == hash2);
-}
-
-#[test]
-fn test_hash_poseidon_different_inputs() {
-    let input1: [Field; 2] = [1, 2];
-    let input2: [Field; 2] = [2, 1];
-    let hash1 = hash_poseidon(input1);
-    let hash2 = hash_poseidon(input2);
-    // Different inputs should produce different hashes
-    assert(hash1 != hash2);
-}
-
-// ============================================================================
-// Poseidon2 Tests (Improved ZK-Friendly)
-// ============================================================================
-
-#[test]
-fn test_hash_poseidon2_single() {
-    let input: [Field; 1] = [42];
-    let hash = hash_poseidon2(input);
-    assert(hash != 0);
-}
-
-#[test]
-fn test_hash_poseidon2_multiple() {
-    let input: [Field; 3] = [1, 2, 3];
-    let hash = hash_poseidon2(input);
-    assert(hash != 0);
-}
-
-#[test]
-fn test_hash_poseidon2_deterministic() {
-    let input: [Field; 2] = [100, 200];
-    let hash1 = hash_poseidon2(input);
-    let hash2 = hash_poseidon2(input);
-    assert(hash1 == hash2);
-}
-
-#[test]
-fn test_hash_poseidon2_different_inputs() {
-    let input1: [Field; 2] = [1, 2];
-    let input2: [Field; 2] = [2, 1];
-    let hash1 = hash_poseidon2(input1);
-    let hash2 = hash_poseidon2(input2);
-    assert(hash1 != hash2);
-}
-
-// ============================================================================
-// Pedersen Tests (ZK-Friendly)
-// ============================================================================
-
-#[test]
-fn test_hash_pedersen_single() {
-    let input: [Field; 1] = [42];
-    let hash = hash_pedersen(input);
-    assert(hash != 0);
-}
-
-#[test]
-fn test_hash_pedersen_multiple() {
-    let input: [Field; 3] = [1, 2, 3];
-    let hash = hash_pedersen(input);
-    assert(hash != 0);
-}
-
-#[test]
-fn test_hash_pedersen_deterministic() {
-    let input: [Field; 2] = [100, 200];
-    let hash1 = hash_pedersen(input);
-    let hash2 = hash_pedersen(input);
-    assert(hash1 == hash2);
-}
-
-#[test]
-fn test_hash_pedersen_different_inputs() {
-    let input1: [Field; 2] = [1, 2];
-    let input2: [Field; 2] = [2, 1];
-    let hash1 = hash_pedersen(input1);
-    let hash2 = hash_pedersen(input2);
-    assert(hash1 != hash2);
+fn test_bytes_to_hex_roundtrip() {
+    // Test that bytes -> hex -> bytes is identity
+    let original: [u8; 32] = [
+        0x2c, 0xf2, 0x4d, 0xba, 0x5f, 0xb0, 0xa3, 0x0e, 0x26, 0xe8, 0x3b, 0x2a, 0xc5, 0xb9, 0xe2,
+        0x9e, 0x1b, 0x16, 0x1e, 0x5c, 0x1f, 0xa7, 0x42, 0x5e, 0x73, 0x04, 0x33, 0x62, 0x93, 0x8b,
+        0x98, 0x24,
+    ];
+    let hex = bytes_to_hex(original);
+    let recovered = hex_to_bytes(hex);
+    assert(hash_equal(original, recovered));
 }
 
 // ============================================================================
@@ -266,4 +179,29 @@ fn test_hash_equal_last_byte_different() {
     let mut hash2: [u8; 32] = [0; 32];
     hash2[31] = 1;
     assert(!hash_equal(hash1, hash2));
+}
+
+// ============================================================================
+// Integration Tests: Full SPARQL SHA256 workflow
+// ============================================================================
+
+#[test]
+fn test_sparql_sha256_workflow() {
+    // SPARQL query: SELECT SHA256("hello")
+    // Expected result: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+
+    // Step 1: Convert string to bytes
+    let input_bytes = string_to_bytes("hello");
+
+    // Step 2: Compute SHA256 hash
+    let hash = sha256_bytes(input_bytes);
+
+    // Step 3: Convert to hex string
+    let hex_result = bytes_to_hex(hash);
+
+    // Verify first few characters: "2cf2..."
+    assert(hex_result[0] == 50); // '2'
+    assert(hex_result[1] == 99); // 'c'
+    assert(hex_result[2] == 102); // 'f'
+    assert(hex_result[3] == 50); // '2'
 }

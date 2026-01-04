@@ -67,21 +67,17 @@ xpath = { git = "https://github.com/jeswr/noir_XPath", tag = "v0.1.0", directory
   - Boolean aggregates: all_true, any_true, count_true
   - Partial array operations (with explicit length)
 - **Comparison Utilities**: Generic value comparison with Eq/Ord traits
-- **Hash Functions** (from [awesome-noir](https://github.com/noir-lang/awesome-noir)):
-  - SHA256: `hash_sha256` - standard cryptographic hash
-  - Keccak256: `hash_keccak256` - Ethereum-compatible hash
-  - Blake2s: `hash_blake2s` - fast, secure hash
-  - Blake3: `hash_blake3` - highly parallelizable hash
-  - Poseidon: `hash_poseidon` - ZK-friendly hash for Field elements
-  - Poseidon2: `hash_poseidon2` - improved Poseidon variant
-  - Pedersen: `hash_pedersen` - ZK-friendly hash for commitments
+- **Hash Functions** (SPARQL 1.1 Section 17.4.6):
+  - SHA256: `sha256_bytes` - standard cryptographic hash
+  - String conversion: `string_to_bytes`, `bytes_to_hex`, `hex_to_bytes`
+  - Utility: `hash_equal` - constant-time hash comparison
 
 ### 🔮 Future (Planned)
 
 - Float operations via [noir_IEEE754](https://github.com/jeswr/noir_IEEE754)
 - Advanced string functions (ENCODE_FOR_URI, langMatches)
 - Regex functions (REGEX, REPLACE)
-- Additional hash functions (MD5, SHA1, SHA384, SHA512)
+- Additional SPARQL hash functions (MD5, SHA1, SHA384, SHA512) when available in Noir
 - Decimal type support
 
 ## SPARQL 1.1 Coverage
@@ -263,33 +259,32 @@ fn example() {
 }
 ```
 
-### Hash Functions
+### Hash Functions (SPARQL 1.1)
 
 ```noir
-use dep::xpath::{
-    hash_sha256, hash_keccak256, hash_blake2s, hash_blake3,
-    hash_poseidon, hash_poseidon2, hash_pedersen, hash_equal,
-};
+use dep::xpath::{sha256_bytes, string_to_bytes, bytes_to_hex, hex_to_bytes, hash_equal};
 
 fn example() {
-    // Byte-based hash functions (return [u8; 32])
-    let input: [u8; 5] = [104, 101, 108, 108, 111]; // "hello"
+    // SPARQL SHA256 workflow: string -> bytes -> hash -> hex string
     
-    let sha256_hash = hash_sha256(input);      // Standard SHA-256
-    let keccak_hash = hash_keccak256(input);   // Ethereum-compatible
-    let blake2s_hash = hash_blake2s(input);    // Fast and secure
-    let blake3_hash = hash_blake3(input);      // Highly parallelizable
+    // Step 1: Convert string to bytes
+    let input_bytes = string_to_bytes("hello");
     
-    // Verify determinism
-    let sha256_hash2 = hash_sha256(input);
-    assert(hash_equal(sha256_hash, sha256_hash2));
+    // Step 2: Compute SHA256 hash
+    let hash = sha256_bytes(input_bytes);
+    // hash = [0x2c, 0xf2, 0x4d, 0xba, ...]
     
-    // Field-based hash functions (return Field) - ZK-optimized
-    let field_input: [Field; 3] = [1, 2, 3];
+    // Step 3: Convert to SPARQL-compatible hex string
+    let hex = bytes_to_hex(hash);
+    // hex = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
     
-    let poseidon_hash = hash_poseidon(field_input);   // ZK-friendly
-    let poseidon2_hash = hash_poseidon2(field_input); // Improved Poseidon
-    let pedersen_hash = hash_pedersen(field_input);   // For commitments
+    // Compare hashes
+    let hash2 = sha256_bytes(string_to_bytes("hello"));
+    assert(hash_equal(hash, hash2));
+    
+    // Parse hex string back to bytes
+    let recovered = hex_to_bytes(hex);
+    assert(hash_equal(hash, recovered));
 }
 ```
 

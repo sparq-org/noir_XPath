@@ -119,26 +119,21 @@ This document details the implementation status of SPARQL 1.1 functions in noir_
 |----------|--------|-------|
 | MD5 | 🔮 | Not available in Noir standard library |
 | SHA1 | 🔮 | Not available in Noir standard library |
-| SHA256 | ⚠️ | Implemented as `hash_sha256` - returns raw bytes instead of hex string |
+| SHA256 | ✅ | Implemented as `sha256_bytes` with `bytes_to_hex` for string output |
 | SHA384 | 🔮 | Not available in Noir standard library |
 | SHA512 | 🔮 | Not available in Noir standard library |
 
-### Additional ZK-Friendly Hash Functions
-
-These hash functions are not part of SPARQL 1.1 but are commonly used in ZK circuits:
+### String Conversion Functions
 
 | Function | Status | Notes |
 |----------|--------|-------|
-| Keccak256 | ✅ | Implemented as `hash_keccak256` - Ethereum-compatible hash |
-| Blake2s | ✅ | Implemented as `hash_blake2s` - fast, secure hash |
-| Blake3 | ✅ | Implemented as `hash_blake3` - parallelizable hash |
-| Poseidon | ✅ | Implemented as `hash_poseidon` - ZK-friendly hash for Field elements |
-| Poseidon2 | ✅ | Implemented as `hash_poseidon2` - improved Poseidon |
-| Pedersen | ✅ | Implemented as `hash_pedersen` - ZK-friendly hash for commitments |
+| string_to_bytes | ✅ | Convert string input to bytes for hashing |
+| bytes_to_hex | ✅ | Convert 32-byte hash to 64-char lowercase hex string |
+| hex_to_bytes | ✅ | Convert 64-char hex string to 32-byte array |
+| hash_equal | ✅ | Constant-time comparison of hash outputs |
 
-**Note:** SPARQL hash functions return lowercase hexadecimal strings, but in ZK circuits
-we return raw byte arrays ([u8; 32]) or Field elements. This is more efficient for
-circuit constraints and can be converted to hex format outside the circuit if needed.
+**Note:** SPARQL hash functions return lowercase hexadecimal strings. Use `bytes_to_hex` 
+to convert raw hash output to the SPARQL-compatible hex string format.
 
 ## Boolean Operators
 
@@ -193,11 +188,10 @@ circuit constraints and can be converted to hex format outside the circuit if ne
 - Integer aggregate functions (COUNT, SUM, MIN, MAX, AVG)
 - Sequence operations (is_empty, exists, count)
 - Generic comparison utilities (5 operators including `<=` and `>=`)
-- ZK-friendly hash functions (Keccak256, Blake2s, Blake3, Poseidon, Poseidon2, Pedersen)
+- SHA256 hash function with string conversion (`sha256_bytes`, `bytes_to_hex`, `hex_to_bytes`, `string_to_bytes`)
 
 ### Partial Implementation (⚠️)
 - Aggregates: integers only (floats/doubles not yet supported)
-- SHA256: returns raw bytes instead of hex string (as required by SPARQL)
 
 ### Deferred/Future (🔮)
 - All string functions (complex in ZK)

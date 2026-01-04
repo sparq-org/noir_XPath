@@ -1,156 +1,129 @@
 //! Hash functions for XPath/SPARQL
 //!
-//! This module provides wrappers for cryptographic hash functions
-//! available in Noir's standard library and community libraries.
+//! This module provides cryptographic hash functions as specified by SPARQL 1.1.
 //!
-//! SPARQL 1.1 specifies the following hash functions:
+//! SPARQL 1.1 specifies the following hash functions (Section 17.4.6):
 //! - MD5, SHA1, SHA256, SHA384, SHA512
 //!
-//! However, Noir's standard library provides a different set of
-//! hash functions optimized for ZK circuits:
-//! - SHA256, Keccak256, Blake2s, Blake3, Poseidon, Pedersen
+//! Currently, only SHA256 is available in Noir's standard library.
+//! Other hash functions (MD5, SHA1, SHA384, SHA512) are not implemented.
 //!
-//! Note: SPARQL hash functions return hexadecimal string representations,
-//! but in ZK circuits we work with the raw byte/field outputs.
+//! SPARQL hash functions return lowercase hexadecimal strings.
+//! This module provides both raw byte output and hex string conversion functions.
 
-use std::hash::{blake2s, blake3, pedersen_hash, poseidon, poseidon2, sha256};
+use std::hash::sha256;
 
 // ============================================================================
-// SHA256 Hash Function
+// SHA256 Hash Function (SPARQL 1.1)
 // ============================================================================
 
 /// Computes the SHA-256 hash of the input byte array.
-/// Returns a 32-byte hash.
+/// Returns a 32-byte hash as raw bytes.
 ///
-/// This is the most commonly used hash function in SPARQL 1.1.
-/// Note: SPARQL expects hexadecimal string output, but in ZK circuits
-/// we return the raw 32-byte hash.
+/// This corresponds to SPARQL's SHA256() function.
+/// Use `bytes_to_hex` to convert the result to a hex string for SPARQL compatibility.
 ///
 /// # Example
 /// ```noir
 /// let input: [u8; 5] = [104, 101, 108, 108, 111]; // "hello"
-/// let hash = hash_sha256(input);
+/// let hash = sha256_bytes(input);
+/// let hex = bytes_to_hex(hash);
 /// ```
-pub fn hash_sha256<let N: u32>(input: [u8; N]) -> [u8; 32] {
+pub fn sha256_bytes<let N: u32>(input: [u8; N]) -> [u8; 32] {
     sha256(input)
 }
 
 // ============================================================================
-// Keccak256 Hash Function
+// String/Bytes Conversion Functions
 // ============================================================================
 
-/// Computes the Keccak-256 hash of the input byte array.
-/// Returns a 32-byte hash.
-///
-/// Keccak-256 is the hash function used in Ethereum.
-/// This is different from SHA-3 (which is standardized Keccak with different padding).
+/// Converts a string literal to a byte array.
+/// This is useful for hashing string inputs in SPARQL.
 ///
 /// # Example
 /// ```noir
-/// let input: [u8; 5] = [104, 101, 108, 108, 111]; // "hello"
-/// let hash = hash_keccak256(input);
+/// let bytes = string_to_bytes("hello");
+/// let hash = sha256_bytes(bytes);
 /// ```
-pub fn hash_keccak256<let N: u32>(input: [u8; N]) -> [u8; 32] {
-    std::hash::keccak256(input, N)
+pub fn string_to_bytes<let N: u32>(s: str<N>) -> [u8; N] {
+    s.as_bytes()
 }
 
-// ============================================================================
-// Blake2s Hash Function
-// ============================================================================
-
-/// Computes the Blake2s hash of the input byte array.
-/// Returns a 32-byte hash.
-///
-/// Blake2s is a fast, secure hash function optimized for 8-bit to 32-bit platforms.
-/// It is widely used in ZK circuits due to its efficiency.
-///
-/// # Example
-/// ```noir
-/// let input: [u8; 5] = [104, 101, 108, 108, 111]; // "hello"
-/// let hash = hash_blake2s(input);
-/// ```
-pub fn hash_blake2s<let N: u32>(input: [u8; N]) -> [u8; 32] {
-    blake2s(input)
+/// Converts a single byte to its two-character lowercase hex representation.
+/// Returns an array of 2 bytes representing the hex characters.
+fn byte_to_hex(b: u8) -> [u8; 2] {
+    let hex_chars: [u8; 16] = [
+        48, 49, 50, 51, 52, 53, 54, 55, // '0'-'7'
+        56, 57, 97, 98, 99, 100, 101, 102, // '8'-'9', 'a'-'f'
+    ];
+    let high = (b >> 4) & 0x0f;
+    let low = b & 0x0f;
+    [hex_chars[high], hex_chars[low]]
 }
 
-// ============================================================================
-// Blake3 Hash Function
-// ============================================================================
-
-/// Computes the Blake3 hash of the input byte array.
-/// Returns a 32-byte hash.
-///
-/// Blake3 is a highly parallelizable and efficient hash function,
-/// making it well-suited for ZK applications.
+/// Converts a 32-byte hash to a 64-character lowercase hex string.
+/// This produces the SPARQL-compatible hex string output.
 ///
 /// # Example
 /// ```noir
-/// let input: [u8; 5] = [104, 101, 108, 108, 111]; // "hello"
-/// let hash = hash_blake3(input);
+/// let hash = sha256_bytes([104, 101, 108, 108, 111]); // "hello"
+/// let hex = bytes_to_hex(hash);
+/// // hex is "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
 /// ```
-pub fn hash_blake3<let N: u32>(input: [u8; N]) -> [u8; 32] {
-    blake3(input)
+pub fn bytes_to_hex(bytes: [u8; 32]) -> [u8; 64] {
+    let mut hex: [u8; 64] = [0; 64];
+    for i in 0..32 {
+        let pair = byte_to_hex(bytes[i]);
+        hex[i * 2] = pair[0];
+        hex[i * 2 + 1] = pair[1];
+    }
+    hex
 }
 
-// ============================================================================
-// Poseidon Hash Function (ZK-Friendly)
-// ============================================================================
+/// Converts a single hex character to its numeric value (0-15).
+/// Returns the value or 0 for invalid characters.
+fn hex_char_to_value(c: u8) -> u8 {
+    // Character ranges are non-overlapping:
+    // '0'-'9' (48-57), 'A'-'F' (65-70), 'a'-'f' (97-102)
+    let is_digit = (c >= 48) & (c <= 57);
+    let is_upper = (c >= 65) & (c <= 70);
+    let is_lower = (c >= 97) & (c <= 102);
 
-/// Computes the Poseidon hash of field elements.
-/// Returns a single Field element as the hash.
-///
-/// Poseidon is a ZK-friendly hash function designed specifically
-/// for efficient computation in zero-knowledge proof circuits.
-/// It operates on Field elements rather than bytes.
-///
-/// # Example
-/// ```noir
-/// let input: [Field; 2] = [1, 2];
-/// let hash = hash_poseidon(input);
-/// ```
-pub fn hash_poseidon<let N: u32>(input: [Field; N]) -> Field {
-    poseidon::bn254::hash(input, N)
+    let digit_val = c - 48; // For '0'-'9'
+    let upper_val = c - 65 + 10; // For 'A'-'F'
+    let lower_val = c - 97 + 10; // For 'a'-'f'
+
+    // Select the appropriate value based on character type
+    // Only one condition can be true at a time due to non-overlapping ranges
+    let mut result: u8 = 0;
+    if is_digit {
+        result = digit_val;
+    }
+    if is_upper {
+        result = upper_val;
+    }
+    if is_lower {
+        result = lower_val;
+    }
+    result
 }
 
-// ============================================================================
-// Poseidon2 Hash Function (ZK-Friendly, Improved)
-// ============================================================================
-
-/// Computes the Poseidon2 hash of field elements.
-/// Returns a single Field element as the hash.
-///
-/// Poseidon2 is an improved version of Poseidon with better
-/// performance characteristics in ZK circuits.
-///
-/// Note: The API uses the struct-based pattern `Poseidon2::hash` as defined
-/// in the Noir standard library.
+/// Converts a 64-character hex string to a 32-byte array.
+/// This is useful for parsing hex-encoded hash values.
 ///
 /// # Example
 /// ```noir
-/// let input: [Field; 2] = [1, 2];
-/// let hash = hash_poseidon2(input);
+/// let hex: [u8; 64] = [...]; // hex-encoded hash
+/// let bytes = hex_to_bytes(hex);
 /// ```
-pub fn hash_poseidon2<let N: u32>(input: [Field; N]) -> Field {
-    poseidon2::Poseidon2::hash(input, N)
-}
-
-// ============================================================================
-// Pedersen Hash Function (ZK-Friendly)
-// ============================================================================
-
-/// Computes the Pedersen hash of field elements.
-/// Returns a single Field element as the hash.
-///
-/// Pedersen hash is commonly used in ZK applications for
-/// commitment schemes and Merkle trees.
-///
-/// # Example
-/// ```noir
-/// let input: [Field; 2] = [1, 2];
-/// let hash = hash_pedersen(input);
-/// ```
-pub fn hash_pedersen<let N: u32>(input: [Field; N]) -> Field {
-    pedersen_hash(input)
+pub fn hex_to_bytes(hex: [u8; 64]) -> [u8; 32] {
+    let mut bytes: [u8; 32] = [0; 32];
+    for i in 0..32 {
+        let high = hex_char_to_value(hex[i * 2]);
+        let low = hex_char_to_value(hex[i * 2 + 1]);
+        bytes[i] = (high << 4) | low;
+    }
+    bytes
 }
 
 // ============================================================================
@@ -166,8 +139,8 @@ pub fn hash_pedersen<let N: u32>(input: [Field; N]) -> Field {
 ///
 /// # Example
 /// ```noir
-/// let hash1 = hash_sha256([104, 101, 108, 108, 111]);
-/// let hash2 = hash_sha256([104, 101, 108, 108, 111]);
+/// let hash1 = sha256_bytes([104, 101, 108, 108, 111]);
+/// let hash2 = sha256_bytes([104, 101, 108, 108, 111]);
 /// assert(hash_equal(hash1, hash2));
 /// ```
 pub fn hash_equal(a: [u8; 32], b: [u8; 32]) -> bool {

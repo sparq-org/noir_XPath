@@ -108,10 +108,6 @@ pub use comparison::{value_equal, value_ge, value_greater_than, value_le, value_
 pub use string::{contains, ends_with, starts_with, string_length};
 
 // Re-export hash functions
-// These wrap Noir's standard library hash functions for use in XPath/SPARQL contexts.
-// Note: SPARQL hash functions (MD5, SHA256, etc.) return hex strings, but in ZK circuits
-// we work with raw byte/field outputs instead.
-pub use hash::{
-    hash_blake2s, hash_blake3, hash_equal, hash_keccak256, hash_pedersen, hash_poseidon,
-    hash_poseidon2, hash_sha256,
-};
+// These implement SPARQL 1.1 hash functions (Section 17.4.6).
+// Currently only SHA256 is available in Noir's standard library.
+pub use hash::{bytes_to_hex, hash_equal, hex_to_bytes, sha256_bytes, string_to_bytes};
