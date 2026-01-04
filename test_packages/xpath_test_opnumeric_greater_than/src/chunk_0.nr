@@ -1,7 +1,9 @@
 //! Test chunk 0 for op:numeric-greater-than
 //! Contains 50 tests
 
-use dep::xpath::numeric_greater_than_int;
+use dep::xpath::{
+    numeric_greater_than_int,
+};
 
 #[test]
 fn op_numeric_greater_thanint2args_1() {

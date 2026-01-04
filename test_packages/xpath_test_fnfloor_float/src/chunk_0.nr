@@ -1,7 +1,10 @@
 //! Test chunk 0 for fn:floor-float
 //! Contains 3 tests
 
-use dep::xpath::{floor_float, XsdFloat};
+use dep::xpath::{
+    floor_float,
+    XsdFloat,
+};
 
 #[test]
 fn fn_floorflt1args_1() {

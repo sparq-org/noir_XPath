@@ -1,7 +1,9 @@
 //! Test chunk 0 for op:numeric-less-than
 //! Contains 50 tests
 
-use dep::xpath::numeric_less_than_int;
+use dep::xpath::{
+    numeric_less_than_int,
+};
 
 #[test]
 fn op_numeric_less_thanint2args_1() {

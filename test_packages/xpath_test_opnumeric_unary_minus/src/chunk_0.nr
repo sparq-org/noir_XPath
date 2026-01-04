@@ -1,7 +1,9 @@
 //! Test chunk 0 for op:numeric-unary-minus
 //! Contains 35 tests
 
-use dep::xpath::numeric_unary_minus_int;
+use dep::xpath::{
+    numeric_unary_minus_int,
+};
 
 #[test]
 fn op_numeric_unary_minusint1args_1() {
@@ -203,12 +205,12 @@ fn op_numeric_unary_minussht1args_3() {
 
 #[test]
 fn k2_numericunaryminus_3() {
-    //  Operand is constructor function for xs:decimal.
+    //  Operand is constructor function for xs:decimal. 
     assert(numeric_unary_minus_int(0) == 0);
 }
 
 #[test]
 fn k2_numericunaryminus_4() {
-    //  Operand is constructor function for xs:integer.
+    //  Operand is constructor function for xs:integer. 
     assert(numeric_unary_minus_int(0) == 0);
 }

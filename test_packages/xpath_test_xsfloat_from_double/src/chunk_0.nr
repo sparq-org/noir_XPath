@@ -1,7 +1,11 @@
 //! Test chunk 0 for xs:float-from-double
 //! Contains 3 tests
 
-use dep::xpath::{cast_double_to_float, XsdDouble, XsdFloat};
+use dep::xpath::{
+    cast_double_to_float,
+    XsdFloat,
+    XsdDouble,
+};
 
 #[test]
 fn castas203() {

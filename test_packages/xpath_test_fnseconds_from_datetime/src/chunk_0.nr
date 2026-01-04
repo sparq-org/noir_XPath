@@ -1,7 +1,10 @@
 //! Test chunk 0 for fn:seconds-from-dateTime
 //! Contains 6 tests
 
-use dep::xpath::{datetime_from_epoch_microseconds_with_tz, seconds_from_datetime};
+use dep::xpath::{
+    seconds_from_datetime,
+    datetime_from_epoch_microseconds_with_tz,
+};
 
 #[test]
 fn fn_seconds_from_datetime1args_1() {
@@ -33,14 +36,14 @@ fn fn_seconds_from_datetime_1() {
 
 #[test]
 fn fn_seconds_from_datetime_6() {
-    //  Evaluates The 'seconds-from-dateTime' function that returns 0.
+    //  Evaluates The 'seconds-from-dateTime' function that returns 0. 
     let dt = datetime_from_epoch_microseconds_with_tz(928198800000000, -300);
     assert(seconds_from_datetime(dt) == 0);
 }
 
 #[test]
 fn fn_seconds_from_datetime_7() {
-    //  Evaluates The 'seconds-from-dateTime' function that returns 59.
+    //  Evaluates The 'seconds-from-dateTime' function that returns 59. 
     let dt = datetime_from_epoch_microseconds_with_tz(928213199000000, -300);
     assert(seconds_from_datetime(dt) == 59);
 }

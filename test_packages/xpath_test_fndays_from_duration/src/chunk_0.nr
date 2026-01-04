@@ -1,7 +1,10 @@
 //! Test chunk 0 for fn:days-from-duration
 //! Contains 6 tests
 
-use dep::xpath::{days_from_duration, duration_from_microseconds};
+use dep::xpath::{
+    days_from_duration,
+    duration_from_microseconds,
+};
 
 #[test]
 fn fn_days_from_duration1args_1() {
@@ -40,7 +43,7 @@ fn fn_days_from_duration_2() {
 
 #[test]
 fn fn_days_from_duration_6() {
-    //  Evaluates The 'days-from-duration' function that returns 1.
+    //  Evaluates The 'days-from-duration' function that returns 1. 
     let dur = duration_from_microseconds(90000000000);
     assert(days_from_duration(dur) == 1);
 }
