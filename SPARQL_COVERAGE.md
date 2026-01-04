@@ -117,11 +117,28 @@ This document details the implementation status of SPARQL 1.1 functions in noir_
 
 | Function | Status | Notes |
 |----------|--------|-------|
-| MD5 | 🔮 | Deferred - requires string output formatting |
-| SHA1 | 🔮 | Deferred - requires string output formatting |
-| SHA256 | 🔮 | Deferred - requires string output formatting |
-| SHA384 | 🔮 | Deferred - requires string output formatting |
-| SHA512 | 🔮 | Deferred - requires string output formatting |
+| MD5 | 🔮 | Not available in Noir standard library |
+| SHA1 | 🔮 | Not available in Noir standard library |
+| SHA256 | ⚠️ | Implemented as `hash_sha256` - returns raw bytes instead of hex string |
+| SHA384 | 🔮 | Not available in Noir standard library |
+| SHA512 | 🔮 | Not available in Noir standard library |
+
+### Additional ZK-Friendly Hash Functions
+
+These hash functions are not part of SPARQL 1.1 but are commonly used in ZK circuits:
+
+| Function | Status | Notes |
+|----------|--------|-------|
+| Keccak256 | ✅ | Implemented as `hash_keccak256` - Ethereum-compatible hash |
+| Blake2s | ✅ | Implemented as `hash_blake2s` - fast, secure hash |
+| Blake3 | ✅ | Implemented as `hash_blake3` - parallelizable hash |
+| Poseidon | ✅ | Implemented as `hash_poseidon` - ZK-friendly hash for Field elements |
+| Poseidon2 | ✅ | Implemented as `hash_poseidon2` - improved Poseidon |
+| Pedersen | ✅ | Implemented as `hash_pedersen` - ZK-friendly hash for commitments |
+
+**Note:** SPARQL hash functions return lowercase hexadecimal strings, but in ZK circuits
+we return raw byte arrays ([u8; 32]) or Field elements. This is more efficient for
+circuit constraints and can be converted to hex format outside the circuit if needed.
 
 ## Boolean Operators
 
@@ -176,14 +193,16 @@ This document details the implementation status of SPARQL 1.1 functions in noir_
 - Integer aggregate functions (COUNT, SUM, MIN, MAX, AVG)
 - Sequence operations (is_empty, exists, count)
 - Generic comparison utilities (5 operators including `<=` and `>=`)
+- ZK-friendly hash functions (Keccak256, Blake2s, Blake3, Poseidon, Poseidon2, Pedersen)
 
 ### Partial Implementation (⚠️)
 - Aggregates: integers only (floats/doubles not yet supported)
+- SHA256: returns raw bytes instead of hex string (as required by SPARQL)
 
 ### Deferred/Future (🔮)
 - All string functions (complex in ZK)
 - All regex functions (complex in ZK)
-- Hash functions (require string output)
+- MD5, SHA1, SHA384, SHA512 hash functions (not available in Noir stdlib)
 - TZ() function (requires string formatting)
 
 ### Not Feasible (❌)

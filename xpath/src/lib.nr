@@ -14,6 +14,7 @@ mod date;
 mod sequence;
 mod comparison;
 mod string;
+mod hash;
 
 // Re-export types
 pub use types::{XsdDate, XsdDateTime, XsdDayTimeDuration};
@@ -105,3 +106,12 @@ pub use comparison::{value_equal, value_ge, value_greater_than, value_le, value_
 // Note: Functions that return strings (substring, upper_case, lower_case, concat, etc.)
 // are not exported as they cannot work correctly due to Noir's byte-to-string limitation
 pub use string::{contains, ends_with, starts_with, string_length};
+
+// Re-export hash functions
+// These wrap Noir's standard library hash functions for use in XPath/SPARQL contexts.
+// Note: SPARQL hash functions (MD5, SHA256, etc.) return hex strings, but in ZK circuits
+// we work with raw byte/field outputs instead.
+pub use hash::{
+    hash_blake2s, hash_blake3, hash_equal, hash_keccak256, hash_pedersen, hash_poseidon,
+    hash_poseidon2, hash_sha256,
+};

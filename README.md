@@ -67,13 +67,21 @@ xpath = { git = "https://github.com/jeswr/noir_XPath", tag = "v0.1.0", directory
   - Boolean aggregates: all_true, any_true, count_true
   - Partial array operations (with explicit length)
 - **Comparison Utilities**: Generic value comparison with Eq/Ord traits
+- **Hash Functions** (from [awesome-noir](https://github.com/noir-lang/awesome-noir)):
+  - SHA256: `hash_sha256` - standard cryptographic hash
+  - Keccak256: `hash_keccak256` - Ethereum-compatible hash
+  - Blake2s: `hash_blake2s` - fast, secure hash
+  - Blake3: `hash_blake3` - highly parallelizable hash
+  - Poseidon: `hash_poseidon` - ZK-friendly hash for Field elements
+  - Poseidon2: `hash_poseidon2` - improved Poseidon variant
+  - Pedersen: `hash_pedersen` - ZK-friendly hash for commitments
 
 ### 🔮 Future (Planned)
 
 - Float operations via [noir_IEEE754](https://github.com/jeswr/noir_IEEE754)
 - Advanced string functions (ENCODE_FOR_URI, langMatches)
 - Regex functions (REGEX, REPLACE)
-- Hash functions (MD5, SHA256, etc.)
+- Additional hash functions (MD5, SHA1, SHA384, SHA512)
 - Decimal type support
 
 ## SPARQL 1.1 Coverage
@@ -255,6 +263,36 @@ fn example() {
 }
 ```
 
+### Hash Functions
+
+```noir
+use dep::xpath::{
+    hash_sha256, hash_keccak256, hash_blake2s, hash_blake3,
+    hash_poseidon, hash_poseidon2, hash_pedersen, hash_equal,
+};
+
+fn example() {
+    // Byte-based hash functions (return [u8; 32])
+    let input: [u8; 5] = [104, 101, 108, 108, 111]; // "hello"
+    
+    let sha256_hash = hash_sha256(input);      // Standard SHA-256
+    let keccak_hash = hash_keccak256(input);   // Ethereum-compatible
+    let blake2s_hash = hash_blake2s(input);    // Fast and secure
+    let blake3_hash = hash_blake3(input);      // Highly parallelizable
+    
+    // Verify determinism
+    let sha256_hash2 = hash_sha256(input);
+    assert(hash_equal(sha256_hash, sha256_hash2));
+    
+    // Field-based hash functions (return Field) - ZK-optimized
+    let field_input: [Field; 3] = [1, 2, 3];
+    
+    let poseidon_hash = hash_poseidon(field_input);   // ZK-friendly
+    let poseidon2_hash = hash_poseidon2(field_input); // Improved Poseidon
+    let pedersen_hash = hash_pedersen(field_input);   // For commitments
+}
+```
+
 ## Architecture
 
 The library uses efficient representations optimized for zero-knowledge circuits:
@@ -282,7 +320,8 @@ noir_XPath/
 │       ├── duration.nr      # Duration operations
 │       ├── sequence.nr      # Sequence/aggregate functions
 │       ├── comparison.nr    # Comparison utilities
-│       └── string.nr        # String operations
+│       ├── string.nr        # String operations
+│       └── hash.nr          # Hash functions (SHA256, Keccak, Blake, Poseidon, Pedersen)
 ├── xpath_unit_tests/        # Unit tests
 ├── test_packages/           # Auto-generated tests from qt3tests
 └── scripts/                 # Test generation scripts

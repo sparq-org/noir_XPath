@@ -10,3 +10,4 @@ mod datetime_tests;
 mod date_tests;
 mod boolean_tests;
 mod string_tests;
+mod hash_tests;
