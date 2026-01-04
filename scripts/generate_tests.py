@@ -241,8 +241,48 @@ CAST_FUNCTION_PATTERNS = {
     "xs:float-from-double": ("double", "float"), # xs:float(xs:double(...))
 }
 
-# Functions currently implemented
+# Functions currently implemented (those with a mapping in FUNCTION_MAP)
 IMPLEMENTED_FUNCTIONS = list(FUNCTION_MAP.keys())
+
+
+def discover_all_test_files(qt3_dir: Path) -> dict[str, str]:
+    """Discover all test files in qt3tests fn/ and op/ directories.
+    
+    Returns a dict mapping function names (e.g., 'fn:abs', 'op:numeric-add') 
+    to their test file paths relative to qt3_dir.
+    """
+    all_functions = {}
+    
+    # Discover fn/ test files
+    fn_dir = qt3_dir / "fn"
+    if fn_dir.exists():
+        for xml_file in fn_dir.glob("*.xml"):
+            # Extract function name from filename
+            # e.g., abs.xml -> fn:abs, string-length.xml -> fn:string-length
+            func_name = xml_file.stem
+            all_functions[f"fn:{func_name}"] = f"fn/{xml_file.name}"
+    
+    # Discover op/ test files
+    op_dir = qt3_dir / "op"
+    if op_dir.exists():
+        for xml_file in op_dir.glob("*.xml"):
+            # e.g., numeric-add.xml -> op:numeric-add
+            func_name = xml_file.stem
+            all_functions[f"op:{func_name}"] = f"op/{xml_file.name}"
+    
+    # Discover prod/ test files (for type casting etc.)
+    prod_dir = qt3_dir / "prod"
+    if prod_dir.exists():
+        for xml_file in prod_dir.glob("*.xml"):
+            func_name = xml_file.stem
+            all_functions[f"prod:{func_name}"] = f"prod/{xml_file.name}"
+    
+    return all_functions
+
+
+def is_function_implemented(function_name: str) -> bool:
+    """Check if a function is implemented (has a mapping in FUNCTION_MAP)."""
+    return function_name in FUNCTION_MAP
 
 
 @dataclass
@@ -350,6 +390,53 @@ def sanitize_test_name(name: str) -> str:
     if name and name[0].isdigit():
         name = "test_" + name
     return name.lower()
+
+
+def sanitize_to_ascii(text: str) -> str:
+    """Remove non-ASCII characters and control characters from text for use in Noir comments."""
+    # Replace newlines with space, then filter to printable ASCII only
+    text = text.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+    return ''.join(c if 32 <= ord(c) < 127 else '?' for c in text)
+
+
+def generate_stub_test(test: 'TestCase', function_name: str) -> Optional[str]:
+    """Generate a stub test for an unimplemented function.
+    
+    The stub test always asserts false, so it will fail until the function
+    is correctly implemented.
+    """
+    test_name = sanitize_test_name(test.name)
+    
+    # Skip tests with unsupported dependencies
+    unsupported_deps = ["schemaValidation", "schemaImport", "staticTyping"]
+    for dep in test.dependencies:
+        for unsup in unsupported_deps:
+            if unsup in dep:
+                return None
+    
+    # Skip tests with error expected results (we can't test errors without implementation)
+    if test.result_type in ("unknown", "complex", "error"):
+        return None
+    
+    # Generate a stub test that always fails
+    # Sanitize to ASCII for Noir comment compatibility
+    desc = sanitize_to_ascii(test.description.replace("\n", " ").replace('"', "'")[:80]) if test.description else ""
+    expr_escaped = sanitize_to_ascii(test.test_expr.replace("\n", " ").replace('"', '\\"')[:60])
+    expected_escaped = sanitize_to_ascii(str(test.expected_result)[:40])
+    
+    lines = [
+        f"#[test]",
+        f"fn {test_name}() {{",
+    ]
+    if desc:
+        lines.append(f"    // {desc}")
+    lines.append(f"    // XPath: {expr_escaped}")
+    lines.append(f"    // Expected: {expected_escaped}")
+    lines.append(f"    // TODO: Implement {function_name}")
+    lines.append(f"    assert(false); // Stub test - will fail until function is implemented")
+    lines.append("}")
+    
+    return "\n".join(lines)
 
 
 def parse_integer(value: str) -> Optional[int]:
@@ -1623,22 +1710,44 @@ def generate_test_package(
     tests: list[TestCase],
     output_dir: Path,
     chunk_size: int = 50,
+    generate_stubs: bool = False,
 ) -> int:
-    """Generate a Noir test package for a function. Returns count of generated tests."""
+    """Generate a Noir test package for a function. Returns count of generated tests.
+    
+    Args:
+        function_name: The XPath function name (e.g., 'fn:abs', 'op:numeric-add')
+        tests: List of test cases from qt3tests
+        output_dir: Directory to write test packages
+        chunk_size: Number of tests per chunk file
+        generate_stubs: If True, generate stub tests for unimplemented functions
+    """
     pkg_name = f"xpath_test_{sanitize_test_name(function_name)}"
+    
+    # Check if function is implemented
+    func_implemented = is_function_implemented(function_name)
     
     # Convert tests first to see if we have any
     converted_tests = []
     skipped = 0
     for test in tests:
-        noir_test = generate_noir_test(test, function_name)
+        if func_implemented:
+            # For implemented functions, use normal test generation
+            noir_test = generate_noir_test(test, function_name)
+        elif generate_stubs:
+            # For unimplemented functions, generate stub tests
+            noir_test = generate_stub_test(test, function_name)
+        else:
+            # Skip unimplemented functions if stubs not requested
+            noir_test = None
+        
         if noir_test and not noir_test.startswith("// SKIP"):
             converted_tests.append(noir_test)
         else:
             skipped += 1
 
     if not converted_tests:
-        print(f"  No tests converted for {function_name} (skipped {skipped})")
+        status = "(stub)" if generate_stubs and not func_implemented else ""
+        print(f"  No tests converted for {function_name} {status}(skipped {skipped})")
         # Clean up any existing empty package directory
         pkg_dir = output_dir / pkg_name
         if pkg_dir.exists():
@@ -1664,35 +1773,38 @@ xpath = {{ path = "../../xpath" }}
     # Split tests into chunks
     chunks = [converted_tests[i:i + chunk_size] for i in range(0, len(converted_tests), chunk_size)]
 
-    # Determine required imports
-    imports = ["use dep::xpath::{"]
-    noir_func = FUNCTION_MAP.get(function_name)
-    if noir_func:
-        imports.append(f"    {noir_func},")
-    
-    # Add datetime imports if needed
-    if "datetime" in function_name.lower():
-        imports.append("    datetime_from_epoch_microseconds_with_tz,")
-    
-    # Add duration imports if needed
-    if "duration" in function_name.lower():
-        imports.append("    duration_from_microseconds,")
-    
-    # Add float/double type imports if needed
-    # Check both function_name and noir_func for float/double
-    func_lower = function_name.lower()
-    noir_func_lower = noir_func.lower() if noir_func else ""
-    
-    if "float" in func_lower or "float" in noir_func_lower:
-        imports.append("    XsdFloat,")
-    if "double" in func_lower or "double" in noir_func_lower:
-        imports.append("    XsdDouble,")
-    
-    imports.append("};")
+    # Determine required imports (only for implemented functions)
+    imports = []
+    if func_implemented:
+        imports = ["use dep::xpath::{"]
+        noir_func = FUNCTION_MAP.get(function_name)
+        if noir_func:
+            imports.append(f"    {noir_func},")
+        
+        # Add datetime imports if needed
+        if "datetime" in function_name.lower():
+            imports.append("    datetime_from_epoch_microseconds_with_tz,")
+        
+        # Add duration imports if needed
+        if "duration" in function_name.lower():
+            imports.append("    duration_from_microseconds,")
+        
+        # Add float/double type imports if needed
+        # Check both function_name and noir_func for float/double
+        func_lower = function_name.lower()
+        noir_func_lower = noir_func.lower() if noir_func else ""
+        
+        if "float" in func_lower or "float" in noir_func_lower:
+            imports.append("    XsdFloat,")
+        if "double" in func_lower or "double" in noir_func_lower:
+            imports.append("    XsdDouble,")
+        
+        imports.append("};")
 
     # Generate lib.nr
+    stub_marker = " (STUB - not yet implemented)" if not func_implemented else ""
     lib_lines = [
-        f"//! Auto-generated tests for {function_name}",
+        f"//! Auto-generated tests for {function_name}{stub_marker}",
         f"//! Source: https://github.com/w3c/qt3tests",
         "",
     ]
@@ -1707,7 +1819,11 @@ xpath = {{ path = "../../xpath" }}
             f"//! Test chunk {i} for {function_name}",
             f"//! Contains {len(chunk)} tests",
             "",
-        ] + imports + [""]
+        ]
+        
+        if imports:
+            chunk_lines.extend(imports)
+            chunk_lines.append("")
 
         for test_code in chunk:
             chunk_lines.append(test_code)
@@ -1715,7 +1831,8 @@ xpath = {{ path = "../../xpath" }}
 
         (src_dir / f"chunk_{i}.nr").write_text("\n".join(chunk_lines))
 
-    print(f"  Generated: {pkg_name} ({len(converted_tests)} tests, {skipped} skipped)")
+    status = "(stub)" if not func_implemented else ""
+    print(f"  Generated: {pkg_name} ({len(converted_tests)} tests{status}, {skipped} skipped)")
     return len(converted_tests)
 
 
@@ -1816,49 +1933,126 @@ def main():
         action="store_true",
         help="List available functions and exit",
     )
+    parser.add_argument(
+        "--generate-stubs",
+        action="store_true",
+        help="Generate stub tests for unimplemented functions (tests assert false)",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Process all test files found in qt3tests (not just implemented functions)",
+    )
+    parser.add_argument(
+        "--list-all",
+        action="store_true",
+        help="List all discoverable functions (implemented and unimplemented) and exit",
+    )
     args = parser.parse_args()
 
     if args.list_functions:
-        print("Available functions:")
+        print("Implemented functions:")
         for func in sorted(IMPLEMENTED_FUNCTIONS):
             print(f"  {func}")
         return
 
-    # Clone/update qt3tests
+    # Clone/update qt3tests (needed for list-all)
     if not args.skip_clone:
         clone_or_update_qt3tests(args.qt3_dir)
 
+    if args.list_all:
+        all_test_files = discover_all_test_files(args.qt3_dir)
+        all_functions = {**all_test_files, **FUNCTION_TEST_FILES}
+        print("All discoverable functions:")
+        print(f"  (✓ = implemented, ✗ = not implemented)\n")
+        for func in sorted(all_functions.keys()):
+            status = "✓" if is_function_implemented(func) else "✗"
+            print(f"  [{status}] {func}")
+        print(f"\nTotal: {len(all_functions)} ({len(IMPLEMENTED_FUNCTIONS)} implemented)")
+        return
+
     # Determine which functions to process
     if args.functions:
-        functions = [f.strip() for f in args.functions.split(",")]
+        # Use explicitly specified functions
+        functions_to_process = [f.strip() for f in args.functions.split(",")]
+        # Build the test file mapping for specified functions
+        all_test_files = discover_all_test_files(args.qt3_dir)
+        # Combine with FUNCTION_TEST_FILES for implemented functions
+        function_test_files = {**all_test_files, **FUNCTION_TEST_FILES}
+    elif args.all:
+        # Discover ALL test files from qt3tests
+        all_test_files = discover_all_test_files(args.qt3_dir)
+        # Combine with FUNCTION_TEST_FILES (which may have specialized mappings)
+        function_test_files = {**all_test_files, **FUNCTION_TEST_FILES}
+        functions_to_process = list(function_test_files.keys())
     else:
-        functions = IMPLEMENTED_FUNCTIONS
+        # Default: only process implemented functions
+        functions_to_process = IMPLEMENTED_FUNCTIONS
+        function_test_files = FUNCTION_TEST_FILES
 
     # Process each function
     total_tests_identified = 0
     total_tests_generated = 0
+    total_stub_tests = 0
+    implemented_count = 0
+    unimplemented_count = 0
+    
     print("\nGenerating tests...")
-    for func in functions:
-        if func not in FUNCTION_TEST_FILES:
+    for func in sorted(functions_to_process):
+        if func not in function_test_files:
             print(f"  Warning: No test file mapping for {func}")
             continue
 
-        test_file = args.qt3_dir / FUNCTION_TEST_FILES[func]
+        test_file = args.qt3_dir / function_test_files[func]
         tests = parse_test_file(test_file)
         total_tests_identified += len(tests)
 
         if tests:
-            count = generate_test_package(func, tests, args.output_dir)
+            is_impl = is_function_implemented(func)
+            if is_impl:
+                implemented_count += 1
+            else:
+                unimplemented_count += 1
+            
+            count = generate_test_package(
+                func, tests, args.output_dir,
+                generate_stubs=args.generate_stubs
+            )
             total_tests_generated += count
+            if not is_impl and count > 0:
+                total_stub_tests += count
         else:
             print(f"  No tests found for {func}")
+
+    # Clean up old packages that shouldn't exist anymore
+    # This handles the case where we previously generated stub packages
+    # but are now running without --generate-stubs
+    generated_pkg_names = set()
+    for func in functions_to_process:
+        pkg_name = f"xpath_test_{sanitize_test_name(func)}"
+        # Only include if function is implemented OR we're generating stubs
+        if is_function_implemented(func) or args.generate_stubs:
+            generated_pkg_names.add(pkg_name)
+    
+    # Remove packages that exist but shouldn't
+    existing_packages = set(p.name for p in args.output_dir.iterdir() if p.is_dir())
+    packages_to_remove = existing_packages - generated_pkg_names
+    if packages_to_remove:
+        print(f"\nCleaning up {len(packages_to_remove)} obsolete test packages...")
+        for pkg_name in sorted(packages_to_remove):
+            pkg_dir = args.output_dir / pkg_name
+            shutil.rmtree(pkg_dir)
+            print(f"  Removed: {pkg_name}")
 
     # Update workspace Nargo.toml
     update_workspace_toml(args.output_dir.parent)
 
     print(f"\nTest generation complete!")
+    print(f"Functions processed: {implemented_count + unimplemented_count} ({implemented_count} implemented, {unimplemented_count} unimplemented)")
     print(f"Total tests identified in qt3tests: {total_tests_identified}")
     print(f"Total tests generated: {total_tests_generated}")
+    if total_stub_tests > 0:
+        print(f"  - Stub tests (will fail until implemented): {total_stub_tests}")
 
 
 if __name__ == "__main__":
