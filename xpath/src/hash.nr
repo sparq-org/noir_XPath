@@ -122,6 +122,9 @@ pub fn hash_poseidon<let N: u32>(input: [Field; N]) -> Field {
 /// Poseidon2 is an improved version of Poseidon with better
 /// performance characteristics in ZK circuits.
 ///
+/// Note: The API uses the struct-based pattern `Poseidon2::hash` as defined
+/// in the Noir standard library.
+///
 /// # Example
 /// ```noir
 /// let input: [Field; 2] = [1, 2];
@@ -154,8 +157,12 @@ pub fn hash_pedersen<let N: u32>(input: [Field; N]) -> Field {
 // Utility Functions
 // ============================================================================
 
-/// Compares two 32-byte hash outputs for equality.
+/// Compares two 32-byte hash outputs for equality in constant time.
 /// Returns true if both hashes are identical.
+///
+/// This function is implemented to be constant-time to prevent
+/// timing-based side-channel attacks. It always compares all 32 bytes
+/// regardless of when a difference is found.
 ///
 /// # Example
 /// ```noir
@@ -164,11 +171,11 @@ pub fn hash_pedersen<let N: u32>(input: [Field; N]) -> Field {
 /// assert(hash_equal(hash1, hash2));
 /// ```
 pub fn hash_equal(a: [u8; 32], b: [u8; 32]) -> bool {
-    let mut result = true;
+    // Constant-time comparison: accumulate XOR differences
+    // If any byte differs, diff will be non-zero
+    let mut diff: u8 = 0;
     for i in 0..32 {
-        if a[i] != b[i] {
-            result = false;
-        }
+        diff |= a[i] ^ b[i];
     }
-    result
+    diff == 0
 }
