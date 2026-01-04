@@ -1,7 +1,10 @@
 //! Test chunk 0 for fn:ceiling-double
 //! Contains 3 tests
 
-use dep::xpath::{ceil_double, XsdDouble};
+use dep::xpath::{
+    ceil_double,
+    XsdDouble,
+};
 
 #[test]
 fn fn_ceilingdbl1args_1() {

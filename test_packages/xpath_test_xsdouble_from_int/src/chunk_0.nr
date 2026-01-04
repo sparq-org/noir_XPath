@@ -1,7 +1,10 @@
 //! Test chunk 0 for xs:double-from-int
 //! Contains 18 tests
 
-use dep::xpath::{cast_integer_to_double, XsdDouble};
+use dep::xpath::{
+    cast_integer_to_double,
+    XsdDouble,
+};
 
 #[test]
 fn casthc4() {

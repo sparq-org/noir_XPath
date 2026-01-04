@@ -1,7 +1,9 @@
 //! Test chunk 0 for op:boolean-greater-than
 //! Contains 19 tests
 
-use dep::xpath::boolean_greater_than;
+use dep::xpath::{
+    boolean_greater_than,
+};
 
 #[test]
 fn op_boolean_greater_than2args_1() {
@@ -113,6 +115,6 @@ fn op_boolean_greater_than_more_args_007() {
 
 #[test]
 fn k_booleangt_1() {
-    //  *******************************************************  Test: K-BooleanGT-1
+    //  *******************************************************  Test: K-BooleanGT-1  
     assert(boolean_greater_than(true, false) == true);
 }

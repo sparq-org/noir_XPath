@@ -1,7 +1,10 @@
 //! Test chunk 0 for fn:minutes-from-duration
 //! Contains 6 tests
 
-use dep::xpath::{duration_from_microseconds, minutes_from_duration};
+use dep::xpath::{
+    minutes_from_duration,
+    duration_from_microseconds,
+};
 
 #[test]
 fn fn_minutes_from_duration1args_1() {
@@ -33,7 +36,7 @@ fn fn_minutes_from_duration_1() {
 
 #[test]
 fn fn_minutes_from_duration_6() {
-    //  Evaluates The 'minutes-from-duration' function that returns 1.
+    //  Evaluates The 'minutes-from-duration' function that returns 1. 
     let dur = duration_from_microseconds(90060000000);
     assert(minutes_from_duration(dur) == 1);
 }

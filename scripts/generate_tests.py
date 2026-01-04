@@ -392,11 +392,21 @@ def sanitize_test_name(name: str) -> str:
     return name.lower()
 
 
+# ASCII character range for printable characters (space to tilde)
+ASCII_PRINTABLE_START = 32  # space character
+ASCII_PRINTABLE_END = 127   # DEL character (excluded)
+
+# Truncation limits for stub test comments
+STUB_DESCRIPTION_MAX_LEN = 80
+STUB_EXPRESSION_MAX_LEN = 60
+STUB_EXPECTED_MAX_LEN = 40
+
+
 def sanitize_to_ascii(text: str) -> str:
     """Remove non-ASCII characters and control characters from text for use in Noir comments."""
     # Replace newlines with space, then filter to printable ASCII only
     text = text.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
-    return ''.join(c if 32 <= ord(c) < 127 else '?' for c in text)
+    return ''.join(c if ASCII_PRINTABLE_START <= ord(c) < ASCII_PRINTABLE_END else '?' for c in text)
 
 
 def generate_stub_test(test: 'TestCase', function_name: str) -> Optional[str]:
@@ -420,9 +430,9 @@ def generate_stub_test(test: 'TestCase', function_name: str) -> Optional[str]:
     
     # Generate a stub test that always fails
     # Sanitize to ASCII for Noir comment compatibility
-    desc = sanitize_to_ascii(test.description.replace("\n", " ").replace('"', "'")[:80]) if test.description else ""
-    expr_escaped = sanitize_to_ascii(test.test_expr.replace("\n", " ").replace('"', '\\"')[:60])
-    expected_escaped = sanitize_to_ascii(str(test.expected_result)[:40])
+    desc = sanitize_to_ascii(test.description.replace("\n", " ").replace('"', "'")[:STUB_DESCRIPTION_MAX_LEN]) if test.description else ""
+    expr_escaped = sanitize_to_ascii(test.test_expr.replace("\n", " ").replace('"', '\\"')[:STUB_EXPRESSION_MAX_LEN])
+    expected_escaped = sanitize_to_ascii(str(test.expected_result)[:STUB_EXPECTED_MAX_LEN])
     
     lines = [
         f"#[test]",
@@ -1977,12 +1987,14 @@ def main():
         functions_to_process = [f.strip() for f in args.functions.split(",")]
         # Build the test file mapping for specified functions
         all_test_files = discover_all_test_files(args.qt3_dir)
-        # Combine with FUNCTION_TEST_FILES for implemented functions
+        # FUNCTION_TEST_FILES takes precedence to preserve specialized mappings
+        # (e.g., float/double variants that use the same test file)
         function_test_files = {**all_test_files, **FUNCTION_TEST_FILES}
     elif args.all:
         # Discover ALL test files from qt3tests
         all_test_files = discover_all_test_files(args.qt3_dir)
-        # Combine with FUNCTION_TEST_FILES (which may have specialized mappings)
+        # FUNCTION_TEST_FILES takes precedence to preserve specialized mappings
+        # (e.g., float/double variants that use the same test file)
         function_test_files = {**all_test_files, **FUNCTION_TEST_FILES}
         functions_to_process = list(function_test_files.keys())
     else:
@@ -2035,7 +2047,12 @@ def main():
             generated_pkg_names.add(pkg_name)
     
     # Remove packages that exist but shouldn't
-    existing_packages = set(p.name for p in args.output_dir.iterdir() if p.is_dir())
+    # Only consider directories matching xpath_test_* pattern to avoid
+    # accidentally deleting user-created directories
+    existing_packages = set(
+        p.name for p in args.output_dir.iterdir() 
+        if p.is_dir() and p.name.startswith("xpath_test_")
+    )
     packages_to_remove = existing_packages - generated_pkg_names
     if packages_to_remove:
         print(f"\nCleaning up {len(packages_to_remove)} obsolete test packages...")

@@ -1,7 +1,9 @@
 //! Test chunk 0 for op:boolean-less-than
 //! Contains 19 tests
 
-use dep::xpath::boolean_less_than;
+use dep::xpath::{
+    boolean_less_than,
+};
 
 #[test]
 fn op_boolean_less_than2args_1() {
@@ -113,6 +115,6 @@ fn op_boolean_less_than_more_args_007() {
 
 #[test]
 fn k_booleanlt_1() {
-    //  *******************************************************  Test: K-BooleanLT-1
+    //  *******************************************************  Test: K-BooleanLT-1  
     assert(boolean_less_than(false, true) == true);
 }

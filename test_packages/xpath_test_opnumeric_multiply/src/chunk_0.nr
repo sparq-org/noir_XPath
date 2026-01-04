@@ -1,7 +1,9 @@
 //! Test chunk 0 for op:numeric-multiply
 //! Contains 28 tests
 
-use dep::xpath::numeric_multiply_int;
+use dep::xpath::{
+    numeric_multiply_int,
+};
 
 #[test]
 fn op_numeric_multiplydec2args_1() {
@@ -167,6 +169,6 @@ fn op_numeric_multiplynni2args_5() {
 
 #[test]
 fn op_numeric_multiplymix2args_3() {
-    //  Simple multiplication test, second operator cast string to integer
+    //  Simple multiplication test, second operator cast string to integer 
     assert(numeric_multiply_int(1, 1) == 1);
 }

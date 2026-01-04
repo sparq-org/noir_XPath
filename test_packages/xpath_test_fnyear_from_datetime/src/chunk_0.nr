@@ -1,7 +1,10 @@
 //! Test chunk 0 for fn:year-from-dateTime
 //! Contains 6 tests
 
-use dep::xpath::{datetime_from_epoch_microseconds_with_tz, year_from_datetime};
+use dep::xpath::{
+    year_from_datetime,
+    datetime_from_epoch_microseconds_with_tz,
+};
 
 #[test]
 fn fn_year_from_datetime1args_1() {

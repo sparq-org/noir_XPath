@@ -1,7 +1,9 @@
 //! Test chunk 0 for op:numeric-add
 //! Contains 50 tests
 
-use dep::xpath::numeric_add_int;
+use dep::xpath::{
+    numeric_add_int,
+};
 
 #[test]
 fn op_numeric_addint2args_1() {
@@ -293,7 +295,7 @@ fn op_numeric_addsht2args_4() {
 
 #[test]
 fn op_numeric_addmix2args_3() {
-    //  Simple addition test, second operator cast string to integer
+    //  Simple addition test, second operator cast string to integer 
     assert(numeric_add_int(1, 1) == 2);
 }
 
