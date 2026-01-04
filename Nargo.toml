@@ -22,6 +22,7 @@ members = [
     "test_packages/xpath_test_fnround_float",
     "test_packages/xpath_test_fnseconds_from_datetime",
     "test_packages/xpath_test_fnseconds_from_duration",
+    "test_packages/xpath_test_fnsha256",
     "test_packages/xpath_test_fnyear_from_datetime",
     "test_packages/xpath_test_opboolean_equal",
     "test_packages/xpath_test_opboolean_greater_than",
