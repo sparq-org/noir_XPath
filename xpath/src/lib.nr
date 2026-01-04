@@ -3,7 +3,37 @@
 //! This library provides Noir implementations of XPath/XQuery functions
 //! as defined in XQuery 1.0 and XPath 2.0 Functions and Operators
 //! that are required by SPARQL 1.1 Query Language.
+//!
+//! ## Deterministic XPath Name Mapping
+//!
+//! This library provides a deterministic mapping between XPath names and Noir function names
+//! through dedicated namespace modules:
+//!
+//! - `xpath_fn` module: XPath `fn:*` functions (e.g., `fn:abs` -> `xpath::xpath_fn::abs`)
+//! - `xpath_op` module: XPath `op:*` operators (e.g., `op:numeric-add` -> `xpath::xpath_op::numeric_add`)
+//! - `xpath_xs` module: XPath `xs:*` type casts (e.g., `xs:float(int)` -> `xpath::xpath_xs::float_from_integer`)
+//!
+//! The naming convention transforms XPath names as follows:
+//! - Replace `fn:` with `xpath_fn::`, `op:` with `xpath_op::`, `xs:` with `xpath_xs::`
+//! - Replace `-` with `_`
+//!
+//! This enables code generators (like SPARQL-to-Noir compilers) to programmatically
+//! construct function references from XPath expressions.
+//!
+//! ### Example
+//!
+//! ```noir
+//! use xpath::xpath_fn;
+//! use xpath::xpath_op;
+//!
+//! // fn:abs(-5) in XPath
+//! let result = xpath_fn::abs(-5);
+//!
+//! // op:numeric-add(2, 3) in XPath
+//! let sum = xpath_op::numeric_add(2, 3);
+//! ```
 
+// Internal implementation modules
 mod types;
 mod boolean;
 mod numeric;
@@ -15,6 +45,12 @@ mod sequence;
 mod comparison;
 mod string;
 mod stubs;
+
+// XPath namespace modules for deterministic name mapping
+// Use `xpath_fn` for fn:* functions, `xpath_op` for op:* operators, `xpath_xs` for xs:* type casts
+pub mod xpath_fn;
+pub mod xpath_op;
+pub mod xpath_xs;
 
 // Re-export types
 pub use types::{XsdDate, XsdDateTime, XsdDayTimeDuration};

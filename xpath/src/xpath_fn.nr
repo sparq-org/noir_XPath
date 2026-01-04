@@ -1,0 +1,150 @@
+//! XPath `fn:` namespace functions
+//!
+//! This module provides a deterministic mapping from XPath function names in the `fn:` namespace
+//! to their Noir implementations. The naming follows the pattern:
+//!
+//! - XPath `fn:function-name` -> `xpath_fn::function_name` (hyphens become underscores)
+//!
+//! This enables code generators to compose function names programmatically by:
+//! 1. Taking the XPath function name (e.g., `fn:year-from-dateTime`)
+//! 2. Replacing `fn:` with `xpath_fn::` and `-` with `_`
+//! 3. Accessing the function directly (e.g., `xpath_fn::year_from_dateTime`)
+//!
+//! ## Usage
+//!
+//! ```noir
+//! use xpath::xpath_fn;
+//!
+//! // fn:abs
+//! let result = xpath_fn::abs(-5);
+//!
+//! // fn:year-from-dateTime
+//! let year = xpath_fn::year_from_dateTime(dt);
+//! ```
+
+// Re-export numeric functions
+// fn:abs
+pub use crate::numeric::abs_int as abs;
+
+// fn:ceiling
+pub use crate::numeric::ceil_int as ceiling;
+
+// fn:floor
+pub use crate::numeric::floor_int as floor;
+
+// fn:round
+pub use crate::numeric::round_int as round;
+
+// fn:not
+pub use crate::boolean::fn_not as not;
+
+// Re-export datetime component extraction functions
+// fn:year-from-dateTime
+pub use crate::datetime::year_from_datetime as year_from_dateTime;
+
+// fn:month-from-dateTime
+pub use crate::datetime::month_from_datetime as month_from_dateTime;
+
+// fn:day-from-dateTime
+pub use crate::datetime::day_from_datetime as day_from_dateTime;
+
+// fn:hours-from-dateTime
+pub use crate::datetime::hours_from_datetime as hours_from_dateTime;
+
+// fn:minutes-from-dateTime
+pub use crate::datetime::minutes_from_datetime as minutes_from_dateTime;
+
+// fn:seconds-from-dateTime
+pub use crate::datetime::seconds_from_datetime as seconds_from_dateTime;
+
+// fn:timezone-from-dateTime
+pub use crate::datetime::timezone_from_datetime as timezone_from_dateTime;
+
+// Re-export duration component extraction functions
+// fn:days-from-duration
+pub use crate::duration::days_from_duration as days_from_duration;
+
+// fn:hours-from-duration
+pub use crate::duration::hours_from_duration as hours_from_duration;
+
+// fn:minutes-from-duration
+pub use crate::duration::minutes_from_duration as minutes_from_duration;
+
+// fn:seconds-from-duration
+pub use crate::duration::seconds_from_duration as seconds_from_duration;
+
+// Re-export date component extraction functions
+// fn:year-from-date
+pub use crate::date::year_from_date as year_from_date;
+
+// fn:month-from-date
+pub use crate::date::month_from_date as month_from_date;
+
+// fn:day-from-date
+pub use crate::date::day_from_date as day_from_date;
+
+// fn:timezone-from-date
+pub use crate::date::timezone_from_date as timezone_from_date;
+
+// Re-export sequence functions
+// fn:empty
+pub use crate::sequence::is_empty as empty;
+
+// fn:exists
+pub use crate::sequence::exists;
+
+// fn:count
+pub use crate::sequence::count;
+
+// fn:sum (integer version)
+pub use crate::sequence::sum_int as sum;
+
+// fn:avg (integer version)
+pub use crate::sequence::avg_int as avg;
+
+// fn:min (integer sequence version)
+pub use crate::sequence::min_int_seq as min;
+
+// fn:max (integer sequence version)
+pub use crate::sequence::max_int_seq as max;
+
+// Re-export string functions
+// fn:string-length
+pub use crate::string::string_length as string_length;
+
+// fn:starts-with
+pub use crate::string::starts_with as starts_with;
+
+// fn:ends-with
+pub use crate::string::ends_with as ends_with;
+
+// fn:contains
+pub use crate::string::contains;
+
+// ============================================================================
+// Float/Double variants
+// ============================================================================
+
+// fn:abs (float)
+pub use crate::numeric_types::abs_float;
+
+// fn:abs (double)
+pub use crate::numeric_types::abs_double;
+
+// fn:round (float)
+pub use crate::numeric_types::round_float;
+
+// fn:round (double)
+pub use crate::numeric_types::round_double;
+
+// fn:ceiling (float)
+pub use crate::numeric_types::ceil_float as ceiling_float;
+
+// fn:ceiling (double)
+pub use crate::numeric_types::ceil_double as ceiling_double;
+
+// fn:floor (float)
+pub use crate::numeric_types::floor_float;
+
+// fn:floor (double)
+pub use crate::numeric_types::floor_double;
