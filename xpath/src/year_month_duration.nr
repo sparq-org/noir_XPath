@@ -13,9 +13,13 @@
 //! XPath functions implemented:
 //! - fn:years-from-duration, fn:months-from-duration (for yearMonthDuration)
 
+use crate::date::{date_from_components_with_tz, day_from_date, month_from_date, year_from_date};
+use crate::datetime::{
+    datetime_from_components_with_tz, day_from_datetime, hours_from_datetime,
+    microseconds_from_datetime, minutes_from_datetime, month_from_datetime, seconds_from_datetime,
+    year_from_datetime,
+};
 use crate::types::{XsdDate, XsdDateTime};
-use crate::date::{date_from_components_with_tz, year_from_date, month_from_date, day_from_date};
-use crate::datetime::{datetime_from_components_with_tz, year_from_datetime, month_from_datetime, day_from_datetime, hours_from_datetime, minutes_from_datetime, seconds_from_datetime, microseconds_from_datetime};
 
 // ============================================================================
 // YearMonthDuration Type
@@ -95,7 +99,10 @@ pub fn ym_duration_add(a: XsdYearMonthDuration, b: XsdYearMonthDuration) -> XsdY
 
 /// op:subtract-yearMonthDurations
 /// Subtracts second yearMonthDuration from first
-pub fn ym_duration_subtract(a: XsdYearMonthDuration, b: XsdYearMonthDuration) -> XsdYearMonthDuration {
+pub fn ym_duration_subtract(
+    a: XsdYearMonthDuration,
+    b: XsdYearMonthDuration,
+) -> XsdYearMonthDuration {
     XsdYearMonthDuration::new(a.total_months - b.total_months)
 }
 
@@ -163,7 +170,11 @@ fn days_in_month(year: i32, month: u8) -> u8 {
     let is_leap = ((year % 4 == 0) & (year % 100 != 0)) | (year % 400 == 0);
 
     if month == 2 {
-        if is_leap { 29 } else { 28 }
+        if is_leap {
+            29
+        } else {
+            28
+        }
     } else if (month == 4) | (month == 6) | (month == 9) | (month == 11) {
         30
     } else {
@@ -174,7 +185,11 @@ fn days_in_month(year: i32, month: u8) -> u8 {
 /// Helper: Clamp day to valid range for the month
 fn clamp_day(year: i32, month: u8, day: u8) -> u8 {
     let max_day = days_in_month(year, month);
-    if day > max_day { max_day } else { day }
+    if day > max_day {
+        max_day
+    } else {
+        day
+    }
 }
 
 /// op:add-yearMonthDuration-to-dateTime
