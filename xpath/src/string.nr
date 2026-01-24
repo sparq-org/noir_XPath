@@ -128,3 +128,93 @@ fn index_of<let N: u32, let M: u32>(s: str<N>, substring: str<M>) -> i64 {
 pub fn contains<let N: u32, let M: u32>(s: str<N>, substring: str<M>) -> bool {
     index_of(s, substring) != -1
 }
+
+// ============================================================================
+// String Comparison Functions
+// ============================================================================
+
+/// fn:compare - Compares two strings lexicographically
+/// Returns -1 if s1 < s2, 0 if s1 == s2, 1 if s1 > s2
+/// XPath: fn:compare($comparand1 as xs:string?, $comparand2 as xs:string?) as xs:integer?
+pub fn compare<let N: u32, let M: u32>(s1: str<N>, s2: str<M>) -> i64 {
+    let s1_bytes = s1.as_bytes();
+    let s2_bytes = s2.as_bytes();
+
+    // Determine the minimum length for comparison
+    let min_len = if N < M { N } else { M };
+
+    let mut result: i64 = 0;
+    let mut determined = false;
+
+    // Compare byte by byte
+    for i in 0..min_len {
+        if !determined {
+            if s1_bytes[i] < s2_bytes[i] {
+                result = -1;
+                determined = true;
+            } else if s1_bytes[i] > s2_bytes[i] {
+                result = 1;
+                determined = true;
+            }
+        }
+    }
+
+    // If all compared bytes are equal, shorter string comes first
+    if !determined {
+        if N < M {
+            result = -1;
+        } else if N > M {
+            result = 1;
+        }
+        // else result stays 0 (strings are equal)
+    }
+
+    result
+}
+
+/// fn:codepoint-equal - Returns true if two strings are equal codepoint by codepoint
+/// XPath: fn:codepoint-equal($comparand1 as xs:string?, $comparand2 as xs:string?) as xs:boolean?
+/// This is equivalent to string equality for ASCII strings
+pub fn codepoint_equal<let N: u32, let M: u32>(s1: str<N>, s2: str<M>) -> bool {
+    if N != M {
+        false
+    } else {
+        let s1_bytes = s1.as_bytes();
+        let s2_bytes = s2.as_bytes();
+        let mut equal = true;
+        for i in 0..N {
+            if s1_bytes[i] != s2_bytes[i] {
+                equal = false;
+            }
+        }
+        equal
+    }
+}
+
+/// op:string-equal - Returns true if both strings are equal
+/// XPath: op:string-equal($arg1 as xs:string, $arg2 as xs:string) as xs:boolean
+pub fn string_equal<let N: u32, let M: u32>(s1: str<N>, s2: str<M>) -> bool {
+    compare(s1, s2) == 0
+}
+
+/// op:string-less-than - Returns true if s1 is lexicographically less than s2
+/// XPath: op:string-less-than($arg1 as xs:string, $arg2 as xs:string) as xs:boolean
+pub fn string_less_than<let N: u32, let M: u32>(s1: str<N>, s2: str<M>) -> bool {
+    compare(s1, s2) < 0
+}
+
+/// op:string-greater-than - Returns true if s1 is lexicographically greater than s2
+/// XPath: op:string-greater-than($arg1 as xs:string, $arg2 as xs:string) as xs:boolean
+pub fn string_greater_than<let N: u32, let M: u32>(s1: str<N>, s2: str<M>) -> bool {
+    compare(s1, s2) > 0
+}
+
+/// String less than or equal
+pub fn string_le<let N: u32, let M: u32>(s1: str<N>, s2: str<M>) -> bool {
+    compare(s1, s2) <= 0
+}
+
+/// String greater than or equal
+pub fn string_ge<let N: u32, let M: u32>(s1: str<N>, s2: str<M>) -> bool {
+    compare(s1, s2) >= 0
+}

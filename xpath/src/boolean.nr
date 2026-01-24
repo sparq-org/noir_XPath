@@ -64,3 +64,15 @@ pub fn boolean_ge(a: bool, b: bool) -> bool {
     // Or more simply: NOT (a < b)
     !((!a) & b)
 }
+
+/// fn:true - Returns the boolean value true
+/// XPath: fn:true() as xs:boolean
+pub fn fn_true() -> bool {
+    true
+}
+
+/// fn:false - Returns the boolean value false
+/// XPath: fn:false() as xs:boolean
+pub fn fn_false() -> bool {
+    false
+}

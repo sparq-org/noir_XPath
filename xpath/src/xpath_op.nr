@@ -179,6 +179,34 @@ pub use crate::date::date_le as date_less_than_or_equal;
 pub use crate::date::date_ge as date_greater_than_or_equal;
 
 // ============================================================================
+// Time operators
+// ============================================================================
+
+// op:time-equal
+pub use crate::time::time_equal;
+
+// op:time-less-than
+pub use crate::time::time_less_than;
+
+// op:time-greater-than
+pub use crate::time::time_greater_than;
+
+// op:time-less-than-or-equal
+pub use crate::time::time_le as time_less_than_or_equal;
+
+// op:time-greater-than-or-equal
+pub use crate::time::time_ge as time_greater_than_or_equal;
+
+// op:subtract-times
+pub use crate::time::subtract_times;
+
+// op:add-dayTimeDuration-to-time
+pub use crate::time::time_add_duration as add_dayTimeDuration_to_time;
+
+// op:subtract-dayTimeDuration-from-time
+pub use crate::time::time_subtract_duration as subtract_dayTimeDuration_from_time;
+
+// ============================================================================
 // Duration operators
 // ============================================================================
 
@@ -224,3 +252,16 @@ pub use crate::duration::datetime_subtract_duration as subtract_dayTimeDuration_
 
 // op:subtract-dateTimes
 pub use crate::duration::datetime_difference as subtract_dateTimes;
+
+// ============================================================================
+// String operators
+// ============================================================================
+
+// op:string-equal
+pub use crate::string::string_equal;
+
+// op:string-less-than
+pub use crate::string::string_less_than;
+
+// op:string-greater-than
+pub use crate::string::string_greater_than;

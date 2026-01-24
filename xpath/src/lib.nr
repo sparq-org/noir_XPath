@@ -41,6 +41,7 @@ mod numeric_types;
 mod datetime;
 mod duration;
 mod date;
+mod time;
 mod sequence;
 mod comparison;
 mod string;
@@ -53,12 +54,12 @@ pub mod xpath_op;
 pub mod xpath_xs;
 
 // Re-export types
-pub use types::{XsdDate, XsdDateTime, XsdDayTimeDuration};
+pub use types::{XsdDate, XsdDateTime, XsdDayTimeDuration, XsdTime};
 
 // Re-export boolean functions
 pub use boolean::{
-    boolean_equal, boolean_ge, boolean_greater_than, boolean_le, boolean_less_than, fn_not,
-    logical_and, logical_or,
+    boolean_equal, boolean_ge, boolean_greater_than, boolean_le, boolean_less_than, fn_false,
+    fn_not, fn_true, logical_and, logical_or,
 };
 
 // Re-export numeric functions (integer only for now)
@@ -129,10 +130,19 @@ pub use date::{
     day_from_date, month_from_date, timezone_from_date, year_from_date,
 };
 
+// Re-export time functions
+pub use time::{
+    hours_from_time, microseconds_from_time, minutes_from_time, seconds_from_time, subtract_times,
+    time_add_duration, time_equal, time_from_components, time_from_components_with_tz,
+    time_from_microseconds, time_from_microseconds_with_tz, time_ge, time_greater_than, time_le,
+    time_less_than, time_subtract_duration, timezone_from_time,
+};
+
 // Re-export sequence/aggregate functions
 pub use sequence::{
-    all_true, any_true, avg_int, avg_int_partial, count, count_true, exists, is_empty,
-    max_int_partial, max_int_seq, min_int_partial, min_int_seq, sum_int, sum_int_partial,
+    all_true, any_true, avg_int, avg_int_partial, count, count_true, distinct_values, exactly_one,
+    exists, head, index_of, is_empty, max_int_partial, max_int_seq, min_int_partial, min_int_seq,
+    one_or_more, reverse, subsequence, sum_int, sum_int_partial, tail, zero_or_one,
 };
 
 // Re-export comparison functions
@@ -141,7 +151,10 @@ pub use comparison::{value_equal, value_ge, value_greater_than, value_le, value_
 // Re-export only functional string functions
 // Note: Functions that return strings (substring, upper_case, lower_case, concat, etc.)
 // are not exported as they cannot work correctly due to Noir's byte-to-string limitation
-pub use string::{contains, ends_with, starts_with, string_length};
+pub use string::{
+    codepoint_equal, compare, contains, ends_with, starts_with, string_equal, string_ge,
+    string_greater_than, string_le, string_length, string_less_than,
+};
 
 // Re-export stub functions for unimplemented XPath functions
 pub use stubs::{

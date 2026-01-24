@@ -128,3 +128,70 @@ impl Eq for XsdDate {
         self.epoch_days == other.epoch_days
     }
 }
+
+/// Time representation with timezone support.
+/// Stores microseconds since midnight plus timezone offset.
+pub struct XsdTime {
+    /// Microseconds since midnight (0 to 86,399,999,999)
+    pub microseconds_since_midnight: u64,
+    /// Timezone offset in minutes from UTC
+    /// Range: -840 to +840 minutes (-14:00 to +14:00)
+    pub tz_offset_minutes: i16,
+}
+
+/// Microseconds in a day constant for time calculations
+global TIME_MICROS_PER_DAY: u64 = 86_400_000_000;
+global TIME_MICROS_PER_HOUR: u64 = 3_600_000_000;
+global TIME_MICROS_PER_MINUTE: u64 = 60_000_000;
+global TIME_MICROS_PER_SECOND: u64 = 1_000_000;
+
+impl XsdTime {
+    /// Create a new Time from microseconds since midnight (assumes UTC)
+    pub fn new(microseconds_since_midnight: u64) -> Self {
+        XsdTime { microseconds_since_midnight, tz_offset_minutes: 0 }
+    }
+
+    /// Create a new Time with timezone offset
+    pub fn new_with_tz(microseconds_since_midnight: u64, tz_offset_minutes: i16) -> Self {
+        XsdTime { microseconds_since_midnight, tz_offset_minutes }
+    }
+
+    /// Create a Time from components
+    pub fn from_components(hours: u8, minutes: u8, seconds: u8, microseconds: u32) -> Self {
+        let micros = (hours as u64) * TIME_MICROS_PER_HOUR
+            + (minutes as u64) * TIME_MICROS_PER_MINUTE
+            + (seconds as u64) * TIME_MICROS_PER_SECOND
+            + microseconds as u64;
+        XsdTime::new(micros)
+    }
+
+    /// Create a Time from components with timezone
+    pub fn from_components_with_tz(
+        hours: u8,
+        minutes: u8,
+        seconds: u8,
+        microseconds: u32,
+        tz_offset_minutes: i16,
+    ) -> Self {
+        let micros = (hours as u64) * TIME_MICROS_PER_HOUR
+            + (minutes as u64) * TIME_MICROS_PER_MINUTE
+            + (seconds as u64) * TIME_MICROS_PER_SECOND
+            + microseconds as u64;
+        XsdTime::new_with_tz(micros, tz_offset_minutes)
+    }
+
+    /// Get UTC microseconds (for comparison)
+    /// Normalizes to UTC by subtracting the timezone offset
+    pub fn utc_microseconds(self) -> i64 {
+        let local_micros = self.microseconds_since_midnight as i64;
+        let offset_micros = (self.tz_offset_minutes as i64) * 60_000_000;
+        local_micros - offset_micros
+    }
+}
+
+impl Eq for XsdTime {
+    fn eq(self, other: Self) -> bool {
+        // Compare in UTC for correct equality
+        self.utc_microseconds() == other.utc_microseconds()
+    }
+}

@@ -38,6 +38,12 @@ pub use crate::numeric::round_int as round;
 // fn:not
 pub use crate::boolean::fn_not as not;
 
+// fn:true - using fn_true since 'true' is a reserved keyword in Noir
+pub use crate::boolean::fn_true;
+
+// fn:false - using fn_false since 'false' is a reserved keyword in Noir
+pub use crate::boolean::fn_false;
+
 // Re-export datetime component extraction functions
 // fn:year-from-dateTime
 pub use crate::datetime::year_from_datetime as year_from_dateTime;
@@ -86,6 +92,19 @@ pub use crate::date::day_from_date as day_from_date;
 // fn:timezone-from-date
 pub use crate::date::timezone_from_date as timezone_from_date;
 
+// Re-export time component extraction functions
+// fn:hours-from-time
+pub use crate::time::hours_from_time as hours_from_time;
+
+// fn:minutes-from-time
+pub use crate::time::minutes_from_time as minutes_from_time;
+
+// fn:seconds-from-time
+pub use crate::time::seconds_from_time as seconds_from_time;
+
+// fn:timezone-from-time
+pub use crate::time::timezone_from_time as timezone_from_time;
+
 // Re-export sequence functions
 // fn:empty
 pub use crate::sequence::is_empty as empty;
@@ -108,6 +127,33 @@ pub use crate::sequence::min_int_seq as min;
 // fn:max (integer sequence version)
 pub use crate::sequence::max_int_seq as max;
 
+// fn:head
+pub use crate::sequence::head;
+
+// fn:tail
+pub use crate::sequence::tail;
+
+// fn:reverse
+pub use crate::sequence::reverse;
+
+// fn:index-of
+pub use crate::sequence::index_of;
+
+// fn:distinct-values
+pub use crate::sequence::distinct_values;
+
+// fn:subsequence
+pub use crate::sequence::subsequence;
+
+// fn:zero-or-one
+pub use crate::sequence::zero_or_one;
+
+// fn:one-or-more
+pub use crate::sequence::one_or_more;
+
+// fn:exactly-one
+pub use crate::sequence::exactly_one;
+
 // Re-export string functions
 // fn:string-length
 pub use crate::string::string_length as string_length;
@@ -120,6 +166,12 @@ pub use crate::string::ends_with as ends_with;
 
 // fn:contains
 pub use crate::string::contains;
+
+// fn:compare
+pub use crate::string::compare;
+
+// fn:codepoint-equal
+pub use crate::string::codepoint_equal;
 
 // ============================================================================
 // Float/Double variants
