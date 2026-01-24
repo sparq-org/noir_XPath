@@ -662,3 +662,243 @@ pub fn escape_html_uri<let N: u32, let R: u32>(s: str<N>) -> ([u8; R], u32) {
     // Same as iri_to_uri for our purposes
     iri_to_uri(s)
 }
+
+// ============================================================================
+// Token Functions
+// ============================================================================
+
+/// Helper function to check if a byte is whitespace
+fn is_whitespace(b: u8) -> bool {
+    (b == 0x20) | (b == 0x09) | (b == 0x0A) | (b == 0x0D) // space, tab, newline, carriage return
+}
+
+/// fn:contains-token - Check if string contains a specific token
+/// XPath: fn:contains-token($input as xs:string*, $token as xs:string) as xs:boolean
+/// A token is a word separated by whitespace. Uses default collation (codepoint comparison).
+/// Returns true if any whitespace-separated token equals the search token.
+pub fn contains_token<let N: u32, let M: u32>(s: str<N>, token: str<M>) -> bool {
+    let s_bytes = s.as_bytes();
+    let token_bytes = token.as_bytes();
+
+    // Get actual token length (excluding null terminators)
+    let mut token_len: u32 = 0;
+    for i in 0..M {
+        if (token_bytes[i] != 0) & (token_len == (i as u32)) {
+            token_len += 1;
+        }
+    }
+
+    // Empty token never matches - use conditional result instead of early return
+    let mut found = false;
+    let mut token_start: u32 = 0;
+    let mut in_token = false;
+
+    // Only process if token is non-empty
+    if token_len > 0 {
+        for i in 0..N {
+            let byte = s_bytes[i];
+            let is_ws = is_whitespace(byte) | (byte == 0);
+
+            if !is_ws & !in_token {
+                // Start of a new token
+                token_start = i as u32;
+                in_token = true;
+            } else if is_ws & in_token {
+                // End of current token - check if it matches
+                let current_token_len = (i as u32) - token_start;
+                if current_token_len == token_len {
+                    let mut matches = true;
+                    for j in 0..M {
+                        if (j as u32) < token_len {
+                            let s_idx = token_start + (j as u32);
+                            if s_idx < N {
+                                if s_bytes[s_idx] != token_bytes[j] {
+                                    matches = false;
+                                }
+                            }
+                        }
+                    }
+                    if matches {
+                        found = true;
+                    }
+                }
+                in_token = false;
+            }
+        }
+
+        // Check final token if string doesn't end with whitespace
+        if in_token & !found {
+            let current_token_len = N - token_start;
+            if current_token_len == token_len {
+                let mut matches = true;
+                for j in 0..M {
+                    if (j as u32) < token_len {
+                        let s_idx = token_start + (j as u32);
+                        if s_idx < N {
+                            if s_bytes[s_idx] != token_bytes[j] {
+                                matches = false;
+                            }
+                        }
+                    }
+                }
+                if matches {
+                    found = true;
+                }
+            }
+        }
+    }
+
+    found
+}
+
+/// fn:tokenize (whitespace only) - Splits a string by whitespace
+/// XPath: fn:tokenize($input as xs:string?, $pattern as xs:string) as xs:string*
+/// This is the simplified version that splits by whitespace only (no regex).
+/// Returns array of token byte arrays and their lengths.
+/// MAX_TOKENS is the maximum number of tokens, TOKEN_LEN is max length per token.
+pub fn tokenize_whitespace<let N: u32, let MAX_TOKENS: u32, let TOKEN_LEN: u32>(
+    s: str<N>,
+) -> ([[u8; TOKEN_LEN]; MAX_TOKENS], [u32; MAX_TOKENS], u32) {
+    let s_bytes = s.as_bytes();
+    let mut tokens: [[u8; TOKEN_LEN]; MAX_TOKENS] = [[0; TOKEN_LEN]; MAX_TOKENS];
+    let mut token_lens: [u32; MAX_TOKENS] = [0; MAX_TOKENS];
+    let mut num_tokens: u32 = 0;
+
+    let mut token_start: u32 = 0;
+    let mut in_token = false;
+
+    for i in 0..N {
+        let byte = s_bytes[i];
+        let is_ws = is_whitespace(byte) | (byte == 0);
+
+        if !is_ws & !in_token {
+            // Start of a new token
+            token_start = i as u32;
+            in_token = true;
+        } else if is_ws & in_token {
+            // End of current token - save it if we have room
+            if num_tokens < MAX_TOKENS {
+                let token_len = (i as u32) - token_start;
+                let actual_len = if token_len > TOKEN_LEN {
+                    TOKEN_LEN
+                } else {
+                    token_len
+                };
+                for j in 0..TOKEN_LEN {
+                    if (j as u32) < actual_len {
+                        let s_idx = token_start + (j as u32);
+                        if s_idx < N {
+                            tokens[num_tokens][j] = s_bytes[s_idx];
+                        }
+                    }
+                }
+                token_lens[num_tokens] = actual_len;
+                num_tokens += 1;
+            }
+            in_token = false;
+        }
+    }
+
+    // Handle final token if string doesn't end with whitespace
+    if in_token & (num_tokens < MAX_TOKENS) {
+        let token_len = N - token_start;
+        let actual_len = if token_len > TOKEN_LEN {
+            TOKEN_LEN
+        } else {
+            token_len
+        };
+        for j in 0..TOKEN_LEN {
+            if (j as u32) < actual_len {
+                let s_idx = token_start + (j as u32);
+                if s_idx < N {
+                    tokens[num_tokens][j] = s_bytes[s_idx];
+                }
+            }
+        }
+        token_lens[num_tokens] = actual_len;
+        num_tokens += 1;
+    }
+
+    (tokens, token_lens, num_tokens)
+}
+
+// ============================================================================
+// String Conversion Functions
+// ============================================================================
+
+/// fn:string for integers - Converts an integer to its string representation
+/// XPath: fn:string($arg as item()?) as xs:string
+/// Returns (bytes, length)
+pub fn fn_string_from_integer<let N: u32>(value: i64) -> ([u8; N], u32) {
+    let mut result: [u8; N] = [0; N];
+    let mut result_len: u32 = 0;
+
+    if value == 0 {
+        if N > 0 {
+            result[0] = 0x30; // '0'
+            result_len = 1;
+        }
+    } else {
+        let mut temp: [u8; 20] = [0; 20]; // Max 20 digits for i64
+        let mut temp_len: u32 = 0;
+        let negative = value < 0;
+        let mut abs_val = if negative { -value } else { value };
+
+        // Extract digits in reverse order
+        for _ in 0..20 {
+            if abs_val > 0 {
+                let digit = (abs_val % 10) as u8;
+                temp[temp_len] = 0x30 + digit; // '0' + digit
+                temp_len += 1;
+                abs_val = abs_val / 10;
+            }
+        }
+
+        // Add sign if negative
+        if negative & (result_len < N) {
+            result[result_len] = 0x2D; // '-'
+            result_len += 1;
+        }
+
+        // Reverse digits into result
+        for i in 0..20 {
+            if ((i as u32) < temp_len) & (result_len < N) {
+                let reverse_idx = temp_len - 1 - (i as u32);
+                result[result_len] = temp[reverse_idx];
+                result_len += 1;
+            }
+        }
+    }
+
+    (result, result_len)
+}
+
+/// fn:string for booleans - Converts a boolean to "true" or "false"
+/// XPath: fn:string($arg as item()?) as xs:string
+pub fn fn_string_from_boolean<let N: u32>(value: bool) -> ([u8; N], u32) {
+    let mut result: [u8; N] = [0; N];
+    let mut result_len: u32 = 0;
+
+    if value {
+        // "true"
+        if N >= 4 {
+            result[0] = 0x74; // 't'
+            result[1] = 0x72; // 'r'
+            result[2] = 0x75; // 'u'
+            result[3] = 0x65; // 'e'
+            result_len = 4;
+        }
+    } else {
+        // "false"
+        if N >= 5 {
+            result[0] = 0x66; // 'f'
+            result[1] = 0x61; // 'a'
+            result[2] = 0x6C; // 'l'
+            result[3] = 0x73; // 's'
+            result[4] = 0x65; // 'e'
+            result_len = 5;
+        }
+    }
+
+    (result, result_len)
+}

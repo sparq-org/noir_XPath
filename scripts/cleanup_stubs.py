@@ -9,41 +9,34 @@ with open('xpath/src/stubs.nr', 'r') as f:
 
 # Stubs to remove (now implemented)
 stubs_to_remove = [
-    'stub_fnboolean',
-    'stub_fncodepoints_to_string',
-    'stub_fnconcat',
-    'stub_fnencode_for_uri',
-    'stub_fnerror',
-    'stub_fnescape_html_uri',
-    'stub_fniri_to_uri',
-    'stub_fnlast',
-    'stub_fnlocal_name_from_qname',
-    'stub_fnlower_case',
-    'stub_fnnamespace_uri_from_qname',
-    'stub_fnnormalize_space',
-    'stub_fnnumber',
-    'stub_fnposition',
-    'stub_fnprefix_from_qname',
-    'stub_fnstring_join',
-    'stub_fnsubstring',
-    'stub_fnsubstring_after',
-    'stub_fnsubstring_before',
-    'stub_fntrace',
-    'stub_fntranslate',
-    'stub_fnupper_case',
-    'stub_opconcatenate',
+    'stub_fncontains_token',
+    'stub_fndata',
+    'stub_fndefault_collation',
+    'stub_fndefault_language',
+    'stub_fnimplicit_timezone',
+    'stub_fnqname',
+    'stub_fnstring',
+    'stub_fntokenize',
 ]
 
 # Remove each stub function
 removed_count = 0
 for stub in stubs_to_remove:
     # Pattern matches the entire function definition
-    pattern = rf'pub fn {stub}\(\)[^\}}]*\}}\s*'
+    pattern = rf'/// Stub for [^\n]*\n*pub fn {stub}\(\)[^\}}]*\}}\s*'
     new_content, count = re.subn(pattern, '', content)
     if count > 0:
         content = new_content
         removed_count += count
         print(f"Removed: {stub}")
+    else:
+        # Try simpler pattern
+        pattern = rf'pub fn {stub}\(\)[^\}}]*\}}\s*'
+        new_content, count = re.subn(pattern, '', content)
+        if count > 0:
+            content = new_content
+            removed_count += count
+            print(f"Removed: {stub}")
 
 # Clean up multiple blank lines
 content = re.sub(r'\n{3,}', '\n\n', content)

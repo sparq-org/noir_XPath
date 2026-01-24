@@ -657,6 +657,72 @@ pub fn position(context_position: u32) -> u32 {
 }
 
 // ============================================================================
+// Context and Collation Functions
+// ============================================================================
+
+/// fn:implicit-timezone - Returns the implicit timezone
+/// XPath: fn:implicit-timezone() as xs:dayTimeDuration
+/// In ZK context, this must be passed as input since there's no dynamic context.
+/// Returns timezone offset in minutes from UTC.
+/// Common values: 0 (UTC), -300 (EST), -480 (PST), 60 (CET)
+pub fn implicit_timezone(tz_offset_minutes: i32) -> i32 {
+    tz_offset_minutes
+}
+
+/// fn:default-collation - Returns the default collation URI
+/// XPath: fn:default-collation() as xs:string
+/// Returns the Unicode Codepoint Collation URI as bytes.
+/// In practice, most implementations use codepoint ordering by default.
+pub fn default_collation<let N: u32>() -> ([u8; N], u32) {
+    // Unicode Codepoint Collation URI
+    // "http://www.w3.org/2005/xpath-functions/collation/codepoint"
+    let uri: [u8; 58] = [
+        104, 116, 116, 112, 58, 47, 47, 119, 119, 119, 46, 119, 51, 46, 111, 114, 103, 47, 50, 48,
+        48, 53, 47, 120, 112, 97, 116, 104, 45, 102, 117, 110, 99, 116, 105, 111, 110, 115, 47, 99,
+        111, 108, 108, 97, 116, 105, 111, 110, 47, 99, 111, 100, 101, 112, 111, 105, 110, 116,
+    ];
+
+    let mut result: [u8; N] = [0; N];
+    let len: u32 = if 58 > N { N } else { 58 };
+
+    for i in 0..N {
+        if (i as u32) < len {
+            result[i] = uri[i];
+        }
+    }
+
+    (result, len)
+}
+
+/// fn:default-language - Returns the default language
+/// XPath: fn:default-language() as xs:language
+/// Returns "en" (English) as the default language tag.
+/// In a full implementation, this could be passed as a parameter.
+pub fn default_language<let N: u32>() -> ([u8; N], u32) {
+    // "en" as default language
+    let mut result: [u8; N] = [0; N];
+    let len: u32 = if 2 > N { N } else { 2 };
+
+    if N >= 1 {
+        result[0] = 101; // 'e'
+    }
+    if N >= 2 {
+        result[1] = 110; // 'n'
+    }
+
+    (result, len)
+}
+
+/// fn:data - Atomization: extracts the typed value from a node or atomic value
+/// XPath: fn:data($arg as item()*) as xs:anyAtomicType*
+/// For atomic values (which is all we have in ZK context), this is an identity function.
+/// The value is already atomic, so we just return it.
+/// This is a generic marker - actual implementations would be type-specific.
+pub fn fn_data_identity<T>(value: T) -> T {
+    value
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 

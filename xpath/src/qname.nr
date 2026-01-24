@@ -100,6 +100,50 @@ pub fn qname_equal<let NS1: u32, let LOCAL1: u32, let NS2: u32, let LOCAL2: u32>
 }
 
 // ============================================================================
+// QName Constructor Functions
+// ============================================================================
+
+/// fn:QName - Constructs an xs:QName from a namespace URI and local name
+/// XPath: fn:QName($paramURI as xs:string?, $paramQName as xs:string) as xs:QName
+/// The paramQName can be a prefixed name "prefix:local" or just "local".
+/// For simplicity, this implementation extracts only the local name portion.
+pub fn fn_qname<let NS_LEN: u32, let LOCAL_LEN: u32>(
+    namespace_uri: [u8; NS_LEN],
+    namespace_len: u32,
+    local_name: [u8; LOCAL_LEN],
+    local_name_len: u32,
+) -> XsdQName<NS_LEN, LOCAL_LEN> {
+    XsdQName::new(namespace_uri, namespace_len, local_name, local_name_len)
+}
+
+/// fn:QName from strings - Constructs an xs:QName from string parameters
+/// This is a convenience wrapper that works with str<N> types
+pub fn fn_qname_from_strings<let NS_LEN: u32, let LOCAL_LEN: u32>(
+    namespace_uri: str<NS_LEN>,
+    local_name: str<LOCAL_LEN>,
+) -> XsdQName<NS_LEN, LOCAL_LEN> {
+    let ns_bytes = namespace_uri.as_bytes();
+    let local_bytes = local_name.as_bytes();
+
+    // Calculate actual lengths (excluding null terminators)
+    let mut ns_len: u32 = 0;
+    for i in 0..NS_LEN {
+        if (ns_bytes[i] != 0) & (ns_len == (i as u32)) {
+            ns_len += 1;
+        }
+    }
+
+    let mut local_len: u32 = 0;
+    for i in 0..LOCAL_LEN {
+        if (local_bytes[i] != 0) & (local_len == (i as u32)) {
+            local_len += 1;
+        }
+    }
+
+    XsdQName::new(ns_bytes, ns_len, local_bytes, local_len)
+}
+
+// ============================================================================
 // QName Accessor Functions
 // ============================================================================
 

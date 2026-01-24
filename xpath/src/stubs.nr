@@ -44,12 +44,6 @@ pub fn stub_fncollection() -> bool {
 }
 
 /// Stub for fn:concat - NOT YET IMPLEMENTED
-/// Stub for fn:contains-token - NOT YET IMPLEMENTED
-pub fn stub_fncontains_token() -> bool {
-    assert(false, "fn:contains-token is not yet implemented");
-    false
-}
-
 /// Stub for fn:current-date - NOT YET IMPLEMENTED
 pub fn stub_fncurrent_date() -> bool {
     assert(false, "fn:current-date is not yet implemented");
@@ -65,24 +59,6 @@ pub fn stub_fncurrent_datetime() -> bool {
 /// Stub for fn:current-time - NOT YET IMPLEMENTED
 pub fn stub_fncurrent_time() -> bool {
     assert(false, "fn:current-time is not yet implemented");
-    false
-}
-
-/// Stub for fn:data - NOT YET IMPLEMENTED
-pub fn stub_fndata() -> bool {
-    assert(false, "fn:data is not yet implemented");
-    false
-}
-
-/// Stub for fn:default-collation - NOT YET IMPLEMENTED
-pub fn stub_fndefault_collation() -> bool {
-    assert(false, "fn:default-collation is not yet implemented");
-    false
-}
-
-/// Stub for fn:default-language - NOT YET IMPLEMENTED
-pub fn stub_fndefault_language() -> bool {
-    assert(false, "fn:default-language is not yet implemented");
     false
 }
 
@@ -221,12 +197,6 @@ pub fn stub_fnidref() -> bool {
     false
 }
 
-/// Stub for fn:implicit-timezone - NOT YET IMPLEMENTED
-pub fn stub_fnimplicit_timezone() -> bool {
-    assert(false, "fn:implicit-timezone is not yet implemented");
-    false
-}
-
 /// Stub for fn:in-scope-prefixes - NOT YET IMPLEMENTED
 pub fn stub_fnin_scope_prefixes() -> bool {
     assert(false, "fn:in-scope-prefixes is not yet implemented");
@@ -362,12 +332,6 @@ pub fn stub_fnpath() -> bool {
 
 /// Stub for fn:position - NOT YET IMPLEMENTED
 /// Stub for fn:prefix-from-QName - NOT YET IMPLEMENTED
-/// Stub for fn:QName - NOT YET IMPLEMENTED
-pub fn stub_fnqname() -> bool {
-    assert(false, "fn:QName is not yet implemented");
-    false
-}
-
 /// Stub for fn:random-number-generator - NOT YET IMPLEMENTED
 pub fn stub_fnrandom_number_generator() -> bool {
     assert(false, "fn:random-number-generator is not yet implemented");
@@ -410,22 +374,10 @@ pub fn stub_fnstatic_base_uri() -> bool {
     false
 }
 
-/// Stub for fn:string - NOT YET IMPLEMENTED
-pub fn stub_fnstring() -> bool {
-    assert(false, "fn:string is not yet implemented");
-    false
-}
-
 /// Stub for fn:string-join - NOT YET IMPLEMENTED
 /// Stub for fn:substring - NOT YET IMPLEMENTED
 /// Stub for fn:substring-after - NOT YET IMPLEMENTED
 /// Stub for fn:substring-before - NOT YET IMPLEMENTED
-/// Stub for fn:tokenize - NOT YET IMPLEMENTED
-pub fn stub_fntokenize() -> bool {
-    assert(false, "fn:tokenize is not yet implemented");
-    false
-}
-
 /// Stub for fn:trace - NOT YET IMPLEMENTED
 /// Stub for fn:transform - NOT YET IMPLEMENTED
 pub fn stub_fntransform() -> bool {
