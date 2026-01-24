@@ -1,218 +1,246 @@
-//! Stub functions for unimplemented XPath functions.
-//! These functions always assert false and will cause tests to fail
-//! until the real implementation is provided.
+//! Stub functions for XPath functions that cannot be implemented in Noir/ZK context.
 //!
-//! Note: Many previously stubbed functions now have real implementations.
-//! See xpath_fn.nr and xpath_op.nr for the implemented function mappings.
+//! These functions are categorized by the reason they cannot be implemented:
+//!
+//! ## Categories of Unimplementable Functions
+//!
+//! ### 1. External Resource Access (EXTERNAL)
+//! Functions requiring file system, network, or environment access.
+//! ZK circuits cannot access external resources at proof generation time.
+//! - fn:doc, fn:doc-available, fn:collection
+//! - fn:unparsed-text, fn:unparsed-text-available, fn:unparsed-text-lines
+//! - fn:environment-variable, fn:available-environment-variables
+//! - fn:json-doc (URL loading)
+//!
+//! ### 2. Runtime Context (CONTEXT)
+//! Functions requiring access to system state that doesn't exist in ZK proofs.
+//! - fn:current-date, fn:current-dateTime, fn:current-time (no system clock)
+//! - fn:static-base-uri (no execution context)
+//! - fn:random-number-generator (no randomness in deterministic ZK)
+//!
+//! ### 3. Higher-Order Functions (HIGHER_ORDER)
+//! Noir doesn't support passing functions as arguments.
+//! - fn:filter, fn:fold-left, fn:fold-right, fn:for-each, fn:for-each-pair
+//! - fn:apply
+//!
+//! ### 4. Function Introspection (INTROSPECTION)
+//! Noir doesn't support runtime function reflection.
+//! - fn:function-arity, fn:function-lookup, fn:function-name
+//!
+//! ### 5. XML/DOM Operations (XML_DOM)
+//! Requires XML parsing and DOM tree operations not available in Noir.
+//! - fn:parse-xml, fn:parse-xml-fragment, fn:serialize
+//! - fn:json-to-xml, fn:xml-to-json
+//! - fn:base-uri, fn:document-uri, fn:root, fn:path
+//! - fn:id, fn:idref, fn:element-with-id
+//! - fn:local-name, fn:name, fn:namespace-uri, fn:node-name
+//! - fn:lang, fn:nilled, fn:has-children, fn:innermost, fn:outermost
+//! - All prod:* (XQuery grammar productions)
+//!
+//! ### 6. Regex Operations (REGEX) - POTENTIAL EXTERNAL SUPPORT
+//! Full regex support not available in native Noir.
+//! - fn:analyze-string, fn:matches, fn:replace
+//! **FUTURE**: zkRegEx (https://github.com/zkemail/zk-regex) has "Noir support coming soon"
+//! Once available, fn:matches could potentially be implemented using zkRegEx.
+//!
+//! ### 7. Collation/Locale (COLLATION)
+//! Locale-aware string operations not supported.
+//! - fn:collation-key
+//!
+//! ### 8. Complex Transformations (TRANSFORM)
+//! XSLT transformations not supported.
+//! - fn:transform
+//!
+//! ### 9. Format Functions (FORMAT)
+//! Output formatting to strings is limited since Noir can't create runtime strings.
+//! - fn:format-date, fn:format-dateTime, fn:format-time
+//! - fn:format-integer, fn:format-number
+//!
+//! ### 10. Partial Implementation Available (PARTIAL)
+//! Some functionality exists but with different API.
+//! - fn:parse-json -> Use JSON512b::parse_json_from_string()
+//! - fn:normalize-unicode -> ASCII strings work, Unicode normalization not supported
+//!
+//! ## External Noir Libraries (Potential Future Integrations)
+//!
+//! The following libraries from awesome-noir could potentially extend XPath support:
+//!
+//! ### String Operations
+//! - **noir_string_search** (https://github.com/noir-lang/noir_string_search)
+//!   Proves substring existence within a larger string.
+//!   Could support: fn:contains (proving), fn:substring-before/after (position finding)
+//!   API: `haystack.substring_match(needle)` returns `(bool, u32)` for match and position
+//!   Types: StringBody32-16384 (haystack), SubString32-1024 (needle)
+//!
+//! - **noir-string-utils** (https://github.com/madztheo/noir-string-utils)
+//!   Common string operations wrapper.
+//!   Provides: contains(), index_of(), last_index_of(), char_at(), to_uint()
+//!   Note: Last updated for Noir 0.24, may need updates for current version.
+//!
+//! ### Regex (Future)
+//! - **zkRegEx** (https://github.com/zkemail/zk-regex)
+//!   ZK proof of regex verification. Noir support "coming soon".
+//!   Would enable: fn:matches, potentially fn:analyze-string
+//!
+//! ### Date/Time
+//! - **noir-date** (https://github.com/madztheo/noir-date) - Date parsing
+//! - **DateTimeNr** (https://github.com/doctoruber/DateTimeNr) - DateTime parsing
+//!   Note: Our xpath already has comprehensive datetime support in datetime.nr
+//!
+//! Note: Many functions have real implementations in xpath_fn.nr and xpath_op.nr.
+//! Check those modules first before assuming a function is not implemented.
 
-/// Stub for fn:analyze-string - NOT YET IMPLEMENTED
+// ============================================================================
+// REGEX: Regular Expression Functions
+// ============================================================================
+// FUTURE: zkRegEx (https://github.com/zkemail/zk-regex) has "Noir support coming soon"
+// Once available, these functions could potentially be implemented using zkRegEx.
+// Alternative: noir_string_search can prove substring existence (not full regex)
+
+/// fn:analyze-string - CANNOT IMPLEMENT (requires regex engine)
+/// Analyzes a string using a regular expression and returns an XML structure.
+/// FUTURE: May be partially implementable with zkRegEx for match extraction.
 pub fn stub_fnanalyze_string() -> bool {
-    assert(false, "fn:analyze-string is not yet implemented");
+    assert(false, "fn:analyze-string requires regex engine - not available in ZK");
     false
 }
 
-/// Stub for fn:apply - NOT YET IMPLEMENTED
+/// fn:matches - CANNOT IMPLEMENT (requires regex engine)
+/// Returns true if the string matches the regular expression pattern.
+/// FUTURE: Could be implemented with zkRegEx once Noir support is available.
+/// ALTERNATIVE: For simple substring matching, use noir_string_search library.
+pub fn stub_fnmatches() -> bool {
+    assert(false, "fn:matches requires regex engine - not available in ZK");
+    false
+}
+
+/// fn:matches.re - CANNOT IMPLEMENT (requires regex engine)
+/// FUTURE: Could be implemented with zkRegEx once Noir support is available.
+pub fn stub_fnmatches_re() -> bool {
+    assert(false, "fn:matches.re requires regex engine - not available in ZK");
+    false
+}
+
+/// fn:replace - CANNOT IMPLEMENT (requires regex engine + string creation)
+/// Replaces occurrences of a pattern in a string.
+/// Note: Even with regex support, creating new strings at runtime is limited in Noir.
+pub fn stub_fnreplace() -> bool {
+    assert(false, "fn:replace requires regex engine - not available in ZK");
+    false
+}
+
+// ============================================================================
+// HIGHER_ORDER: Higher-Order Functions
+// ============================================================================
+
+/// fn:apply - CANNOT IMPLEMENT (requires first-class functions)
+/// Applies a function to a sequence of arguments.
 pub fn stub_fnapply() -> bool {
-    assert(false, "fn:apply is not yet implemented");
+    assert(false, "fn:apply requires first-class functions - not supported in Noir");
     false
 }
 
-/// Stub for fn:available-environment-variables - NOT YET IMPLEMENTED
-pub fn stub_fnavailable_environment_variables() -> bool {
-    assert(false, "fn:available-environment-variables is not yet implemented");
-    false
-}
-
-/// Stub for fn:base-uri - NOT YET IMPLEMENTED
-pub fn stub_fnbase_uri() -> bool {
-    assert(false, "fn:base-uri is not yet implemented");
-    false
-}
-
-/// Stub for fn:boolean - NOT YET IMPLEMENTED
-/// Stub for fn:codepoints-to-string - NOT YET IMPLEMENTED
-/// Stub for fn:collation-key - NOT YET IMPLEMENTED
-pub fn stub_fncollation_key() -> bool {
-    assert(false, "fn:collation-key is not yet implemented");
-    false
-}
-
-/// Stub for fn:collection - NOT YET IMPLEMENTED
-pub fn stub_fncollection() -> bool {
-    assert(false, "fn:collection is not yet implemented");
-    false
-}
-
-/// Stub for fn:concat - NOT YET IMPLEMENTED
-/// Stub for fn:current-date - NOT YET IMPLEMENTED
-pub fn stub_fncurrent_date() -> bool {
-    assert(false, "fn:current-date is not yet implemented");
-    false
-}
-
-/// Stub for fn:current-dateTime - NOT YET IMPLEMENTED
-pub fn stub_fncurrent_datetime() -> bool {
-    assert(false, "fn:current-dateTime is not yet implemented");
-    false
-}
-
-/// Stub for fn:current-time - NOT YET IMPLEMENTED
-pub fn stub_fncurrent_time() -> bool {
-    assert(false, "fn:current-time is not yet implemented");
-    false
-}
-
-/// Stub for fn:doc - NOT YET IMPLEMENTED
-pub fn stub_fndoc() -> bool {
-    assert(false, "fn:doc is not yet implemented");
-    false
-}
-
-/// Stub for fn:doc-available - NOT YET IMPLEMENTED
-pub fn stub_fndoc_available() -> bool {
-    assert(false, "fn:doc-available is not yet implemented");
-    false
-}
-
-/// Stub for fn:document-uri - NOT YET IMPLEMENTED
-pub fn stub_fndocument_uri() -> bool {
-    assert(false, "fn:document-uri is not yet implemented");
-    false
-}
-
-/// Stub for fn:element-with-id - NOT YET IMPLEMENTED
-pub fn stub_fnelement_with_id() -> bool {
-    assert(false, "fn:element-with-id is not yet implemented");
-    false
-}
-
-/// Stub for fn:encode-for-uri - NOT YET IMPLEMENTED
-/// Stub for fn:environment-variable - NOT YET IMPLEMENTED
-pub fn stub_fnenvironment_variable() -> bool {
-    assert(false, "fn:environment-variable is not yet implemented");
-    false
-}
-
-/// Stub for fn:error - NOT YET IMPLEMENTED
-/// Stub for fn:escape-html-uri - NOT YET IMPLEMENTED
-/// Stub for fn:filter - NOT YET IMPLEMENTED
+/// fn:filter - CANNOT IMPLEMENT (requires first-class functions)
+/// Filters a sequence using a predicate function.
 pub fn stub_fnfilter() -> bool {
-    assert(false, "fn:filter is not yet implemented");
+    assert(false, "fn:filter requires first-class functions - not supported in Noir");
     false
 }
 
-/// Stub for fn:fold-left - NOT YET IMPLEMENTED
+/// fn:fold-left - CANNOT IMPLEMENT (requires first-class functions)
+/// Reduces a sequence from left to right using a function.
 pub fn stub_fnfold_left() -> bool {
-    assert(false, "fn:fold-left is not yet implemented");
+    assert(false, "fn:fold-left requires first-class functions - not supported in Noir");
     false
 }
 
-/// Stub for fn:fold-right - NOT YET IMPLEMENTED
+/// fn:fold-right - CANNOT IMPLEMENT (requires first-class functions)
+/// Reduces a sequence from right to left using a function.
 pub fn stub_fnfold_right() -> bool {
-    assert(false, "fn:fold-right is not yet implemented");
+    assert(false, "fn:fold-right requires first-class functions - not supported in Noir");
     false
 }
 
-/// Stub for fn:for-each - NOT YET IMPLEMENTED
+/// fn:for-each - CANNOT IMPLEMENT (requires first-class functions)
+/// Applies a function to each item in a sequence.
 pub fn stub_fnfor_each() -> bool {
-    assert(false, "fn:for-each is not yet implemented");
+    assert(false, "fn:for-each requires first-class functions - not supported in Noir");
     false
 }
 
-/// Stub for fn:for-each-pair - NOT YET IMPLEMENTED
+/// fn:for-each-pair - CANNOT IMPLEMENT (requires first-class functions)
+/// Applies a function to pairs of items from two sequences.
 pub fn stub_fnfor_each_pair() -> bool {
-    assert(false, "fn:for-each-pair is not yet implemented");
+    assert(false, "fn:for-each-pair requires first-class functions - not supported in Noir");
     false
 }
 
-/// Stub for fn:format-date - NOT YET IMPLEMENTED
-pub fn stub_fnformat_date() -> bool {
-    assert(false, "fn:format-date is not yet implemented");
-    false
-}
+// ============================================================================
+// INTROSPECTION: Function Introspection
+// ============================================================================
 
-/// Stub for fn:format-dateTime - NOT YET IMPLEMENTED
-pub fn stub_fnformat_datetime() -> bool {
-    assert(false, "fn:format-dateTime is not yet implemented");
-    false
-}
-
-/// Stub for fn:format-integer - NOT YET IMPLEMENTED
-pub fn stub_fnformat_integer() -> bool {
-    assert(false, "fn:format-integer is not yet implemented");
-    false
-}
-
-/// Stub for fn:format-number - NOT YET IMPLEMENTED
-pub fn stub_fnformat_number() -> bool {
-    assert(false, "fn:format-number is not yet implemented");
-    false
-}
-
-/// Stub for fn:format-time - NOT YET IMPLEMENTED
-pub fn stub_fnformat_time() -> bool {
-    assert(false, "fn:format-time is not yet implemented");
-    false
-}
-
-/// Stub for fn:function-arity - NOT YET IMPLEMENTED
+/// fn:function-arity - CANNOT IMPLEMENT (requires runtime reflection)
+/// Returns the arity (number of arguments) of a function.
 pub fn stub_fnfunction_arity() -> bool {
-    assert(false, "fn:function-arity is not yet implemented");
+    assert(false, "fn:function-arity requires runtime reflection - not supported in Noir");
     false
 }
 
-/// Stub for fn:function-lookup - NOT YET IMPLEMENTED
+/// fn:function-lookup - CANNOT IMPLEMENT (requires runtime reflection)
+/// Looks up a function by name and arity.
 pub fn stub_fnfunction_lookup() -> bool {
-    assert(false, "fn:function-lookup is not yet implemented");
+    assert(false, "fn:function-lookup requires runtime reflection - not supported in Noir");
     false
 }
 
-/// Stub for fn:function-name - NOT YET IMPLEMENTED
+/// fn:function-name - CANNOT IMPLEMENT (requires runtime reflection)
+/// Returns the name of a function.
 pub fn stub_fnfunction_name() -> bool {
-    assert(false, "fn:function-name is not yet implemented");
+    assert(false, "fn:function-name requires runtime reflection - not supported in Noir");
     false
 }
 
-/// Stub for fn:generate-id - NOT YET IMPLEMENTED
-pub fn stub_fngenerate_id() -> bool {
-    assert(false, "fn:generate-id is not yet implemented");
+// ============================================================================
+// EXTERNAL: External Resource Access
+// ============================================================================
+
+/// fn:available-environment-variables - CANNOT IMPLEMENT (requires OS access)
+/// Returns a list of available environment variable names.
+pub fn stub_fnavailable_environment_variables() -> bool {
+    assert(false, "fn:available-environment-variables requires OS access - not available in ZK");
     false
 }
 
-/// Stub for fn:has-children - NOT YET IMPLEMENTED
-pub fn stub_fnhas_children() -> bool {
-    assert(false, "fn:has-children is not yet implemented");
+/// fn:collection - CANNOT IMPLEMENT (requires external resources)
+/// Returns a sequence of nodes from a collection.
+pub fn stub_fncollection() -> bool {
+    assert(false, "fn:collection requires external resources - not available in ZK");
     false
 }
 
-/// Stub for fn:id - NOT YET IMPLEMENTED
-pub fn stub_fnid() -> bool {
-    assert(false, "fn:id is not yet implemented");
+/// fn:doc - CANNOT IMPLEMENT (requires external resources)
+/// Returns a document node from a URI.
+pub fn stub_fndoc() -> bool {
+    assert(false, "fn:doc requires external resources - not available in ZK");
     false
 }
 
-/// Stub for fn:idref - NOT YET IMPLEMENTED
-pub fn stub_fnidref() -> bool {
-    assert(false, "fn:idref is not yet implemented");
+/// fn:doc-available - CANNOT IMPLEMENT (requires external resources)
+/// Returns true if a document is available at the given URI.
+pub fn stub_fndoc_available() -> bool {
+    assert(false, "fn:doc-available requires external resources - not available in ZK");
     false
 }
 
-/// Stub for fn:in-scope-prefixes - NOT YET IMPLEMENTED
-pub fn stub_fnin_scope_prefixes() -> bool {
-    assert(false, "fn:in-scope-prefixes is not yet implemented");
+/// fn:environment-variable - CANNOT IMPLEMENT (requires OS access)
+/// Returns the value of an environment variable.
+pub fn stub_fnenvironment_variable() -> bool {
+    assert(false, "fn:environment-variable requires OS access - not available in ZK");
     false
 }
 
-/// Stub for fn:innermost - NOT YET IMPLEMENTED
-pub fn stub_fninnermost() -> bool {
-    assert(false, "fn:innermost is not yet implemented");
-    false
-}
-
-/// Stub for fn:iri-to-uri - NOT YET IMPLEMENTED
-/// Stub for fn:json-doc - PARTIAL IMPLEMENTATION
-/// Note: fn:json-doc requires URL loading which is not possible in ZK context.
-/// Use JSON512b::parse_json_from_string() directly for JSON parsing.
+/// fn:json-doc - PARTIAL (URL loading not available)
+/// Use JSON512b::parse_json_from_string() for JSON parsing instead.
 pub fn stub_fnjson_doc() -> bool {
     assert(
         false,
@@ -221,824 +249,992 @@ pub fn stub_fnjson_doc() -> bool {
     false
 }
 
-/// Stub for fn:json-to-xml - NOT YET IMPLEMENTED
-pub fn stub_fnjson_to_xml() -> bool {
-    assert(false, "fn:json-to-xml is not yet implemented");
-    false
-}
-
-/// Stub for fn:lang - NOT YET IMPLEMENTED
-pub fn stub_fnlang() -> bool {
-    assert(false, "fn:lang is not yet implemented");
-    false
-}
-
-/// Stub for fn:last - NOT YET IMPLEMENTED
-/// Stub for fn:load-xquery-module - NOT YET IMPLEMENTED
+/// fn:load-xquery-module - CANNOT IMPLEMENT (requires external resources)
+/// Loads an XQuery module from a URI.
 pub fn stub_fnload_xquery_module() -> bool {
-    assert(false, "fn:load-xquery-module is not yet implemented");
+    assert(false, "fn:load-xquery-module requires external resources - not available in ZK");
     false
 }
 
-/// Stub for fn:local-name - NOT YET IMPLEMENTED
+/// fn:unparsed-text - CANNOT IMPLEMENT (requires external resources)
+/// Returns the content of a text file.
+pub fn stub_fnunparsed_text() -> bool {
+    assert(false, "fn:unparsed-text requires external resources - not available in ZK");
+    false
+}
+
+/// fn:unparsed-text-available - CANNOT IMPLEMENT (requires external resources)
+/// Returns true if a text file is available at the given URI.
+pub fn stub_fnunparsed_text_available() -> bool {
+    assert(false, "fn:unparsed-text-available requires external resources - not available in ZK");
+    false
+}
+
+/// fn:unparsed-text-lines - CANNOT IMPLEMENT (requires external resources)
+/// Returns the lines of a text file.
+pub fn stub_fnunparsed_text_lines() -> bool {
+    assert(false, "fn:unparsed-text-lines requires external resources - not available in ZK");
+    false
+}
+
+// ============================================================================
+// CONTEXT: Runtime Context Functions
+// ============================================================================
+
+/// fn:current-date - CANNOT IMPLEMENT (requires system clock)
+/// Returns the current date. In ZK, there is no system clock.
+/// Workaround: Pass date as a public or private input to the circuit.
+pub fn stub_fncurrent_date() -> bool {
+    assert(false, "fn:current-date requires system clock - pass date as circuit input instead");
+    false
+}
+
+/// fn:current-dateTime - CANNOT IMPLEMENT (requires system clock)
+/// Returns the current date and time. In ZK, there is no system clock.
+/// Workaround: Pass datetime as a public or private input to the circuit.
+pub fn stub_fncurrent_datetime() -> bool {
+    assert(
+        false,
+        "fn:current-dateTime requires system clock - pass datetime as circuit input instead",
+    );
+    false
+}
+
+/// fn:current-time - CANNOT IMPLEMENT (requires system clock)
+/// Returns the current time. In ZK, there is no system clock.
+/// Workaround: Pass time as a public or private input to the circuit.
+pub fn stub_fncurrent_time() -> bool {
+    assert(false, "fn:current-time requires system clock - pass time as circuit input instead");
+    false
+}
+
+/// fn:random-number-generator - CANNOT IMPLEMENT (ZK must be deterministic)
+/// Returns a random number generator. ZK proofs must be deterministic.
+pub fn stub_fnrandom_number_generator() -> bool {
+    assert(false, "fn:random-number-generator - ZK proofs must be deterministic");
+    false
+}
+
+/// fn:static-base-uri - CANNOT IMPLEMENT (requires execution context)
+/// Returns the static base URI from the static context.
+pub fn stub_fnstatic_base_uri() -> bool {
+    assert(false, "fn:static-base-uri requires execution context - not available in ZK");
+    false
+}
+
+// ============================================================================
+// XML_DOM: XML and DOM Operations
+// ============================================================================
+
+/// fn:base-uri - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns the base URI of a node.
+pub fn stub_fnbase_uri() -> bool {
+    assert(false, "fn:base-uri requires XML DOM - not available in Noir");
+    false
+}
+
+/// fn:document-uri - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns the document URI of a node.
+pub fn stub_fndocument_uri() -> bool {
+    assert(false, "fn:document-uri requires XML DOM - not available in Noir");
+    false
+}
+
+/// fn:element-with-id - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns elements with the given ID.
+pub fn stub_fnelement_with_id() -> bool {
+    assert(false, "fn:element-with-id requires XML DOM - not available in Noir");
+    false
+}
+
+/// fn:generate-id - CANNOT IMPLEMENT (requires XML DOM)
+/// Generates a unique identifier for a node.
+pub fn stub_fngenerate_id() -> bool {
+    assert(false, "fn:generate-id requires XML DOM - not available in Noir");
+    false
+}
+
+/// fn:has-children - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns true if the node has children.
+pub fn stub_fnhas_children() -> bool {
+    assert(false, "fn:has-children requires XML DOM - not available in Noir");
+    false
+}
+
+/// fn:id - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns elements with the given ID.
+pub fn stub_fnid() -> bool {
+    assert(false, "fn:id requires XML DOM - not available in Noir");
+    false
+}
+
+/// fn:idref - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns elements with IDREF attributes matching the given ID.
+pub fn stub_fnidref() -> bool {
+    assert(false, "fn:idref requires XML DOM - not available in Noir");
+    false
+}
+
+/// fn:in-scope-prefixes - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns namespace prefixes in scope for an element.
+pub fn stub_fnin_scope_prefixes() -> bool {
+    assert(false, "fn:in-scope-prefixes requires XML DOM - not available in Noir");
+    false
+}
+
+/// fn:innermost - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns nodes that have no descendants in the sequence.
+pub fn stub_fninnermost() -> bool {
+    assert(false, "fn:innermost requires XML DOM - not available in Noir");
+    false
+}
+
+/// fn:json-to-xml - CANNOT IMPLEMENT (requires XML construction)
+/// Converts JSON to XML representation.
+pub fn stub_fnjson_to_xml() -> bool {
+    assert(false, "fn:json-to-xml requires XML construction - not available in Noir");
+    false
+}
+
+/// fn:lang - CANNOT IMPLEMENT (requires XML DOM)
+/// Tests whether the language of a node matches a pattern.
+pub fn stub_fnlang() -> bool {
+    assert(false, "fn:lang requires XML DOM - not available in Noir");
+    false
+}
+
+/// fn:local-name - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns the local name of a node.
 pub fn stub_fnlocal_name() -> bool {
-    assert(false, "fn:local-name is not yet implemented");
+    assert(false, "fn:local-name requires XML DOM - not available in Noir");
     false
 }
 
-/// Stub for fn:local-name-from-QName - NOT YET IMPLEMENTED
-/// Stub for fn:lower-case - NOT YET IMPLEMENTED
-/// Stub for fn:matches - NOT YET IMPLEMENTED
-pub fn stub_fnmatches() -> bool {
-    assert(false, "fn:matches is not yet implemented");
-    false
-}
-
-/// Stub for fn:matches.re - NOT YET IMPLEMENTED
-pub fn stub_fnmatches_re() -> bool {
-    assert(false, "fn:matches.re is not yet implemented");
-    false
-}
-
-/// Stub for fn:name - NOT YET IMPLEMENTED
+/// fn:name - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns the name of a node.
 pub fn stub_fnname() -> bool {
-    assert(false, "fn:name is not yet implemented");
+    assert(false, "fn:name requires XML DOM - not available in Noir");
     false
 }
 
-/// Stub for fn:namespace-uri - NOT YET IMPLEMENTED
+/// fn:namespace-uri - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns the namespace URI of a node.
 pub fn stub_fnnamespace_uri() -> bool {
-    assert(false, "fn:namespace-uri is not yet implemented");
+    assert(false, "fn:namespace-uri requires XML DOM - not available in Noir");
     false
 }
 
-/// Stub for fn:namespace-uri-for-prefix - NOT YET IMPLEMENTED
+/// fn:namespace-uri-for-prefix - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns the namespace URI for a prefix.
 pub fn stub_fnnamespace_uri_for_prefix() -> bool {
-    assert(false, "fn:namespace-uri-for-prefix is not yet implemented");
+    assert(false, "fn:namespace-uri-for-prefix requires XML DOM - not available in Noir");
     false
 }
 
-/// Stub for fn:namespace-uri-from-QName - NOT YET IMPLEMENTED
-/// Stub for fn:nilled - NOT YET IMPLEMENTED
+/// fn:nilled - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns true if a node is nilled.
 pub fn stub_fnnilled() -> bool {
-    assert(false, "fn:nilled is not yet implemented");
+    assert(false, "fn:nilled requires XML DOM - not available in Noir");
     false
 }
 
-/// Stub for fn:node-name - NOT YET IMPLEMENTED
+/// fn:node-name - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns the name of a node as a QName.
 pub fn stub_fnnode_name() -> bool {
-    assert(false, "fn:node-name is not yet implemented");
+    assert(false, "fn:node-name requires XML DOM - not available in Noir");
     false
 }
 
-/// Stub for fn:normalize-space - NOT YET IMPLEMENTED
-/// Stub for fn:normalize-unicode - NOT YET IMPLEMENTED
-pub fn stub_fnnormalize_unicode() -> bool {
-    assert(false, "fn:normalize-unicode is not yet implemented");
-    false
-}
-
-/// Stub for fn:number - NOT YET IMPLEMENTED
-/// Stub for fn:outermost - NOT YET IMPLEMENTED
+/// fn:outermost - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns nodes that have no ancestors in the sequence.
 pub fn stub_fnoutermost() -> bool {
-    assert(false, "fn:outermost is not yet implemented");
+    assert(false, "fn:outermost requires XML DOM - not available in Noir");
     false
 }
 
-/// Stub for fn:parse-ietf-date - NOT YET IMPLEMENTED
+/// fn:parse-xml - CANNOT IMPLEMENT (requires XML parser)
+/// Parses an XML string into a document node.
+pub fn stub_fnparse_xml() -> bool {
+    assert(false, "fn:parse-xml requires XML parser - not available in Noir");
+    false
+}
+
+/// fn:parse-xml-fragment - CANNOT IMPLEMENT (requires XML parser)
+/// Parses an XML fragment string.
+pub fn stub_fnparse_xml_fragment() -> bool {
+    assert(false, "fn:parse-xml-fragment requires XML parser - not available in Noir");
+    false
+}
+
+/// fn:path - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns the path to a node.
+pub fn stub_fnpath() -> bool {
+    assert(false, "fn:path requires XML DOM - not available in Noir");
+    false
+}
+
+/// fn:root - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns the root of the tree containing a node.
+pub fn stub_fnroot() -> bool {
+    assert(false, "fn:root requires XML DOM - not available in Noir");
+    false
+}
+
+/// fn:serialize - CANNOT IMPLEMENT (requires XML serialization)
+/// Serializes a node to a string.
+pub fn stub_fnserialize() -> bool {
+    assert(false, "fn:serialize requires XML serialization - not available in Noir");
+    false
+}
+
+/// fn:xml-to-json - CANNOT IMPLEMENT (requires XML DOM)
+/// Converts XML to JSON representation.
+pub fn stub_fnxml_to_json() -> bool {
+    assert(false, "fn:xml-to-json requires XML DOM - not available in Noir");
+    false
+}
+
+// ============================================================================
+// COLLATION: Collation Functions
+// ============================================================================
+
+/// fn:collation-key - CANNOT IMPLEMENT (requires locale-aware collation)
+/// Returns a collation key for locale-aware string comparison.
+pub fn stub_fncollation_key() -> bool {
+    assert(false, "fn:collation-key requires locale-aware collation - not available in Noir");
+    false
+}
+
+// ============================================================================
+// FORMAT: Formatting Functions (limited support)
+// ============================================================================
+
+/// fn:format-date - CANNOT IMPLEMENT (requires runtime string creation)
+/// Formats a date according to a picture string.
+pub fn stub_fnformat_date() -> bool {
+    assert(false, "fn:format-date requires runtime string creation - not supported in Noir");
+    false
+}
+
+/// fn:format-dateTime - CANNOT IMPLEMENT (requires runtime string creation)
+/// Formats a dateTime according to a picture string.
+pub fn stub_fnformat_datetime() -> bool {
+    assert(false, "fn:format-dateTime requires runtime string creation - not supported in Noir");
+    false
+}
+
+/// fn:format-integer - CANNOT IMPLEMENT (requires runtime string creation)
+/// Formats an integer according to a picture string.
+pub fn stub_fnformat_integer() -> bool {
+    assert(false, "fn:format-integer requires runtime string creation - not supported in Noir");
+    false
+}
+
+/// fn:format-number - CANNOT IMPLEMENT (requires runtime string creation)
+/// Formats a number according to a picture string.
+pub fn stub_fnformat_number() -> bool {
+    assert(false, "fn:format-number requires runtime string creation - not supported in Noir");
+    false
+}
+
+/// fn:format-time - CANNOT IMPLEMENT (requires runtime string creation)
+/// Formats a time according to a picture string.
+pub fn stub_fnformat_time() -> bool {
+    assert(false, "fn:format-time requires runtime string creation - not supported in Noir");
+    false
+}
+
+// ============================================================================
+// PARTIAL: Partial Implementations Available
+// ============================================================================
+
+/// fn:normalize-unicode - PARTIAL (ASCII works, Unicode normalization not supported)
+/// For ASCII strings, no normalization is needed.
+/// For Unicode, normalization forms (NFC, NFD, etc.) are not supported.
+pub fn stub_fnnormalize_unicode() -> bool {
+    assert(
+        false,
+        "fn:normalize-unicode - ASCII works directly, Unicode normalization not supported",
+    );
+    false
+}
+
+/// fn:parse-ietf-date - CANNOT IMPLEMENT (complex date format parsing)
+/// Parses dates in IETF RFC 2822/RFC 5322 format.
 pub fn stub_fnparse_ietf_date() -> bool {
-    assert(false, "fn:parse-ietf-date is not yet implemented");
+    assert(false, "fn:parse-ietf-date - IETF date format parsing not implemented");
     false
 }
 
-/// Stub for fn:parse-json - PARTIAL IMPLEMENTATION
-/// Note: JSON parsing is available via JSON512b::parse_json_from_string() and similar type aliases.
+/// fn:parse-json - PARTIAL IMPLEMENTATION
+/// JSON parsing is available via JSON512b::parse_json_from_string() and similar type aliases.
 /// This stub exists for XPath conformance tests that require the exact fn:parse-json signature.
 pub fn stub_fnparse_json() -> bool {
     assert(false, "fn:parse-json - use JSON512b::parse_json_from_string() for JSON parsing");
     false
 }
 
-/// Stub for fn:parse-xml - NOT YET IMPLEMENTED
-pub fn stub_fnparse_xml() -> bool {
-    assert(false, "fn:parse-xml is not yet implemented");
-    false
-}
-
-/// Stub for fn:parse-xml-fragment - NOT YET IMPLEMENTED
-pub fn stub_fnparse_xml_fragment() -> bool {
-    assert(false, "fn:parse-xml-fragment is not yet implemented");
-    false
-}
-
-/// Stub for fn:path - NOT YET IMPLEMENTED
-pub fn stub_fnpath() -> bool {
-    assert(false, "fn:path is not yet implemented");
-    false
-}
-
-/// Stub for fn:position - NOT YET IMPLEMENTED
-/// Stub for fn:prefix-from-QName - NOT YET IMPLEMENTED
-/// Stub for fn:random-number-generator - NOT YET IMPLEMENTED
-pub fn stub_fnrandom_number_generator() -> bool {
-    assert(false, "fn:random-number-generator is not yet implemented");
-    false
-}
-
-/// Stub for fn:replace - NOT YET IMPLEMENTED
-pub fn stub_fnreplace() -> bool {
-    assert(false, "fn:replace is not yet implemented");
-    false
-}
-
-/// Stub for fn:resolve-QName - NOT YET IMPLEMENTED
+/// fn:resolve-QName - PARTIAL (requires namespace context)
+/// Resolves a QName using namespace bindings from an element.
 pub fn stub_fnresolve_qname() -> bool {
-    assert(false, "fn:resolve-QName is not yet implemented");
+    assert(false, "fn:resolve-QName requires namespace context - use fn_qname() instead");
     false
 }
 
-/// Stub for fn:resolve-uri - NOT YET IMPLEMENTED
+/// fn:resolve-uri - CANNOT IMPLEMENT (requires URI resolution)
+/// Resolves a relative URI against a base URI.
 pub fn stub_fnresolve_uri() -> bool {
-    assert(false, "fn:resolve-uri is not yet implemented");
+    assert(false, "fn:resolve-uri requires URI resolution logic - not implemented");
     false
 }
 
-/// Stub for fn:root - NOT YET IMPLEMENTED
-pub fn stub_fnroot() -> bool {
-    assert(false, "fn:root is not yet implemented");
-    false
-}
+// ============================================================================
+// TRANSFORM: Transformation Functions
+// ============================================================================
 
-/// Stub for fn:serialize - NOT YET IMPLEMENTED
-pub fn stub_fnserialize() -> bool {
-    assert(false, "fn:serialize is not yet implemented");
-    false
-}
-
-/// Stub for fn:static-base-uri - NOT YET IMPLEMENTED
-pub fn stub_fnstatic_base_uri() -> bool {
-    assert(false, "fn:static-base-uri is not yet implemented");
-    false
-}
-
-/// Stub for fn:string-join - NOT YET IMPLEMENTED
-/// Stub for fn:substring - NOT YET IMPLEMENTED
-/// Stub for fn:substring-after - NOT YET IMPLEMENTED
-/// Stub for fn:substring-before - NOT YET IMPLEMENTED
-/// Stub for fn:trace - NOT YET IMPLEMENTED
-/// Stub for fn:transform - NOT YET IMPLEMENTED
+/// fn:transform - CANNOT IMPLEMENT (requires XSLT processor)
+/// Applies an XSLT transformation.
 pub fn stub_fntransform() -> bool {
-    assert(false, "fn:transform is not yet implemented");
+    assert(false, "fn:transform requires XSLT processor - not available in Noir");
     false
 }
 
-/// Stub for fn:translate - NOT YET IMPLEMENTED
-/// Stub for fn:unparsed-text - NOT YET IMPLEMENTED
-pub fn stub_fnunparsed_text() -> bool {
-    assert(false, "fn:unparsed-text is not yet implemented");
-    false
-}
+// ============================================================================
+// OPERATORS: Node and Sequence Operators
+// ============================================================================
 
-/// Stub for fn:unparsed-text-available - NOT YET IMPLEMENTED
-pub fn stub_fnunparsed_text_available() -> bool {
-    assert(false, "fn:unparsed-text-available is not yet implemented");
-    false
-}
-
-/// Stub for fn:unparsed-text-lines - NOT YET IMPLEMENTED
-pub fn stub_fnunparsed_text_lines() -> bool {
-    assert(false, "fn:unparsed-text-lines is not yet implemented");
-    false
-}
-
-/// Stub for fn:upper-case - NOT YET IMPLEMENTED
-/// Stub for fn:xml-to-json - NOT YET IMPLEMENTED
-pub fn stub_fnxml_to_json() -> bool {
-    assert(false, "fn:xml-to-json is not yet implemented");
-    false
-}
-
-/// Stub for op:bang - NOT YET IMPLEMENTED
+/// op:bang - CANNOT IMPLEMENT (requires sequence mapping)
+/// The simple map operator (!) for sequences.
 pub fn stub_opbang() -> bool {
-    assert(false, "op:bang is not yet implemented");
+    assert(false, "op:bang requires sequence mapping - use explicit loops instead");
     false
 }
 
-/// Stub for op:concat - NOT YET IMPLEMENTED
+/// op:concat - PARTIAL (string concat requires fixed output size)
+/// Concatenates sequences. For strings, use BoundedVec or fixed arrays.
 pub fn stub_opconcat() -> bool {
-    assert(false, "op:concat is not yet implemented");
+    assert(false, "op:concat - use explicit array operations for sequence concatenation");
     false
 }
 
-/// Stub for op:concatenate - NOT YET IMPLEMENTED
-/// Stub for op:is-same-node - NOT YET IMPLEMENTED
+/// op:is-same-node - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns true if two expressions evaluate to the same node.
 pub fn stub_opis_same_node() -> bool {
-    assert(false, "op:is-same-node is not yet implemented");
+    assert(false, "op:is-same-node requires XML DOM - not available in Noir");
     false
 }
 
-/// Stub for op:node-after - NOT YET IMPLEMENTED
+/// op:node-after - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns true if the first node comes after the second in document order.
 pub fn stub_opnode_after() -> bool {
-    assert(false, "op:node-after is not yet implemented");
+    assert(false, "op:node-after requires XML DOM - not available in Noir");
     false
 }
 
-/// Stub for op:node-before - NOT YET IMPLEMENTED
+/// op:node-before - CANNOT IMPLEMENT (requires XML DOM)
+/// Returns true if the first node comes before the second in document order.
 pub fn stub_opnode_before() -> bool {
-    assert(false, "op:node-before is not yet implemented");
+    assert(false, "op:node-before requires XML DOM - not available in Noir");
     false
 }
 
-/// Stub for op:same-key - NOT YET IMPLEMENTED
+/// op:same-key - CANNOT IMPLEMENT (requires map key comparison)
+/// Returns true if two map keys are the same.
 pub fn stub_opsame_key() -> bool {
-    assert(false, "op:same-key is not yet implemented");
+    assert(false, "op:same-key - use explicit key comparison instead");
     false
 }
 
-/// Stub for prod:Annotation - NOT YET IMPLEMENTED
+// ============================================================================
+// XQUERY PRODUCTIONS: XQuery-specific Grammar (prod:*)
+// These are XQuery grammar productions, not XPath functions.
+// They represent parsing constructs and are not meant to be called directly.
+// ============================================================================
+
+/// prod:Annotation - XQuery-only (annotations for functions/variables)
 pub fn stub_prodannotation() -> bool {
-    assert(false, "prod:Annotation is not yet implemented");
+    assert(false, "prod:Annotation is XQuery-specific - not applicable to XPath");
     false
 }
 
-/// Stub for prod:ArrayTest - NOT YET IMPLEMENTED
+/// prod:ArrayTest - XQuery-only (type test for arrays)
 pub fn stub_prodarraytest() -> bool {
-    assert(false, "prod:ArrayTest is not yet implemented");
+    assert(false, "prod:ArrayTest is XQuery-specific");
     false
 }
 
-/// Stub for prod:ArrowPostfix - NOT YET IMPLEMENTED
+/// prod:ArrowPostfix - Arrow operator (requires first-class functions)
 pub fn stub_prodarrowpostfix() -> bool {
-    assert(false, "prod:ArrowPostfix is not yet implemented");
+    assert(false, "prod:ArrowPostfix requires first-class functions");
     false
 }
 
-/// Stub for prod:AxisStep - NOT YET IMPLEMENTED
+/// prod:AxisStep - XPath axis navigation (requires XML DOM)
 pub fn stub_prodaxisstep() -> bool {
-    assert(false, "prod:AxisStep is not yet implemented");
+    assert(false, "prod:AxisStep requires XML DOM");
     false
 }
 
-/// Stub for prod:AxisStep.abbr - NOT YET IMPLEMENTED
+/// prod:AxisStep.abbr - Abbreviated axis step (requires XML DOM)
 pub fn stub_prodaxisstep_abbr() -> bool {
-    assert(false, "prod:AxisStep.abbr is not yet implemented");
+    assert(false, "prod:AxisStep.abbr requires XML DOM");
     false
 }
 
-/// Stub for prod:AxisStep.ancestor - NOT YET IMPLEMENTED
+/// prod:AxisStep.ancestor - Ancestor axis (requires XML DOM)
 pub fn stub_prodaxisstep_ancestor() -> bool {
-    assert(false, "prod:AxisStep.ancestor is not yet implemented");
+    assert(false, "prod:AxisStep.ancestor requires XML DOM");
     false
 }
 
-/// Stub for prod:AxisStep.ancestor-or-self - NOT YET IMPLEMENTED
+/// prod:AxisStep.ancestor-or-self - Ancestor-or-self axis (requires XML DOM)
 pub fn stub_prodaxisstep_ancestor_or_self() -> bool {
-    assert(false, "prod:AxisStep.ancestor-or-self is not yet implemented");
+    assert(false, "prod:AxisStep.ancestor-or-self requires XML DOM");
     false
 }
 
-/// Stub for prod:AxisStep.following - NOT YET IMPLEMENTED
+/// prod:AxisStep.following - Following axis (requires XML DOM)
 pub fn stub_prodaxisstep_following() -> bool {
-    assert(false, "prod:AxisStep.following is not yet implemented");
+    assert(false, "prod:AxisStep.following requires XML DOM");
     false
 }
 
-/// Stub for prod:AxisStep.following-sibling - NOT YET IMPLEMENTED
+/// prod:AxisStep.following-sibling - Following-sibling axis (requires XML DOM)
 pub fn stub_prodaxisstep_following_sibling() -> bool {
-    assert(false, "prod:AxisStep.following-sibling is not yet implemented");
+    assert(false, "prod:AxisStep.following-sibling requires XML DOM");
     false
 }
 
-/// Stub for prod:AxisStep.preceding - NOT YET IMPLEMENTED
+/// prod:AxisStep.preceding - Preceding axis (requires XML DOM)
 pub fn stub_prodaxisstep_preceding() -> bool {
-    assert(false, "prod:AxisStep.preceding is not yet implemented");
+    assert(false, "prod:AxisStep.preceding requires XML DOM");
     false
 }
 
-/// Stub for prod:AxisStep.preceding-sibling - NOT YET IMPLEMENTED
+/// prod:AxisStep.preceding-sibling - Preceding-sibling axis (requires XML DOM)
 pub fn stub_prodaxisstep_preceding_sibling() -> bool {
-    assert(false, "prod:AxisStep.preceding-sibling is not yet implemented");
+    assert(false, "prod:AxisStep.preceding-sibling requires XML DOM");
     false
 }
 
-/// Stub for prod:AxisStep.unabbr - NOT YET IMPLEMENTED
+/// prod:AxisStep.unabbr - Unabbreviated axis step (requires XML DOM)
 pub fn stub_prodaxisstep_unabbr() -> bool {
-    assert(false, "prod:AxisStep.unabbr is not yet implemented");
+    assert(false, "prod:AxisStep.unabbr requires XML DOM");
     false
 }
 
-/// Stub for prod:BaseURIDecl - NOT YET IMPLEMENTED
+/// prod:BaseURIDecl - XQuery prolog declaration
 pub fn stub_prodbaseuridecl() -> bool {
-    assert(false, "prod:BaseURIDecl is not yet implemented");
+    assert(false, "prod:BaseURIDecl is XQuery-specific");
     false
 }
 
-/// Stub for prod:BoundarySpaceDecl - NOT YET IMPLEMENTED
+/// prod:BoundarySpaceDecl - XQuery prolog declaration
 pub fn stub_prodboundaryspacedecl() -> bool {
-    assert(false, "prod:BoundarySpaceDecl is not yet implemented");
+    assert(false, "prod:BoundarySpaceDecl is XQuery-specific");
     false
 }
 
-/// Stub for prod:CastExpr - NOT YET IMPLEMENTED
+/// prod:CastExpr - Type casting (partially supported via xpath_xs module)
 pub fn stub_prodcastexpr() -> bool {
-    assert(false, "prod:CastExpr is not yet implemented");
+    assert(false, "prod:CastExpr - use xpath_xs module for type conversions");
     false
 }
 
-/// Stub for prod:CastExpr.derived - NOT YET IMPLEMENTED
+/// prod:CastExpr.derived - Derived type casting
 pub fn stub_prodcastexpr_derived() -> bool {
-    assert(false, "prod:CastExpr.derived is not yet implemented");
+    assert(false, "prod:CastExpr.derived - derived types not supported");
     false
 }
 
-/// Stub for prod:CastExpr.schema - NOT YET IMPLEMENTED
+/// prod:CastExpr.schema - Schema-based type casting
 pub fn stub_prodcastexpr_schema() -> bool {
-    assert(false, "prod:CastExpr.schema is not yet implemented");
+    assert(false, "prod:CastExpr.schema - schema types not supported");
     false
 }
 
-/// Stub for prod:CastableExpr - NOT YET IMPLEMENTED
+/// prod:CastableExpr - Type castability test
 pub fn stub_prodcastableexpr() -> bool {
-    assert(false, "prod:CastableExpr is not yet implemented");
+    assert(false, "prod:CastableExpr - castability tests not supported");
     false
 }
 
-/// Stub for prod:Comment - NOT YET IMPLEMENTED
+/// prod:Comment - XQuery comment constructor (requires XML)
 pub fn stub_prodcomment() -> bool {
-    assert(false, "prod:Comment is not yet implemented");
+    assert(false, "prod:Comment requires XML construction");
     false
 }
 
-/// Stub for prod:CompAttrConstructor - NOT YET IMPLEMENTED
+/// prod:CompAttrConstructor - Computed attribute constructor (requires XML)
 pub fn stub_prodcompattrconstructor() -> bool {
-    assert(false, "prod:CompAttrConstructor is not yet implemented");
+    assert(false, "prod:CompAttrConstructor requires XML construction");
     false
 }
 
-/// Stub for prod:CompCommentConstructor - NOT YET IMPLEMENTED
+/// prod:CompCommentConstructor - Computed comment constructor (requires XML)
 pub fn stub_prodcompcommentconstructor() -> bool {
-    assert(false, "prod:CompCommentConstructor is not yet implemented");
+    assert(false, "prod:CompCommentConstructor requires XML construction");
     false
 }
 
-/// Stub for prod:CompDocConstructor - NOT YET IMPLEMENTED
+/// prod:CompDocConstructor - Computed document constructor (requires XML)
 pub fn stub_prodcompdocconstructor() -> bool {
-    assert(false, "prod:CompDocConstructor is not yet implemented");
+    assert(false, "prod:CompDocConstructor requires XML construction");
     false
 }
 
-/// Stub for prod:CompElemConstructor - NOT YET IMPLEMENTED
+/// prod:CompElemConstructor - Computed element constructor (requires XML)
 pub fn stub_prodcompelemconstructor() -> bool {
-    assert(false, "prod:CompElemConstructor is not yet implemented");
+    assert(false, "prod:CompElemConstructor requires XML construction");
     false
 }
 
-/// Stub for prod:CompNamespaceConstructor - NOT YET IMPLEMENTED
+/// prod:CompNamespaceConstructor - Computed namespace constructor (requires XML)
 pub fn stub_prodcompnamespaceconstructor() -> bool {
-    assert(false, "prod:CompNamespaceConstructor is not yet implemented");
+    assert(false, "prod:CompNamespaceConstructor requires XML construction");
     false
 }
 
-/// Stub for prod:CompPIConstructor - NOT YET IMPLEMENTED
+/// prod:CompPIConstructor - Computed PI constructor (requires XML)
 pub fn stub_prodcomppiconstructor() -> bool {
-    assert(false, "prod:CompPIConstructor is not yet implemented");
+    assert(false, "prod:CompPIConstructor requires XML construction");
     false
 }
 
-/// Stub for prod:CompTextConstructor - NOT YET IMPLEMENTED
+/// prod:CompTextConstructor - Computed text constructor (requires XML)
 pub fn stub_prodcomptextconstructor() -> bool {
-    assert(false, "prod:CompTextConstructor is not yet implemented");
+    assert(false, "prod:CompTextConstructor requires XML construction");
     false
 }
 
-/// Stub for prod:ConstructionDecl - NOT YET IMPLEMENTED
+/// prod:ConstructionDecl - XQuery prolog declaration
 pub fn stub_prodconstructiondecl() -> bool {
-    assert(false, "prod:ConstructionDecl is not yet implemented");
+    assert(false, "prod:ConstructionDecl is XQuery-specific");
     false
 }
 
-/// Stub for prod:ConstructionDecl.schema - NOT YET IMPLEMENTED
+/// prod:ConstructionDecl.schema - Schema-based construction declaration
 pub fn stub_prodconstructiondecl_schema() -> bool {
-    assert(false, "prod:ConstructionDecl.schema is not yet implemented");
+    assert(false, "prod:ConstructionDecl.schema is XQuery-specific");
     false
 }
 
-/// Stub for prod:ContextItemDecl - NOT YET IMPLEMENTED
+/// prod:ContextItemDecl - XQuery context item declaration
 pub fn stub_prodcontextitemdecl() -> bool {
-    assert(false, "prod:ContextItemDecl is not yet implemented");
+    assert(false, "prod:ContextItemDecl is XQuery-specific");
     false
 }
 
-/// Stub for prod:ContextItemExpr - NOT YET IMPLEMENTED
+/// prod:ContextItemExpr - Context item expression (.) in XPath
 pub fn stub_prodcontextitemexpr() -> bool {
-    assert(false, "prod:ContextItemExpr is not yet implemented");
+    assert(false, "prod:ContextItemExpr requires evaluation context");
     false
 }
 
-/// Stub for prod:CopyNamespacesDecl - NOT YET IMPLEMENTED
+/// prod:CopyNamespacesDecl - XQuery prolog declaration
 pub fn stub_prodcopynamespacesdecl() -> bool {
-    assert(false, "prod:CopyNamespacesDecl is not yet implemented");
+    assert(false, "prod:CopyNamespacesDecl is XQuery-specific");
     false
 }
 
-/// Stub for prod:CountClause - NOT YET IMPLEMENTED
+/// prod:CountClause - FLWOR count clause (XQuery)
 pub fn stub_prodcountclause() -> bool {
-    assert(false, "prod:CountClause is not yet implemented");
+    assert(false, "prod:CountClause is XQuery FLWOR-specific");
     false
 }
 
-/// Stub for prod:CurlyArrayConstructor - NOT YET IMPLEMENTED
+/// prod:CurlyArrayConstructor - Array constructor using braces
 pub fn stub_prodcurlyarrayconstructor() -> bool {
-    assert(false, "prod:CurlyArrayConstructor is not yet implemented");
+    assert(false, "prod:CurlyArrayConstructor - use Noir arrays instead");
     false
 }
 
-/// Stub for prod:DecimalFormatDecl - NOT YET IMPLEMENTED
+/// prod:DecimalFormatDecl - XQuery decimal format declaration
 pub fn stub_proddecimalformatdecl() -> bool {
-    assert(false, "prod:DecimalFormatDecl is not yet implemented");
+    assert(false, "prod:DecimalFormatDecl is XQuery-specific");
     false
 }
 
-/// Stub for prod:DefaultCollationDecl - NOT YET IMPLEMENTED
+/// prod:DefaultCollationDecl - XQuery default collation declaration
 pub fn stub_proddefaultcollationdecl() -> bool {
-    assert(false, "prod:DefaultCollationDecl is not yet implemented");
+    assert(false, "prod:DefaultCollationDecl is XQuery-specific");
     false
 }
 
-/// Stub for prod:DefaultNamespaceDecl - NOT YET IMPLEMENTED
+/// prod:DefaultNamespaceDecl - XQuery default namespace declaration
 pub fn stub_proddefaultnamespacedecl() -> bool {
-    assert(false, "prod:DefaultNamespaceDecl is not yet implemented");
+    assert(false, "prod:DefaultNamespaceDecl is XQuery-specific");
     false
 }
 
-/// Stub for prod:DirAttributeList - NOT YET IMPLEMENTED
+/// prod:DirAttributeList - Direct attribute list (requires XML)
 pub fn stub_proddirattributelist() -> bool {
-    assert(false, "prod:DirAttributeList is not yet implemented");
+    assert(false, "prod:DirAttributeList requires XML construction");
     false
 }
 
-/// Stub for prod:DirElemConstructor - NOT YET IMPLEMENTED
+/// prod:DirElemConstructor - Direct element constructor (requires XML)
 pub fn stub_proddirelemconstructor() -> bool {
-    assert(false, "prod:DirElemConstructor is not yet implemented");
+    assert(false, "prod:DirElemConstructor requires XML construction");
     false
 }
 
-/// Stub for prod:DirElemContent - NOT YET IMPLEMENTED
+/// prod:DirElemContent - Direct element content (requires XML)
 pub fn stub_proddirelemcontent() -> bool {
-    assert(false, "prod:DirElemContent is not yet implemented");
+    assert(false, "prod:DirElemContent requires XML construction");
     false
 }
 
-/// Stub for prod:DirElemContent.namespace - NOT YET IMPLEMENTED
+/// prod:DirElemContent.namespace - Namespace in element content
 pub fn stub_proddirelemcontent_namespace() -> bool {
-    assert(false, "prod:DirElemContent.namespace is not yet implemented");
+    assert(false, "prod:DirElemContent.namespace requires XML construction");
     false
 }
 
-/// Stub for prod:DirElemContent.whitespace - NOT YET IMPLEMENTED
+/// prod:DirElemContent.whitespace - Whitespace handling in element content
 pub fn stub_proddirelemcontent_whitespace() -> bool {
-    assert(false, "prod:DirElemContent.whitespace is not yet implemented");
+    assert(false, "prod:DirElemContent.whitespace requires XML construction");
     false
 }
 
-/// Stub for prod:DirectConstructor - NOT YET IMPLEMENTED
+/// prod:DirectConstructor - Direct XML constructor
 pub fn stub_proddirectconstructor() -> bool {
-    assert(false, "prod:DirectConstructor is not yet implemented");
+    assert(false, "prod:DirectConstructor requires XML construction");
     false
 }
 
-/// Stub for prod:EQName - NOT YET IMPLEMENTED
+/// prod:EQName - Extended QName handling
 pub fn stub_prodeqname() -> bool {
-    assert(false, "prod:EQName is not yet implemented");
+    assert(false, "prod:EQName - use XsdQName type instead");
     false
 }
 
-/// Stub for prod:EmptyOrderDecl - NOT YET IMPLEMENTED
+/// prod:EmptyOrderDecl - XQuery empty order declaration
 pub fn stub_prodemptyorderdecl() -> bool {
-    assert(false, "prod:EmptyOrderDecl is not yet implemented");
+    assert(false, "prod:EmptyOrderDecl is XQuery-specific");
     false
 }
 
-/// Stub for prod:ExtensionExpr - NOT YET IMPLEMENTED
+/// prod:ExtensionExpr - Extension expression
 pub fn stub_prodextensionexpr() -> bool {
-    assert(false, "prod:ExtensionExpr is not yet implemented");
+    assert(false, "prod:ExtensionExpr - extensions not supported");
     false
 }
 
-/// Stub for prod:FLWORExpr - NOT YET IMPLEMENTED
+/// prod:FLWORExpr - FLWOR expression (XQuery)
 pub fn stub_prodflworexpr() -> bool {
-    assert(false, "prod:FLWORExpr is not yet implemented");
+    assert(false, "prod:FLWORExpr is XQuery-specific - use Noir for loops");
     false
 }
 
-/// Stub for prod:ForClause - NOT YET IMPLEMENTED
+/// prod:ForClause - FLWOR for clause (XQuery)
 pub fn stub_prodforclause() -> bool {
-    assert(false, "prod:ForClause is not yet implemented");
+    assert(false, "prod:ForClause is XQuery FLWOR-specific");
     false
 }
 
-/// Stub for prod:FunctionCall - NOT YET IMPLEMENTED
+/// prod:FunctionCall - Function call expression
 pub fn stub_prodfunctioncall() -> bool {
-    assert(false, "prod:FunctionCall is not yet implemented");
+    assert(false, "prod:FunctionCall - use direct function calls in Noir");
     false
 }
 
-/// Stub for prod:FunctionDecl - NOT YET IMPLEMENTED
+/// prod:FunctionDecl - Function declaration (XQuery)
 pub fn stub_prodfunctiondecl() -> bool {
-    assert(false, "prod:FunctionDecl is not yet implemented");
+    assert(false, "prod:FunctionDecl is XQuery-specific - define Noir functions");
     false
 }
 
-/// Stub for prod:GeneralComp.eq - NOT YET IMPLEMENTED
+/// prod:GeneralComp.eq - General comparison (=)
 pub fn stub_prodgeneralcomp_eq() -> bool {
-    assert(false, "prod:GeneralComp.eq is not yet implemented");
+    assert(false, "prod:GeneralComp.eq - use value comparison operators instead");
     false
 }
 
-/// Stub for prod:GeneralComp.ge - NOT YET IMPLEMENTED
+/// prod:GeneralComp.ge - General comparison (>=)
 pub fn stub_prodgeneralcomp_ge() -> bool {
-    assert(false, "prod:GeneralComp.ge is not yet implemented");
+    assert(false, "prod:GeneralComp.ge - use value comparison operators instead");
     false
 }
 
-/// Stub for prod:GeneralComp.gt - NOT YET IMPLEMENTED
+/// prod:GeneralComp.gt - General comparison (>)
 pub fn stub_prodgeneralcomp_gt() -> bool {
-    assert(false, "prod:GeneralComp.gt is not yet implemented");
+    assert(false, "prod:GeneralComp.gt - use value comparison operators instead");
     false
 }
 
-/// Stub for prod:GeneralComp.le - NOT YET IMPLEMENTED
+/// prod:GeneralComp.le - General comparison (<=)
 pub fn stub_prodgeneralcomp_le() -> bool {
-    assert(false, "prod:GeneralComp.le is not yet implemented");
+    assert(false, "prod:GeneralComp.le - use value comparison operators instead");
     false
 }
 
-/// Stub for prod:GeneralComp.lt - NOT YET IMPLEMENTED
+/// prod:GeneralComp.lt - General comparison (<)
 pub fn stub_prodgeneralcomp_lt() -> bool {
-    assert(false, "prod:GeneralComp.lt is not yet implemented");
+    assert(false, "prod:GeneralComp.lt - use value comparison operators instead");
     false
 }
 
-/// Stub for prod:GeneralComp.ne - NOT YET IMPLEMENTED
+/// prod:GeneralComp.ne - General comparison (!=)
 pub fn stub_prodgeneralcomp_ne() -> bool {
-    assert(false, "prod:GeneralComp.ne is not yet implemented");
+    assert(false, "prod:GeneralComp.ne - use value comparison operators instead");
     false
 }
 
-/// Stub for prod:GroupByClause - NOT YET IMPLEMENTED
+/// prod:GroupByClause - FLWOR group by clause (XQuery)
 pub fn stub_prodgroupbyclause() -> bool {
-    assert(false, "prod:GroupByClause is not yet implemented");
+    assert(false, "prod:GroupByClause is XQuery FLWOR-specific");
     false
 }
 
-/// Stub for prod:IfExpr - NOT YET IMPLEMENTED
+/// prod:IfExpr - Conditional expression
 pub fn stub_prodifexpr() -> bool {
-    assert(false, "prod:IfExpr is not yet implemented");
+    assert(false, "prod:IfExpr - use Noir if-else expressions");
     false
 }
 
-/// Stub for prod:InlineFunctionExpr - NOT YET IMPLEMENTED
+/// prod:InlineFunctionExpr - Inline function expression
 pub fn stub_prodinlinefunctionexpr() -> bool {
-    assert(false, "prod:InlineFunctionExpr is not yet implemented");
+    assert(false, "prod:InlineFunctionExpr requires first-class functions");
     false
 }
 
-/// Stub for prod:InstanceofExpr - NOT YET IMPLEMENTED
+/// prod:InstanceofExpr - Instance of expression
 pub fn stub_prodinstanceofexpr() -> bool {
-    assert(false, "prod:InstanceofExpr is not yet implemented");
+    assert(false, "prod:InstanceofExpr - type checking is compile-time in Noir");
     false
 }
 
-/// Stub for prod:LetClause - NOT YET IMPLEMENTED
+/// prod:LetClause - FLWOR let clause (XQuery)
 pub fn stub_prodletclause() -> bool {
-    assert(false, "prod:LetClause is not yet implemented");
+    assert(false, "prod:LetClause is XQuery FLWOR-specific - use Noir let");
     false
 }
 
-/// Stub for prod:Literal - NOT YET IMPLEMENTED
+/// prod:Literal - Literal values
 pub fn stub_prodliteral() -> bool {
-    assert(false, "prod:Literal is not yet implemented");
+    assert(false, "prod:Literal - use Noir literals directly");
     false
 }
 
-/// Stub for prod:Lookup - NOT YET IMPLEMENTED
+/// prod:Lookup - Postfix lookup operator
 pub fn stub_prodlookup() -> bool {
-    assert(false, "prod:Lookup is not yet implemented");
+    assert(false, "prod:Lookup - use array indexing in Noir");
     false
 }
 
-/// Stub for prod:MapConstructor - NOT YET IMPLEMENTED
+/// prod:MapConstructor - Map constructor
 pub fn stub_prodmapconstructor() -> bool {
-    assert(false, "prod:MapConstructor is not yet implemented");
+    assert(false, "prod:MapConstructor - use structs or arrays in Noir");
     false
 }
 
-/// Stub for prod:MapTest - NOT YET IMPLEMENTED
+/// prod:MapTest - Map type test
 pub fn stub_prodmaptest() -> bool {
-    assert(false, "prod:MapTest is not yet implemented");
+    assert(false, "prod:MapTest - type testing not supported");
     false
 }
 
-/// Stub for prod:ModuleImport - NOT YET IMPLEMENTED
+/// prod:ModuleImport - XQuery module import
 pub fn stub_prodmoduleimport() -> bool {
-    assert(false, "prod:ModuleImport is not yet implemented");
+    assert(false, "prod:ModuleImport is XQuery-specific - use Noir mod/use");
     false
 }
 
-/// Stub for prod:NameTest - NOT YET IMPLEMENTED
+/// prod:NameTest - Name test in XPath
 pub fn stub_prodnametest() -> bool {
-    assert(false, "prod:NameTest is not yet implemented");
+    assert(false, "prod:NameTest requires XML DOM");
     false
 }
 
-/// Stub for prod:NamedFunctionRef - NOT YET IMPLEMENTED
+/// prod:NamedFunctionRef - Named function reference
 pub fn stub_prodnamedfunctionref() -> bool {
-    assert(false, "prod:NamedFunctionRef is not yet implemented");
+    assert(false, "prod:NamedFunctionRef requires first-class functions");
     false
 }
 
-/// Stub for prod:NamespaceDecl - NOT YET IMPLEMENTED
+/// prod:NamespaceDecl - XQuery namespace declaration
 pub fn stub_prodnamespacedecl() -> bool {
-    assert(false, "prod:NamespaceDecl is not yet implemented");
+    assert(false, "prod:NamespaceDecl is XQuery-specific");
     false
 }
 
-/// Stub for prod:NodeTest - NOT YET IMPLEMENTED
+/// prod:NodeTest - Node test in XPath
 pub fn stub_prodnodetest() -> bool {
-    assert(false, "prod:NodeTest is not yet implemented");
+    assert(false, "prod:NodeTest requires XML DOM");
     false
 }
 
-/// Stub for prod:OptionDecl - NOT YET IMPLEMENTED
+/// prod:OptionDecl - XQuery option declaration
 pub fn stub_prodoptiondecl() -> bool {
-    assert(false, "prod:OptionDecl is not yet implemented");
+    assert(false, "prod:OptionDecl is XQuery-specific");
     false
 }
 
-/// Stub for prod:OptionDecl.serialization - NOT YET IMPLEMENTED
+/// prod:OptionDecl.serialization - Serialization option
 pub fn stub_prodoptiondecl_serialization() -> bool {
-    assert(false, "prod:OptionDecl.serialization is not yet implemented");
+    assert(false, "prod:OptionDecl.serialization is XQuery-specific");
     false
 }
 
-/// Stub for prod:OrExpr - NOT YET IMPLEMENTED
+/// prod:OrExpr - Or expression
 pub fn stub_prodorexpr() -> bool {
-    assert(false, "prod:OrExpr is not yet implemented");
+    assert(false, "prod:OrExpr - use Noir | operator or logical_or function");
     false
 }
 
-/// Stub for prod:OrderByClause - NOT YET IMPLEMENTED
+/// prod:OrderByClause - FLWOR order by clause (XQuery)
 pub fn stub_prodorderbyclause() -> bool {
-    assert(false, "prod:OrderByClause is not yet implemented");
+    assert(false, "prod:OrderByClause is XQuery FLWOR-specific");
     false
 }
 
-/// Stub for prod:OrderingModeDecl - NOT YET IMPLEMENTED
+/// prod:OrderingModeDecl - XQuery ordering mode declaration
 pub fn stub_prodorderingmodedecl() -> bool {
-    assert(false, "prod:OrderingModeDecl is not yet implemented");
+    assert(false, "prod:OrderingModeDecl is XQuery-specific");
     false
 }
 
-/// Stub for prod:ParenthesizedExpr - NOT YET IMPLEMENTED
+/// prod:ParenthesizedExpr - Parenthesized expression
 pub fn stub_prodparenthesizedexpr() -> bool {
-    assert(false, "prod:ParenthesizedExpr is not yet implemented");
+    assert(false, "prod:ParenthesizedExpr - use parentheses in Noir");
     false
 }
 
-/// Stub for prod:PathExpr - NOT YET IMPLEMENTED
+/// prod:PathExpr - Path expression (requires XML DOM)
 pub fn stub_prodpathexpr() -> bool {
-    assert(false, "prod:PathExpr is not yet implemented");
+    assert(false, "prod:PathExpr requires XML DOM");
     false
 }
 
-/// Stub for prod:PositionalVar - NOT YET IMPLEMENTED
+/// prod:PositionalVar - Positional variable in for
 pub fn stub_prodpositionalvar() -> bool {
-    assert(false, "prod:PositionalVar is not yet implemented");
+    assert(false, "prod:PositionalVar - use enumeration in Noir");
     false
 }
 
-/// Stub for prod:Predicate - NOT YET IMPLEMENTED
+/// prod:Predicate - Predicate expression
 pub fn stub_prodpredicate() -> bool {
-    assert(false, "prod:Predicate is not yet implemented");
+    assert(false, "prod:Predicate - use conditional expressions in Noir");
     false
 }
 
-/// Stub for prod:QuantifiedExpr - NOT YET IMPLEMENTED
+/// prod:QuantifiedExpr - Quantified expression (some/every)
 pub fn stub_prodquantifiedexpr() -> bool {
-    assert(false, "prod:QuantifiedExpr is not yet implemented");
+    assert(false, "prod:QuantifiedExpr - use loops with boolean accumulators");
     false
 }
 
-/// Stub for prod:ReturnClause - NOT YET IMPLEMENTED
+/// prod:ReturnClause - FLWOR return clause (XQuery)
 pub fn stub_prodreturnclause() -> bool {
-    assert(false, "prod:ReturnClause is not yet implemented");
+    assert(false, "prod:ReturnClause is XQuery FLWOR-specific");
     false
 }
 
-/// Stub for prod:SchemaImport - NOT YET IMPLEMENTED
+/// prod:SchemaImport - XQuery schema import
 pub fn stub_prodschemaimport() -> bool {
-    assert(false, "prod:SchemaImport is not yet implemented");
+    assert(false, "prod:SchemaImport is XQuery-specific");
     false
 }
 
-/// Stub for prod:SequenceType - NOT YET IMPLEMENTED
+/// prod:SequenceType - Sequence type
 pub fn stub_prodsequencetype() -> bool {
-    assert(false, "prod:SequenceType is not yet implemented");
+    assert(false, "prod:SequenceType - use Noir types");
     false
 }
 
-/// Stub for prod:StepExpr - NOT YET IMPLEMENTED
+/// prod:StepExpr - Step expression (requires XML DOM)
 pub fn stub_prodstepexpr() -> bool {
-    assert(false, "prod:StepExpr is not yet implemented");
+    assert(false, "prod:StepExpr requires XML DOM");
     false
 }
 
-/// Stub for prod:StringConstructor - NOT YET IMPLEMENTED
+/// prod:StringConstructor - String constructor
 pub fn stub_prodstringconstructor() -> bool {
-    assert(false, "prod:StringConstructor is not yet implemented");
+    assert(false, "prod:StringConstructor - use Noir string literals");
     false
 }
 
-/// Stub for prod:SwitchExpr - NOT YET IMPLEMENTED
+/// prod:SwitchExpr - Switch expression (XQuery)
 pub fn stub_prodswitchexpr() -> bool {
-    assert(false, "prod:SwitchExpr is not yet implemented");
+    assert(false, "prod:SwitchExpr - use if-else chains in Noir");
     false
 }
 
-/// Stub for prod:TreatExpr - NOT YET IMPLEMENTED
+/// prod:TreatExpr - Treat expression
 pub fn stub_prodtreatexpr() -> bool {
-    assert(false, "prod:TreatExpr is not yet implemented");
+    assert(false, "prod:TreatExpr - type treatment not supported");
     false
 }
 
-/// Stub for prod:TryCatchExpr - NOT YET IMPLEMENTED
+/// prod:TryCatchExpr - Try-catch expression (XQuery)
 pub fn stub_prodtrycatchexpr() -> bool {
-    assert(false, "prod:TryCatchExpr is not yet implemented");
+    assert(false, "prod:TryCatchExpr - use assertions in Noir");
     false
 }
 
-/// Stub for prod:TypeswitchExpr - NOT YET IMPLEMENTED
+/// prod:TypeswitchExpr - Typeswitch expression (XQuery)
 pub fn stub_prodtypeswitchexpr() -> bool {
-    assert(false, "prod:TypeswitchExpr is not yet implemented");
+    assert(false, "prod:TypeswitchExpr is XQuery-specific");
     false
 }
 
-/// Stub for prod:UnaryLookup - NOT YET IMPLEMENTED
+/// prod:UnaryLookup - Unary lookup operator
 pub fn stub_produnarylookup() -> bool {
-    assert(false, "prod:UnaryLookup is not yet implemented");
+    assert(false, "prod:UnaryLookup - use array indexing in Noir");
     false
 }
 
-/// Stub for prod:UnorderedExpr - NOT YET IMPLEMENTED
+/// prod:UnorderedExpr - Unordered expression
 pub fn stub_produnorderedexpr() -> bool {
-    assert(false, "prod:UnorderedExpr is not yet implemented");
+    assert(false, "prod:UnorderedExpr - ordering hints not applicable");
     false
 }
 
-/// Stub for prod:ValidateExpr - NOT YET IMPLEMENTED
+/// prod:ValidateExpr - Validate expression (XQuery)
 pub fn stub_prodvalidateexpr() -> bool {
-    assert(false, "prod:ValidateExpr is not yet implemented");
+    assert(false, "prod:ValidateExpr is XQuery-specific");
     false
 }
 
-/// Stub for prod:ValueComp - NOT YET IMPLEMENTED
+/// prod:ValueComp - Value comparison operators
 pub fn stub_prodvaluecomp() -> bool {
-    assert(false, "prod:ValueComp is not yet implemented");
+    assert(false, "prod:ValueComp - use comparison functions from xpath_op");
     false
 }
 
-/// Stub for prod:VarDecl - NOT YET IMPLEMENTED
+/// prod:VarDecl - Variable declaration (XQuery)
 pub fn stub_prodvardecl() -> bool {
-    assert(false, "prod:VarDecl is not yet implemented");
+    assert(false, "prod:VarDecl is XQuery-specific - use Noir let");
     false
 }
 
-/// Stub for prod:VarDecl.external - NOT YET IMPLEMENTED
+/// prod:VarDecl.external - External variable declaration (XQuery)
 pub fn stub_prodvardecl_external() -> bool {
-    assert(false, "prod:VarDecl.external is not yet implemented");
+    assert(false, "prod:VarDecl.external is XQuery-specific");
     false
 }
 
-/// Stub for prod:VarDefaultValue - NOT YET IMPLEMENTED
+/// prod:VarDefaultValue - Variable default value (XQuery)
 pub fn stub_prodvardefaultvalue() -> bool {
-    assert(false, "prod:VarDefaultValue is not yet implemented");
+    assert(false, "prod:VarDefaultValue is XQuery-specific");
     false
 }
 
-/// Stub for prod:VersionDecl - NOT YET IMPLEMENTED
+/// prod:VersionDecl - XQuery version declaration
 pub fn stub_prodversiondecl() -> bool {
-    assert(false, "prod:VersionDecl is not yet implemented");
+    assert(false, "prod:VersionDecl is XQuery-specific");
     false
 }
 
-/// Stub for prod:WhereClause - NOT YET IMPLEMENTED
+/// prod:WhereClause - FLWOR where clause (XQuery)
 pub fn stub_prodwhereclause() -> bool {
-    assert(false, "prod:WhereClause is not yet implemented");
+    assert(false, "prod:WhereClause is XQuery FLWOR-specific - use Noir if");
     false
 }
 
-/// Stub for prod:WindowClause - NOT YET IMPLEMENTED
+/// prod:WindowClause - FLWOR window clause (XQuery)
 pub fn stub_prodwindowclause() -> bool {
-    assert(false, "prod:WindowClause is not yet implemented");
+    assert(false, "prod:WindowClause is XQuery FLWOR-specific");
     false
 }
