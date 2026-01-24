@@ -218,3 +218,45 @@ pub fn string_le<let N: u32, let M: u32>(s1: str<N>, s2: str<M>) -> bool {
 pub fn string_ge<let N: u32, let M: u32>(s1: str<N>, s2: str<M>) -> bool {
     compare(s1, s2) >= 0
 }
+
+// ============================================================================
+// Codepoint Functions
+// ============================================================================
+
+/// fn:string-to-codepoints - Converts a string to a sequence of Unicode codepoints
+/// XPath: fn:string-to-codepoints($arg as xs:string?) as xs:integer*
+/// Note: For ASCII strings, each byte is a codepoint. Returns (array, length).
+pub fn string_to_codepoints<let N: u32>(s: str<N>) -> ([u32; N], u32) {
+    let s_bytes = s.as_bytes();
+    let mut result: [u32; N] = [0; N];
+    let mut len: u32 = 0;
+
+    for i in 0..N {
+        let byte = s_bytes[i];
+        if byte != 0 {
+            result[i] = byte as u32;
+            len = (i + 1) as u32;
+        }
+    }
+
+    (result, len)
+}
+
+// ============================================================================
+// URI Comparison Functions (URIs are treated as strings)
+// ============================================================================
+
+/// op:anyURI-equal - Compare two URIs for equality
+pub fn anyuri_equal<let N: u32, let M: u32>(uri1: str<N>, uri2: str<M>) -> bool {
+    string_equal(uri1, uri2)
+}
+
+/// op:anyURI-less-than - Compare two URIs lexicographically
+pub fn anyuri_less_than<let N: u32, let M: u32>(uri1: str<N>, uri2: str<M>) -> bool {
+    string_less_than(uri1, uri2)
+}
+
+/// op:anyURI-greater-than - Compare two URIs lexicographically
+pub fn anyuri_greater_than<let N: u32, let M: u32>(uri1: str<N>, uri2: str<M>) -> bool {
+    string_greater_than(uri1, uri2)
+}

@@ -173,6 +173,9 @@ pub use crate::string::compare;
 // fn:codepoint-equal
 pub use crate::string::codepoint_equal;
 
+// fn:string-to-codepoints
+pub use crate::string::string_to_codepoints;
+
 // ============================================================================
 // Float/Double variants
 // ============================================================================

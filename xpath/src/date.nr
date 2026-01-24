@@ -254,3 +254,35 @@ fn count_leap_years(start_year: i32, end_year: i32) -> i32 {
 
     count
 }
+
+// ============================================================================
+// Date + Duration Arithmetic
+// ============================================================================
+
+/// op:add-dayTimeDuration-to-date
+/// Adds a dayTimeDuration to a date, returning a new date
+pub fn date_add_duration(date: XsdDate, dur: XsdDayTimeDuration) -> XsdDate {
+    let dur_micros = dur.to_signed_micros();
+    // Convert microseconds to days (integer division)
+    let dur_days: i32 = (dur_micros / 86_400_000_000) as i32;
+    let new_days = date.epoch_days + dur_days;
+    XsdDate::new_with_tz(new_days, date.tz_offset_minutes)
+}
+
+/// op:subtract-dayTimeDuration-from-date
+/// Subtracts a dayTimeDuration from a date, returning a new date
+pub fn date_subtract_duration(date: XsdDate, dur: XsdDayTimeDuration) -> XsdDate {
+    let dur_micros = dur.to_signed_micros();
+    // Convert microseconds to days (integer division)
+    let dur_days: i32 = (dur_micros / 86_400_000_000) as i32;
+    let new_days = date.epoch_days - dur_days;
+    XsdDate::new_with_tz(new_days, date.tz_offset_minutes)
+}
+
+/// op:subtract-dates
+/// Returns the dayTimeDuration between two dates (a - b)
+pub fn subtract_dates(a: XsdDate, b: XsdDate) -> XsdDayTimeDuration {
+    let day_diff = a.epoch_days - b.epoch_days;
+    let micros: i64 = (day_diff as i64) * 86_400_000_000;
+    XsdDayTimeDuration::from_signed_micros(micros)
+}

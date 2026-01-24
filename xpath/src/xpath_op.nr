@@ -265,3 +265,29 @@ pub use crate::string::string_less_than;
 
 // op:string-greater-than
 pub use crate::string::string_greater_than;
+
+// ============================================================================
+// anyURI operators (treat as strings)
+// ============================================================================
+
+// op:anyURI-equal
+pub use crate::string::anyuri_equal as anyURI_equal;
+
+// op:anyURI-less-than
+pub use crate::string::anyuri_less_than as anyURI_less_than;
+
+// op:anyURI-greater-than
+pub use crate::string::anyuri_greater_than as anyURI_greater_than;
+
+// ============================================================================
+// Date + Duration operators
+// ============================================================================
+
+// op:add-dayTimeDuration-to-date
+pub use crate::date::date_add_duration as add_dayTimeDuration_to_date;
+
+// op:subtract-dayTimeDuration-from-date
+pub use crate::date::date_subtract_duration as subtract_dayTimeDuration_from_date;
+
+// op:subtract-dates
+pub use crate::date::subtract_dates;
