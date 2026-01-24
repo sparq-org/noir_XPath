@@ -602,6 +602,61 @@ where
 }
 
 // ============================================================================
+// Sequence Concatenation (op:concatenate)
+// ============================================================================
+
+/// op:concatenate - Concatenates two sequences
+/// Returns (result_array, length)
+pub fn concatenate<T, let N: u32, let M: u32, let R: u32>(
+    arr1: [T; N],
+    len1: u32,
+    arr2: [T; M],
+    len2: u32,
+) -> ([T; R], u32)
+where
+    T: std::default::Default,
+{
+    let mut result: [T; R] = [T::default(); R];
+    let mut result_len: u32 = 0;
+
+    // Copy first array
+    for i in 0..N {
+        if ((i as u32) < len1) & (result_len < R) {
+            result[result_len] = arr1[i];
+            result_len += 1;
+        }
+    }
+
+    // Copy second array
+    for i in 0..M {
+        if ((i as u32) < len2) & (result_len < R) {
+            result[result_len] = arr2[i];
+            result_len += 1;
+        }
+    }
+
+    (result, result_len)
+}
+
+// ============================================================================
+// Context Functions
+// ============================================================================
+
+/// fn:last - Returns the context size (passed as parameter since context isn't tracked)
+/// XPath: fn:last() as xs:integer
+/// In ZK context, this must be passed as input since there's no dynamic context
+pub fn last(context_size: u32) -> u32 {
+    context_size
+}
+
+/// fn:position - Returns the context position (passed as parameter since context isn't tracked)
+/// XPath: fn:position() as xs:integer
+/// In ZK context, this must be passed as input since there's no dynamic context
+pub fn position(context_position: u32) -> u32 {
+    context_position
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 

@@ -187,3 +187,86 @@ fn pow10(n: u32) -> i64 {
     }
     result
 }
+
+// ============================================================================
+// Number Conversion Functions
+// ============================================================================
+
+/// fn:number from boolean - Converts boolean to number
+/// true -> 1, false -> 0
+pub fn fn_number_from_bool(value: bool) -> i64 {
+    if value {
+        1
+    } else {
+        0
+    }
+}
+
+/// fn:number from integer - Identity function
+pub fn fn_number_from_integer(value: i64) -> i64 {
+    value
+}
+
+/// fn:number from string - Parses an integer from a string
+/// Returns (value, is_valid) - is_valid is false if parsing fails
+/// Handles optional leading whitespace, optional sign, and digits
+pub fn fn_number_from_string<let N: u32>(s: str<N>) -> (i64, bool) {
+    let bytes = s.as_bytes();
+    let mut index: u32 = 0;
+    let mut value: i64 = 0;
+    let mut negative = false;
+    let mut has_digits = false;
+    let mut is_valid = true;
+
+    // Skip leading whitespace
+    for i in 0..N {
+        if (i as u32) == index {
+            let b = bytes[i];
+            if (b == 0x20) | (b == 0x09) | (b == 0x0A) | (b == 0x0D) {
+                // space, tab, newline, carriage return
+                index += 1;
+            }
+        }
+    }
+
+    // Check for sign
+    for i in 0..N {
+        if ((i as u32) == index) & is_valid {
+            let b = bytes[i];
+            if b == 0x2D {
+                // '-'
+                negative = true;
+                index += 1;
+            } else if b == 0x2B {
+                // '+'
+                index += 1;
+            }
+        }
+    }
+
+    // Parse digits
+    for i in 0..N {
+        if ((i as u32) >= index) & is_valid {
+            let b = bytes[i];
+            if (b >= 0x30) & (b <= 0x39) {
+                // '0'-'9'
+                has_digits = true;
+                value = value * 10 + ((b - 0x30) as i64);
+            } else if (b == 0x20) | (b == 0x09) | (b == 0x0A) | (b == 0x0D) | (b == 0x00) {
+                // Trailing whitespace or null - stop parsing
+                // We'll check that the rest is only whitespace/null below
+            } else {
+                // Invalid character
+                is_valid = false;
+            }
+        }
+    }
+
+    if !has_digits {
+        is_valid = false;
+    }
+
+    let result_value = if negative { -value } else { value };
+
+    (result_value, is_valid)
+}

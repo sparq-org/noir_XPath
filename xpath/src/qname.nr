@@ -100,6 +100,38 @@ pub fn qname_equal<let NS1: u32, let LOCAL1: u32, let NS2: u32, let LOCAL2: u32>
 }
 
 // ============================================================================
+// QName Accessor Functions
+// ============================================================================
+
+/// fn:local-name-from-QName - Returns the local name part of a QName
+/// XPath: fn:local-name-from-QName($arg as xs:QName?) as xs:NCName?
+pub fn local_name_from_qname<let NS_LEN: u32, let LOCAL_LEN: u32>(
+    qname: XsdQName<NS_LEN, LOCAL_LEN>,
+) -> ([u8; LOCAL_LEN], u32) {
+    (qname.local_name, qname.local_name_len)
+}
+
+/// fn:namespace-uri-from-QName - Returns the namespace URI part of a QName
+/// XPath: fn:namespace-uri-from-QName($arg as xs:QName?) as xs:anyURI?
+pub fn namespace_uri_from_qname<let NS_LEN: u32, let LOCAL_LEN: u32>(
+    qname: XsdQName<NS_LEN, LOCAL_LEN>,
+) -> ([u8; NS_LEN], u32) {
+    (qname.namespace_uri, qname.namespace_len)
+}
+
+/// fn:prefix-from-QName - Returns the prefix part of a QName
+/// XPath: fn:prefix-from-QName($arg as xs:QName?) as xs:NCName?
+/// Note: Our QName struct doesn't store the prefix, so this returns empty
+/// In a full implementation, you would need to add a prefix field to XsdQName
+pub fn prefix_from_qname<let NS_LEN: u32, let LOCAL_LEN: u32, let PREFIX_LEN: u32>(
+    _qname: XsdQName<NS_LEN, LOCAL_LEN>,
+) -> ([u8; PREFIX_LEN], u32) {
+    // Prefix is not stored in our simple QName representation
+    // Return empty array
+    ([0; PREFIX_LEN], 0)
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 

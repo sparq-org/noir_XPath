@@ -30,17 +30,7 @@ pub fn stub_fnbase_uri() -> bool {
 }
 
 /// Stub for fn:boolean - NOT YET IMPLEMENTED
-pub fn stub_fnboolean() -> bool {
-    assert(false, "fn:boolean is not yet implemented");
-    false
-}
-
 /// Stub for fn:codepoints-to-string - NOT YET IMPLEMENTED
-pub fn stub_fncodepoints_to_string() -> bool {
-    assert(false, "fn:codepoints-to-string is not yet implemented");
-    false
-}
-
 /// Stub for fn:collation-key - NOT YET IMPLEMENTED
 pub fn stub_fncollation_key() -> bool {
     assert(false, "fn:collation-key is not yet implemented");
@@ -54,11 +44,6 @@ pub fn stub_fncollection() -> bool {
 }
 
 /// Stub for fn:concat - NOT YET IMPLEMENTED
-pub fn stub_fnconcat() -> bool {
-    assert(false, "fn:concat is not yet implemented");
-    false
-}
-
 /// Stub for fn:contains-token - NOT YET IMPLEMENTED
 pub fn stub_fncontains_token() -> bool {
     assert(false, "fn:contains-token is not yet implemented");
@@ -126,11 +111,6 @@ pub fn stub_fnelement_with_id() -> bool {
 }
 
 /// Stub for fn:encode-for-uri - NOT YET IMPLEMENTED
-pub fn stub_fnencode_for_uri() -> bool {
-    assert(false, "fn:encode-for-uri is not yet implemented");
-    false
-}
-
 /// Stub for fn:environment-variable - NOT YET IMPLEMENTED
 pub fn stub_fnenvironment_variable() -> bool {
     assert(false, "fn:environment-variable is not yet implemented");
@@ -138,17 +118,7 @@ pub fn stub_fnenvironment_variable() -> bool {
 }
 
 /// Stub for fn:error - NOT YET IMPLEMENTED
-pub fn stub_fnerror() -> bool {
-    assert(false, "fn:error is not yet implemented");
-    false
-}
-
 /// Stub for fn:escape-html-uri - NOT YET IMPLEMENTED
-pub fn stub_fnescape_html_uri() -> bool {
-    assert(false, "fn:escape-html-uri is not yet implemented");
-    false
-}
-
 /// Stub for fn:filter - NOT YET IMPLEMENTED
 pub fn stub_fnfilter() -> bool {
     assert(false, "fn:filter is not yet implemented");
@@ -270,11 +240,6 @@ pub fn stub_fninnermost() -> bool {
 }
 
 /// Stub for fn:iri-to-uri - NOT YET IMPLEMENTED
-pub fn stub_fniri_to_uri() -> bool {
-    assert(false, "fn:iri-to-uri is not yet implemented");
-    false
-}
-
 /// Stub for fn:json-doc - NOT YET IMPLEMENTED
 pub fn stub_fnjson_doc() -> bool {
     assert(false, "fn:json-doc is not yet implemented");
@@ -294,11 +259,6 @@ pub fn stub_fnlang() -> bool {
 }
 
 /// Stub for fn:last - NOT YET IMPLEMENTED
-pub fn stub_fnlast() -> bool {
-    assert(false, "fn:last is not yet implemented");
-    false
-}
-
 /// Stub for fn:load-xquery-module - NOT YET IMPLEMENTED
 pub fn stub_fnload_xquery_module() -> bool {
     assert(false, "fn:load-xquery-module is not yet implemented");
@@ -312,17 +272,7 @@ pub fn stub_fnlocal_name() -> bool {
 }
 
 /// Stub for fn:local-name-from-QName - NOT YET IMPLEMENTED
-pub fn stub_fnlocal_name_from_qname() -> bool {
-    assert(false, "fn:local-name-from-QName is not yet implemented");
-    false
-}
-
 /// Stub for fn:lower-case - NOT YET IMPLEMENTED
-pub fn stub_fnlower_case() -> bool {
-    assert(false, "fn:lower-case is not yet implemented");
-    false
-}
-
 /// Stub for fn:matches - NOT YET IMPLEMENTED
 pub fn stub_fnmatches() -> bool {
     assert(false, "fn:matches is not yet implemented");
@@ -354,11 +304,6 @@ pub fn stub_fnnamespace_uri_for_prefix() -> bool {
 }
 
 /// Stub for fn:namespace-uri-from-QName - NOT YET IMPLEMENTED
-pub fn stub_fnnamespace_uri_from_qname() -> bool {
-    assert(false, "fn:namespace-uri-from-QName is not yet implemented");
-    false
-}
-
 /// Stub for fn:nilled - NOT YET IMPLEMENTED
 pub fn stub_fnnilled() -> bool {
     assert(false, "fn:nilled is not yet implemented");
@@ -372,11 +317,6 @@ pub fn stub_fnnode_name() -> bool {
 }
 
 /// Stub for fn:normalize-space - NOT YET IMPLEMENTED
-pub fn stub_fnnormalize_space() -> bool {
-    assert(false, "fn:normalize-space is not yet implemented");
-    false
-}
-
 /// Stub for fn:normalize-unicode - NOT YET IMPLEMENTED
 pub fn stub_fnnormalize_unicode() -> bool {
     assert(false, "fn:normalize-unicode is not yet implemented");
@@ -384,11 +324,6 @@ pub fn stub_fnnormalize_unicode() -> bool {
 }
 
 /// Stub for fn:number - NOT YET IMPLEMENTED
-pub fn stub_fnnumber() -> bool {
-    assert(false, "fn:number is not yet implemented");
-    false
-}
-
 /// Stub for fn:outermost - NOT YET IMPLEMENTED
 pub fn stub_fnoutermost() -> bool {
     assert(false, "fn:outermost is not yet implemented");
@@ -426,17 +361,7 @@ pub fn stub_fnpath() -> bool {
 }
 
 /// Stub for fn:position - NOT YET IMPLEMENTED
-pub fn stub_fnposition() -> bool {
-    assert(false, "fn:position is not yet implemented");
-    false
-}
-
 /// Stub for fn:prefix-from-QName - NOT YET IMPLEMENTED
-pub fn stub_fnprefix_from_qname() -> bool {
-    assert(false, "fn:prefix-from-QName is not yet implemented");
-    false
-}
-
 /// Stub for fn:QName - NOT YET IMPLEMENTED
 pub fn stub_fnqname() -> bool {
     assert(false, "fn:QName is not yet implemented");
@@ -492,29 +417,9 @@ pub fn stub_fnstring() -> bool {
 }
 
 /// Stub for fn:string-join - NOT YET IMPLEMENTED
-pub fn stub_fnstring_join() -> bool {
-    assert(false, "fn:string-join is not yet implemented");
-    false
-}
-
 /// Stub for fn:substring - NOT YET IMPLEMENTED
-pub fn stub_fnsubstring() -> bool {
-    assert(false, "fn:substring is not yet implemented");
-    false
-}
-
 /// Stub for fn:substring-after - NOT YET IMPLEMENTED
-pub fn stub_fnsubstring_after() -> bool {
-    assert(false, "fn:substring-after is not yet implemented");
-    false
-}
-
 /// Stub for fn:substring-before - NOT YET IMPLEMENTED
-pub fn stub_fnsubstring_before() -> bool {
-    assert(false, "fn:substring-before is not yet implemented");
-    false
-}
-
 /// Stub for fn:tokenize - NOT YET IMPLEMENTED
 pub fn stub_fntokenize() -> bool {
     assert(false, "fn:tokenize is not yet implemented");
@@ -522,11 +427,6 @@ pub fn stub_fntokenize() -> bool {
 }
 
 /// Stub for fn:trace - NOT YET IMPLEMENTED
-pub fn stub_fntrace() -> bool {
-    assert(false, "fn:trace is not yet implemented");
-    false
-}
-
 /// Stub for fn:transform - NOT YET IMPLEMENTED
 pub fn stub_fntransform() -> bool {
     assert(false, "fn:transform is not yet implemented");
@@ -534,11 +434,6 @@ pub fn stub_fntransform() -> bool {
 }
 
 /// Stub for fn:translate - NOT YET IMPLEMENTED
-pub fn stub_fntranslate() -> bool {
-    assert(false, "fn:translate is not yet implemented");
-    false
-}
-
 /// Stub for fn:unparsed-text - NOT YET IMPLEMENTED
 pub fn stub_fnunparsed_text() -> bool {
     assert(false, "fn:unparsed-text is not yet implemented");
@@ -558,11 +453,6 @@ pub fn stub_fnunparsed_text_lines() -> bool {
 }
 
 /// Stub for fn:upper-case - NOT YET IMPLEMENTED
-pub fn stub_fnupper_case() -> bool {
-    assert(false, "fn:upper-case is not yet implemented");
-    false
-}
-
 /// Stub for fn:xml-to-json - NOT YET IMPLEMENTED
 pub fn stub_fnxml_to_json() -> bool {
     assert(false, "fn:xml-to-json is not yet implemented");
@@ -582,11 +472,6 @@ pub fn stub_opconcat() -> bool {
 }
 
 /// Stub for op:concatenate - NOT YET IMPLEMENTED
-pub fn stub_opconcatenate() -> bool {
-    assert(false, "op:concatenate is not yet implemented");
-    false
-}
-
 /// Stub for op:is-same-node - NOT YET IMPLEMENTED
 pub fn stub_opis_same_node() -> bool {
     assert(false, "op:is-same-node is not yet implemented");

@@ -260,3 +260,405 @@ pub fn anyuri_less_than<let N: u32, let M: u32>(uri1: str<N>, uri2: str<M>) -> b
 pub fn anyuri_greater_than<let N: u32, let M: u32>(uri1: str<N>, uri2: str<M>) -> bool {
     string_greater_than(uri1, uri2)
 }
+
+// ============================================================================
+// String Transformation Functions (return byte arrays)
+// ============================================================================
+
+/// fn:upper-case - Converts ASCII lowercase letters to uppercase
+/// XPath: fn:upper-case($arg as xs:string?) as xs:string
+/// Returns (byte_array, length)
+pub fn upper_case<let N: u32>(s: str<N>) -> ([u8; N], u32) {
+    let s_bytes = s.as_bytes();
+    let mut result: [u8; N] = [0; N];
+    let mut len: u32 = 0;
+
+    for i in 0..N {
+        let byte = s_bytes[i];
+        if byte != 0 {
+            // Convert a-z (97-122) to A-Z (65-90)
+            if (byte >= 97) & (byte <= 122) {
+                result[i] = byte - 32;
+            } else {
+                result[i] = byte;
+            }
+            len = (i + 1) as u32;
+        }
+    }
+
+    (result, len)
+}
+
+/// fn:lower-case - Converts ASCII uppercase letters to lowercase
+/// XPath: fn:lower-case($arg as xs:string?) as xs:string
+/// Returns (byte_array, length)
+pub fn lower_case<let N: u32>(s: str<N>) -> ([u8; N], u32) {
+    let s_bytes = s.as_bytes();
+    let mut result: [u8; N] = [0; N];
+    let mut len: u32 = 0;
+
+    for i in 0..N {
+        let byte = s_bytes[i];
+        if byte != 0 {
+            // Convert A-Z (65-90) to a-z (97-122)
+            if (byte >= 65) & (byte <= 90) {
+                result[i] = byte + 32;
+            } else {
+                result[i] = byte;
+            }
+            len = (i + 1) as u32;
+        }
+    }
+
+    (result, len)
+}
+
+/// fn:normalize-space - Strips leading/trailing whitespace and collapses internal whitespace
+/// XPath: fn:normalize-space($arg as xs:string?) as xs:string
+/// Returns (byte_array, length)
+pub fn normalize_space<let N: u32>(s: str<N>) -> ([u8; N], u32) {
+    let s_bytes = s.as_bytes();
+    let mut result: [u8; N] = [0; N];
+    let mut result_len: u32 = 0;
+    let mut prev_was_space = true; // Start true to skip leading whitespace
+
+    for i in 0..N {
+        let byte = s_bytes[i];
+        if byte != 0 {
+            // Check if whitespace (space=32, tab=9, newline=10, carriage return=13)
+            let is_whitespace = (byte == 32) | (byte == 9) | (byte == 10) | (byte == 13);
+
+            if is_whitespace {
+                // Only add space if previous wasn't space and we have content
+                if !prev_was_space & (result_len > 0) {
+                    if result_len < N {
+                        result[result_len] = 32; // space
+                        result_len += 1;
+                    }
+                }
+                prev_was_space = true;
+            } else {
+                if result_len < N {
+                    result[result_len] = byte;
+                    result_len += 1;
+                }
+                prev_was_space = false;
+            }
+        }
+    }
+
+    // Remove trailing space if present
+    if (result_len > 0) & (result[result_len - 1] == 32) {
+        result[result_len - 1] = 0;
+        result_len -= 1;
+    }
+
+    (result, result_len)
+}
+
+/// fn:translate - Replaces characters in a string based on a mapping
+/// XPath: fn:translate($arg as xs:string?, $mapString as xs:string, $transString as xs:string) as xs:string
+/// Each character in mapString is replaced with the corresponding character in transString
+/// If transString is shorter, characters without a mapping are deleted
+pub fn translate<let N: u32, let M: u32, let K: u32>(
+    s: str<N>,
+    map_string: str<M>,
+    trans_string: str<K>,
+) -> ([u8; N], u32) {
+    let s_bytes = s.as_bytes();
+    let map_bytes = map_string.as_bytes();
+    let trans_bytes = trans_string.as_bytes();
+    let mut result: [u8; N] = [0; N];
+    let mut result_len: u32 = 0;
+
+    for i in 0..N {
+        let byte = s_bytes[i];
+        if byte != 0 {
+            // Find if this character is in map_string
+            let mut found_idx: i64 = -1;
+            for j in 0..M {
+                if (map_bytes[j] != 0) & (map_bytes[j] == byte) & (found_idx == -1) {
+                    found_idx = j as i64;
+                }
+            }
+
+            if found_idx == -1 {
+                // Not in map, keep original
+                if result_len < N {
+                    result[result_len] = byte;
+                    result_len += 1;
+                }
+            } else {
+                // Check if there's a corresponding character in trans_string
+                let trans_idx = found_idx as u32;
+                if (trans_idx < K) & (trans_bytes[trans_idx] != 0) {
+                    if result_len < N {
+                        result[result_len] = trans_bytes[trans_idx];
+                        result_len += 1;
+                    }
+                }
+                // If no corresponding char in trans_string, character is deleted
+            }
+        }
+    }
+
+    (result, result_len)
+}
+
+/// fn:concat - Concatenates two byte arrays
+/// XPath: fn:concat($arg1 as xs:anyAtomicType?, $arg2 as xs:anyAtomicType?, ...) as xs:string
+/// Returns (byte_array, length)
+pub fn concat_bytes<let N: u32, let M: u32, let R: u32>(
+    a: [u8; N],
+    a_len: u32,
+    b: [u8; M],
+    b_len: u32,
+) -> ([u8; R], u32) {
+    let mut result: [u8; R] = [0; R];
+    let mut result_len: u32 = 0;
+
+    // Copy first array
+    for i in 0..N {
+        if ((i as u32) < a_len) & (result_len < R) {
+            result[result_len] = a[i];
+            result_len += 1;
+        }
+    }
+
+    // Copy second array
+    for i in 0..M {
+        if ((i as u32) < b_len) & (result_len < R) {
+            result[result_len] = b[i];
+            result_len += 1;
+        }
+    }
+
+    (result, result_len)
+}
+
+/// fn:string-join - Joins a sequence of strings with a separator
+/// XPath: fn:string-join($arg1 as xs:anyAtomicType*, $arg2 as xs:string) as xs:string
+/// This version joins two strings with a separator
+pub fn string_join_two<let N: u32, let M: u32, let S: u32, let R: u32>(
+    a: [u8; N],
+    a_len: u32,
+    b: [u8; M],
+    b_len: u32,
+    sep: [u8; S],
+    sep_len: u32,
+) -> ([u8; R], u32) {
+    let mut result: [u8; R] = [0; R];
+    let mut result_len: u32 = 0;
+
+    // Copy first string
+    for i in 0..N {
+        if ((i as u32) < a_len) & (result_len < R) {
+            result[result_len] = a[i];
+            result_len += 1;
+        }
+    }
+
+    // Copy separator (only if both strings are non-empty)
+    if (a_len > 0) & (b_len > 0) {
+        for i in 0..S {
+            if ((i as u32) < sep_len) & (result_len < R) {
+                result[result_len] = sep[i];
+                result_len += 1;
+            }
+        }
+    }
+
+    // Copy second string
+    for i in 0..M {
+        if ((i as u32) < b_len) & (result_len < R) {
+            result[result_len] = b[i];
+            result_len += 1;
+        }
+    }
+
+    (result, result_len)
+}
+
+/// fn:substring - Returns a substring starting at position (1-indexed)
+/// XPath: fn:substring($sourceString as xs:string?, $start as xs:double) as xs:string
+/// XPath: fn:substring($sourceString as xs:string?, $start as xs:double, $length as xs:double) as xs:string
+pub fn substring<let N: u32, let R: u32>(s: str<N>, start_pos: i64, length: u32) -> ([u8; R], u32) {
+    let s_bytes = s.as_bytes();
+    let mut result: [u8; R] = [0; R];
+    let mut result_len: u32 = 0;
+
+    // XPath uses 1-based indexing
+    let start_idx: u32 = if start_pos < 1 {
+        0
+    } else {
+        (start_pos - 1) as u32
+    };
+
+    for i in 0..N {
+        let idx = i as u32;
+        if (idx >= start_idx) & (result_len < length) & (result_len < R) {
+            let byte = s_bytes[i];
+            if byte != 0 {
+                result[result_len] = byte;
+                result_len += 1;
+            }
+        }
+    }
+
+    (result, result_len)
+}
+
+/// fn:substring-before - Returns the part of string before the first occurrence of substring
+/// XPath: fn:substring-before($arg1 as xs:string?, $arg2 as xs:string?) as xs:string
+pub fn substring_before<let N: u32, let M: u32>(s: str<N>, substr: str<M>) -> ([u8; N], u32) {
+    let s_bytes = s.as_bytes();
+    let mut result: [u8; N] = [0; N];
+    let idx = index_of(s, substr);
+
+    let result_len: u32 = if idx < 0 { 0 } else { idx as u32 };
+
+    for i in 0..N {
+        if (i as u32) < result_len {
+            result[i] = s_bytes[i];
+        }
+    }
+
+    (result, result_len)
+}
+
+/// fn:substring-after - Returns the part of string after the first occurrence of substring
+/// XPath: fn:substring-after($arg1 as xs:string?, $arg2 as xs:string?) as xs:string
+pub fn substring_after<let N: u32, let M: u32>(s: str<N>, substr: str<M>) -> ([u8; N], u32) {
+    let s_bytes = s.as_bytes();
+    let mut result: [u8; N] = [0; N];
+    let idx = index_of(s, substr);
+
+    if idx < 0 {
+        // Substring not found, return empty
+        (result, 0)
+    } else {
+        let start_idx = (idx as u32) + (M as u32);
+        let mut result_len: u32 = 0;
+
+        for i in 0..N {
+            let src_idx = start_idx + (i as u32);
+            if src_idx < N {
+                let byte = s_bytes[src_idx];
+                if byte != 0 {
+                    result[i] = byte;
+                    result_len = (i + 1) as u32;
+                }
+            }
+        }
+
+        (result, result_len)
+    }
+}
+
+/// fn:codepoints-to-string - Converts a sequence of codepoints to a string (byte array)
+/// XPath: fn:codepoints-to-string($arg as xs:integer*) as xs:string
+pub fn codepoints_to_string<let N: u32>(codepoints: [u32; N], len: u32) -> ([u8; N], u32) {
+    let mut result: [u8; N] = [0; N];
+
+    for i in 0..N {
+        if (i as u32) < len {
+            // Truncate to u8 (ASCII range)
+            result[i] = (codepoints[i] & 0xFF) as u8;
+        }
+    }
+
+    (result, len)
+}
+
+// ============================================================================
+// URI Encoding Functions
+// ============================================================================
+
+/// Check if a character is unreserved (doesn't need encoding)
+/// Unreserved = ALPHA / DIGIT / "-" / "." / "_" / "~"
+fn is_uri_unreserved(byte: u8) -> bool {
+    let is_alpha = ((byte >= 65) & (byte <= 90)) | ((byte >= 97) & (byte <= 122));
+    let is_digit = (byte >= 48) & (byte <= 57);
+    let is_special = (byte == 45) | (byte == 46) | (byte == 95) | (byte == 126);
+    is_alpha | is_digit | is_special
+}
+
+/// Convert a nibble (0-15) to hex character
+fn nibble_to_hex(n: u8) -> u8 {
+    if n < 10 {
+        48 + n // '0' + n
+    } else {
+        65 + n - 10 // 'A' + n - 10
+    }
+}
+
+/// fn:encode-for-uri - Encodes special characters for use in URI
+/// XPath: fn:encode-for-uri($uri-part as xs:string?) as xs:string
+/// Returns (byte_array, length) - result may be up to 3x input length
+pub fn encode_for_uri<let N: u32, let R: u32>(s: str<N>) -> ([u8; R], u32) {
+    let s_bytes = s.as_bytes();
+    let mut result: [u8; R] = [0; R];
+    let mut result_len: u32 = 0;
+
+    for i in 0..N {
+        let byte = s_bytes[i];
+        if byte != 0 {
+            if is_uri_unreserved(byte) {
+                if result_len < R {
+                    result[result_len] = byte;
+                    result_len += 1;
+                }
+            } else {
+                // Percent-encode: %XX
+                if result_len + 3 <= R {
+                    result[result_len] = 37; // '%'
+                    result[result_len + 1] = nibble_to_hex((byte >> 4) & 0x0F);
+                    result[result_len + 2] = nibble_to_hex(byte & 0x0F);
+                    result_len += 3;
+                }
+            }
+        }
+    }
+
+    (result, result_len)
+}
+
+/// fn:iri-to-uri - Converts an IRI to a URI by encoding non-ASCII characters
+/// XPath: fn:iri-to-uri($iri as xs:string?) as xs:string
+/// This is a simplified version that percent-encodes non-ASCII bytes
+pub fn iri_to_uri<let N: u32, let R: u32>(s: str<N>) -> ([u8; R], u32) {
+    let s_bytes = s.as_bytes();
+    let mut result: [u8; R] = [0; R];
+    let mut result_len: u32 = 0;
+
+    for i in 0..N {
+        let byte = s_bytes[i];
+        if byte != 0 {
+            // Keep ASCII printable characters (32-126) as-is, encode others
+            if (byte >= 32) & (byte <= 126) {
+                if result_len < R {
+                    result[result_len] = byte;
+                    result_len += 1;
+                }
+            } else {
+                // Percent-encode
+                if result_len + 3 <= R {
+                    result[result_len] = 37; // '%'
+                    result[result_len + 1] = nibble_to_hex((byte >> 4) & 0x0F);
+                    result[result_len + 2] = nibble_to_hex(byte & 0x0F);
+                    result_len += 3;
+                }
+            }
+        }
+    }
+
+    (result, result_len)
+}
+
+/// fn:escape-html-uri - Escapes a URI for HTML
+/// XPath: fn:escape-html-uri($uri as xs:string?) as xs:string
+/// Escapes non-printable ASCII and non-ASCII characters
+pub fn escape_html_uri<let N: u32, let R: u32>(s: str<N>) -> ([u8; R], u32) {
+    // Same as iri_to_uri for our purposes
+    iri_to_uri(s)
+}

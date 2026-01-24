@@ -70,23 +70,28 @@ pub use year_month_duration::{
 };
 
 // Re-export QName type and functions
-pub use qname::{qname_equal, XsdQName};
+pub use qname::{
+    local_name_from_qname, namespace_uri_from_qname, prefix_from_qname, qname_equal, XsdQName,
+};
 
 // Re-export Gregorian types
 pub use gregorian::{XsdGDay, XsdGMonth, XsdGMonthDay, XsdGYear, XsdGYearMonth};
 
 // Re-export boolean functions
 pub use boolean::{
-    boolean_equal, boolean_ge, boolean_greater_than, boolean_le, boolean_less_than, fn_false,
-    fn_not, fn_true, logical_and, logical_or,
+    boolean_equal, boolean_ge, boolean_greater_than, boolean_le, boolean_less_than,
+    fn_boolean_from_bool, fn_boolean_from_integer, fn_boolean_from_sequence_len,
+    fn_boolean_from_string_len, fn_error, fn_error_with_desc, fn_false, fn_not, fn_trace, fn_true,
+    logical_and, logical_or,
 };
 
 // Re-export numeric functions (integer only for now)
 pub use numeric::{
-    abs_int, ceil_int, floor_int, max_int, min_int, numeric_add_int, numeric_divide_int,
-    numeric_equal_int, numeric_ge_int, numeric_greater_than_int, numeric_le_int,
-    numeric_less_than_int, numeric_mod_int, numeric_multiply_int, numeric_subtract_int,
-    numeric_unary_minus_int, numeric_unary_plus_int, round_half_to_even_int, round_int,
+    abs_int, ceil_int, floor_int, fn_number_from_bool, fn_number_from_integer,
+    fn_number_from_string, max_int, min_int, numeric_add_int, numeric_divide_int, numeric_equal_int,
+    numeric_ge_int, numeric_greater_than_int, numeric_le_int, numeric_less_than_int,
+    numeric_mod_int, numeric_multiply_int, numeric_subtract_int, numeric_unary_minus_int,
+    numeric_unary_plus_int, round_half_to_even_int, round_int,
 };
 
 // Re-export float/double types and operations (IEEE 754 compliant)
@@ -162,11 +167,11 @@ pub use time::{
 
 // Re-export sequence/aggregate functions
 pub use sequence::{
-    all_true, any_true, avg_int, avg_int_partial, count, count_true, deep_equal_int,
+    all_true, any_true, avg_int, avg_int_partial, concatenate, count, count_true, deep_equal_int,
     distinct_values, exactly_one, except_int, exists, head, index_of, insert_before, intersect_int,
-    is_empty, max_int_partial, max_int_seq, min_int_partial, min_int_seq, one_or_more, range_to,
-    remove, reverse, sort_int, subsequence, sum_int, sum_int_partial, tail, union_int, unordered,
-    zero_or_one,
+    is_empty, last, max_int_partial, max_int_seq, min_int_partial, min_int_seq, one_or_more,
+    position, range_to, remove, reverse, sort_int, subsequence, sum_int, sum_int_partial, tail,
+    union_int, unordered, zero_or_one,
 };
 
 // Re-export comparison functions
@@ -175,10 +180,13 @@ pub use comparison::{value_equal, value_ge, value_greater_than, value_le, value_
 // Re-export only functional string functions
 // Note: Functions that return strings (substring, upper_case, lower_case, concat, etc.)
 // are not exported as they cannot work correctly due to Noir's byte-to-string limitation
+// However, we do export versions that return ([u8; N], u32) tuples
 pub use string::{
-    anyuri_equal, anyuri_greater_than, anyuri_less_than, codepoint_equal, compare, contains,
-    ends_with, starts_with, string_equal, string_ge, string_greater_than, string_le, string_length,
-    string_less_than, string_to_codepoints,
+    anyuri_equal, anyuri_greater_than, anyuri_less_than, codepoint_equal, codepoints_to_string,
+    compare, concat_bytes, contains, encode_for_uri, ends_with, escape_html_uri, iri_to_uri,
+    lower_case, normalize_space, starts_with, string_equal, string_ge, string_greater_than,
+    string_join_two, string_le, string_length, string_less_than, string_to_codepoints, substring,
+    substring_after, substring_before, translate, upper_case,
 };
 
 // Re-export binary comparison functions
@@ -195,31 +203,26 @@ pub use gregorian::{gday_equal, gmonth_equal, gmonthday_equal, gyear_equal, gyea
 pub use stubs::{
     // fn: stubs (unimplemented functions)
     stub_fnanalyze_string, stub_fnapply, stub_fnavailable_environment_variables, stub_fnbase_uri,
-    stub_fnboolean, stub_fncodepoints_to_string, stub_fncollation_key, stub_fncollection,
-    stub_fnconcat, stub_fncontains_token, stub_fncurrent_date, stub_fncurrent_datetime,
-    stub_fncurrent_time, stub_fndata, stub_fndefault_collation, stub_fndefault_language, stub_fndoc,
-    stub_fndoc_available, stub_fndocument_uri, stub_fnelement_with_id, stub_fnencode_for_uri,
-    stub_fnenvironment_variable, stub_fnerror, stub_fnescape_html_uri, stub_fnfilter,
-    stub_fnfold_left, stub_fnfold_right, stub_fnfor_each, stub_fnfor_each_pair, stub_fnformat_date,
+    stub_fncollation_key, stub_fncollection, stub_fncontains_token, stub_fncurrent_date,
+    stub_fncurrent_datetime, stub_fncurrent_time, stub_fndata, stub_fndefault_collation,
+    stub_fndefault_language, stub_fndoc, stub_fndoc_available, stub_fndocument_uri,
+    stub_fnelement_with_id, stub_fnenvironment_variable, stub_fnfilter, stub_fnfold_left,
+    stub_fnfold_right, stub_fnfor_each, stub_fnfor_each_pair, stub_fnformat_date,
     stub_fnformat_datetime, stub_fnformat_integer, stub_fnformat_number, stub_fnformat_time,
     stub_fnfunction_arity, stub_fnfunction_lookup, stub_fnfunction_name, stub_fngenerate_id,
     stub_fnhas_children, stub_fnid, stub_fnidref, stub_fnimplicit_timezone,
-    stub_fnin_scope_prefixes, stub_fninnermost, stub_fniri_to_uri, stub_fnjson_doc,
-    stub_fnjson_to_xml, stub_fnlang, stub_fnlast, stub_fnload_xquery_module, stub_fnlocal_name,
-    stub_fnlocal_name_from_qname, stub_fnlower_case, stub_fnmatches, stub_fnmatches_re, stub_fnname,
-    stub_fnnamespace_uri, stub_fnnamespace_uri_for_prefix, stub_fnnamespace_uri_from_qname,
-    stub_fnnilled, stub_fnnode_name, stub_fnnormalize_space, stub_fnnormalize_unicode,
-    stub_fnnumber, stub_fnoutermost, stub_fnparse_ietf_date, stub_fnparse_json, stub_fnparse_xml,
-    stub_fnparse_xml_fragment, stub_fnpath, stub_fnposition, stub_fnprefix_from_qname, stub_fnqname,
+    stub_fnin_scope_prefixes, stub_fninnermost, stub_fnjson_doc, stub_fnjson_to_xml, stub_fnlang,
+    stub_fnload_xquery_module, stub_fnlocal_name, stub_fnmatches, stub_fnmatches_re, stub_fnname,
+    stub_fnnamespace_uri, stub_fnnamespace_uri_for_prefix, stub_fnnilled, stub_fnnode_name,
+    stub_fnnormalize_unicode, stub_fnoutermost, stub_fnparse_ietf_date, stub_fnparse_json,
+    stub_fnparse_xml, stub_fnparse_xml_fragment, stub_fnpath, stub_fnqname,
     stub_fnrandom_number_generator, stub_fnreplace, stub_fnresolve_qname, stub_fnresolve_uri,
-    stub_fnroot, stub_fnserialize, stub_fnstatic_base_uri, stub_fnstring, stub_fnstring_join,
-    stub_fnsubstring, stub_fnsubstring_after, stub_fnsubstring_before, stub_fntokenize,
-    stub_fntrace, stub_fntransform, stub_fntranslate, stub_fnunparsed_text,
-    stub_fnunparsed_text_available, stub_fnunparsed_text_lines, stub_fnupper_case,
-    stub_fnxml_to_json,
+    stub_fnroot, stub_fnserialize, stub_fnstatic_base_uri, stub_fnstring, stub_fntokenize,
+    stub_fntransform, stub_fnunparsed_text, stub_fnunparsed_text_available,
+    stub_fnunparsed_text_lines, stub_fnxml_to_json,
     // op: stubs (unimplemented operators)
-    stub_opbang, stub_opconcat, stub_opconcatenate, stub_opis_same_node, stub_opnode_after,
-    stub_opnode_before, stub_opsame_key,
+    stub_opbang, stub_opconcat, stub_opis_same_node, stub_opnode_after, stub_opnode_before,
+    stub_opsame_key,
     // prod: stubs (unimplemented productions)
     stub_prodannotation, stub_prodarraytest, stub_prodarrowpostfix, stub_prodaxisstep,
     stub_prodaxisstep_abbr, stub_prodaxisstep_ancestor, stub_prodaxisstep_ancestor_or_self,
