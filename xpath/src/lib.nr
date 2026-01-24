@@ -50,6 +50,7 @@ mod binary;
 mod gregorian;
 mod qname;
 mod stubs;
+mod json;
 
 // XPath namespace modules for deterministic name mapping
 // Use `xpath_fn` for fn:* functions, `xpath_op` for op:* operators, `xpath_xs` for xs:* type casts
@@ -200,6 +201,14 @@ pub use binary::{
 
 // Re-export gregorian comparison functions
 pub use gregorian::{gday_equal, gmonth_equal, gmonthday_equal, gyear_equal, gyearmonth_equal};
+
+// Re-export JSON types from json_parser
+// Note: The json_parser library marks key-based accessors as pub(crate),
+// so only array-based accessors and parsing methods are available.
+// Users should call methods directly on the JSON types:
+//   let json: JSON512b = JSON512b::parse_json_from_string("[1, 2, 3]");
+//   let value = json.get_number_from_array_unchecked(0);
+pub use json::{JSON16kb, JSON1kb, JSON2kb, JSON4kb, JSON512b, JSON8kb};
 
 // Re-export stub functions for unimplemented XPath functions
 // Note: Many stubs have been removed as they now have real implementations
