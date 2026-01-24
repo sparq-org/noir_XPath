@@ -291,3 +291,44 @@ pub use crate::date::date_subtract_duration as subtract_dayTimeDuration_from_dat
 
 // op:subtract-dates
 pub use crate::date::subtract_dates;
+
+// ============================================================================
+// Binary comparison operators
+// ============================================================================
+
+// op:hexBinary-equal
+pub use crate::binary::hexbinary_equal as hexBinary_equal;
+
+// op:hexBinary-less-than
+pub use crate::binary::hexbinary_less_than as hexBinary_less_than;
+
+// op:hexBinary-greater-than
+pub use crate::binary::hexbinary_greater_than as hexBinary_greater_than;
+
+// op:base64Binary-equal
+pub use crate::binary::base64binary_equal as base64Binary_equal;
+
+// op:base64Binary-less-than
+pub use crate::binary::base64binary_less_than as base64Binary_less_than;
+
+// op:base64Binary-greater-than
+pub use crate::binary::base64binary_greater_than as base64Binary_greater_than;
+
+// ============================================================================
+// Gregorian comparison operators
+// ============================================================================
+
+// op:gYear-equal
+pub use crate::gregorian::gyear_equal as gYear_equal;
+
+// op:gMonth-equal
+pub use crate::gregorian::gmonth_equal as gMonth_equal;
+
+// op:gDay-equal
+pub use crate::gregorian::gday_equal as gDay_equal;
+
+// op:gYearMonth-equal
+pub use crate::gregorian::gyearmonth_equal as gYearMonth_equal;
+
+// op:gMonthDay-equal
+pub use crate::gregorian::gmonthday_equal as gMonthDay_equal;

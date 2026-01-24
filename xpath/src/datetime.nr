@@ -305,3 +305,21 @@ fn epoch_to_civil(epoch_micros: Field) -> (i32, u8, u8) {
 
     (year as i32, m as u8, d as u8)
 }
+
+// ============================================================================
+// Timezone Adjustment Functions
+// ============================================================================
+
+/// fn:adjust-dateTime-to-timezone - Adjust a dateTime to a different timezone
+/// If new_tz_offset is None (represented as i16::MIN), removes timezone info
+/// The instant in time remains the same, only the local representation changes
+pub fn adjust_datetime_to_timezone(dt: XsdDateTime, new_tz_offset_minutes: i16) -> XsdDateTime {
+    // The UTC instant stays the same, only the timezone changes
+    XsdDateTime::new_with_tz(dt.epoch_microseconds, new_tz_offset_minutes)
+}
+
+/// fn:adjust-dateTime-to-timezone with no argument - removes timezone
+pub fn adjust_datetime_to_timezone_none(dt: XsdDateTime) -> XsdDateTime {
+    // Remove timezone but keep the same instant
+    XsdDateTime::new(dt.epoch_microseconds)
+}

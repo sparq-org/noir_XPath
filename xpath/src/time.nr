@@ -157,6 +157,30 @@ pub fn time_subtract_duration(time: XsdTime, dur: XsdDayTimeDuration) -> XsdTime
 }
 
 // ============================================================================
+// Timezone Adjustment Functions
+// ============================================================================
+
+/// fn:adjust-time-to-timezone - Adjust a time to a different timezone
+/// The instant in time remains the same, only the local representation changes
+pub fn adjust_time_to_timezone(time: XsdTime, new_tz_offset_minutes: i16) -> XsdTime {
+    // Calculate the UTC microseconds
+    let utc_micros = time.utc_microseconds();
+    // Create a new time with the new timezone, adjusting for the offset difference
+    let offset_diff = new_tz_offset_minutes as i64 - time.tz_offset_minutes as i64;
+    let new_local_micros = utc_micros + offset_diff * 60_000_000;
+    // Normalize to 0-24 hour range
+    let day_micros: i64 = 86_400_000_000;
+    let normalized = ((new_local_micros % day_micros) + day_micros) % day_micros;
+    XsdTime::new_with_tz(normalized as u64, new_tz_offset_minutes)
+}
+
+/// fn:adjust-time-to-timezone with no argument - removes timezone
+pub fn adjust_time_to_timezone_none(time: XsdTime) -> XsdTime {
+    // Remove timezone but keep the same local time representation
+    XsdTime::new(time.microseconds_since_midnight)
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 

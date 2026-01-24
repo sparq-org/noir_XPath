@@ -285,6 +285,134 @@ pub fn exactly_one<T, let N: u32>(arr: [T; N]) -> [T; N] {
     arr
 }
 
+/// fn:unordered - Returns the sequence in implementation-defined order
+/// Since we have no ordering requirements in ZK, this is an identity function
+pub fn unordered<T, let N: u32>(arr: [T; N]) -> [T; N] {
+    arr
+}
+
+/// fn:remove - Removes the item at the given position from the sequence
+/// position is 1-based (XPath convention), returns (result_array, new_length)
+/// If position is out of range, returns the original sequence unchanged
+pub fn remove<T, let N: u32>(arr: [T; N], position: u32, len: u32) -> ([T; N], u32)
+where
+    T: std::default::Default,
+{
+    let mut result: [T; N] = arr;
+    let mut new_len = len;
+
+    // Position is 1-based, convert to 0-based index
+    let pos_valid = (position >= 1) & (position <= len);
+
+    if pos_valid {
+        let idx = position - 1;
+        // Shift elements left
+        for i in 0..N {
+            if (i as u32 >= idx) & ((i as u32) < len - 1) {
+                result[i] = arr[i + 1];
+            }
+        }
+        // Clear last element
+        if len > 0 {
+            let last_idx: u32 = len - 1;
+            result[last_idx] = T::default();
+        }
+        new_len = len - 1;
+    }
+
+    (result, new_len)
+}
+
+/// fn:insert-before - Inserts an item at the given position in the sequence
+/// position is 1-based (XPath convention), returns (result_array, new_length)
+/// If position < 1, inserts at the beginning
+/// If position > length, appends at the end
+pub fn insert_before<T, let N: u32>(arr: [T; N], position: u32, len: u32, item: T) -> ([T; N], u32)
+where
+    T: std::default::Default,
+{
+    assert(len < N, "Cannot insert: array is full");
+
+    let mut result: [T; N] = [T::default(); N];
+
+    // Normalize position: XPath uses 1-based indexing
+    let insert_idx: u32 = if position < 1 {
+        0
+    } else if position > len {
+        len
+    } else {
+        position - 1
+    };
+
+    // Copy elements before insertion point
+    for i in 0..N {
+        if (i as u32) < insert_idx {
+            result[i] = arr[i];
+        }
+    }
+
+    // Insert the new item
+    result[insert_idx] = item;
+
+    // Copy elements after insertion point (shifted by 1)
+    for i in 0..N {
+        if (i as u32 >= insert_idx) & ((i as u32) < len) {
+            result[i + 1] = arr[i];
+        }
+    }
+
+    (result, len + 1)
+}
+
+/// fn:sort - Sorts a sequence of integers in ascending order (bubble sort)
+/// Returns (sorted_array, length)
+pub fn sort_int<let N: u32>(arr: [i64; N], len: u32) -> [i64; N] {
+    let mut result = arr;
+
+    // Bubble sort - simple but O(n^2)
+    for _pass in 0..N {
+        for i in 0..N {
+            if (i as u32) + 1 < len {
+                let j = i + 1;
+                if result[i] > result[j] {
+                    let temp = result[i];
+                    result[i] = result[j];
+                    result[j] = temp;
+                }
+            }
+        }
+    }
+
+    result
+}
+
+/// fn:deep-equal for integer arrays - Compares two sequences for deep equality
+pub fn deep_equal_int<let N: u32, let M: u32>(
+    arr1: [i64; N],
+    len1: u32,
+    arr2: [i64; M],
+    len2: u32,
+) -> bool {
+    if len1 != len2 {
+        false
+    } else {
+        let mut equal = true;
+        for i in 0..N {
+            if (i as u32) < len1 {
+                // Need to check bounds for arr2 as well
+                if (i as u32) < M {
+                    if arr1[i] != arr2[i] {
+                        equal = false;
+                    }
+                } else {
+                    equal = false;
+                }
+            }
+        }
+        equal
+    }
+}
+
 // ============================================================================
 // Tests
 // ============================================================================

@@ -286,3 +286,39 @@ pub fn subtract_dates(a: XsdDate, b: XsdDate) -> XsdDayTimeDuration {
     let micros: i64 = (day_diff as i64) * 86_400_000_000;
     XsdDayTimeDuration::from_signed_micros(micros)
 }
+
+// ============================================================================
+// Timezone Adjustment Functions
+// ============================================================================
+
+/// fn:adjust-date-to-timezone - Adjust a date to a different timezone
+/// Since dates represent calendar dates (not instants), changing the timezone
+/// may change the date by one day if the timezone offset crosses midnight.
+pub fn adjust_date_to_timezone(date: XsdDate, new_tz_offset_minutes: i16) -> XsdDate {
+    // For simplicity, we just update the timezone without adjusting the calendar date
+    // This is a simplified implementation - full XPath semantics involve more complex rules
+    XsdDate::new_with_tz(date.epoch_days, new_tz_offset_minutes)
+}
+
+/// fn:adjust-date-to-timezone with no argument - removes timezone
+pub fn adjust_date_to_timezone_none(date: XsdDate) -> XsdDate {
+    XsdDate::new(date.epoch_days)
+}
+
+// ============================================================================
+// DateTime Construction from Date and Time
+// ============================================================================
+
+/// fn:dateTime - Construct a dateTime from a date and a time
+/// XPath: fn:dateTime($date as xs:date, $time as xs:time) as xs:dateTime
+/// Both must have the same timezone (or both have no timezone)
+pub fn fn_dateTime(date: XsdDate, time: crate::types::XsdTime) -> crate::types::XsdDateTime {
+    // Convert date to epoch microseconds (at midnight)
+    let date_micros: i64 = (date.epoch_days as i64) * 86_400_000_000;
+    // Add time microseconds
+    let total_micros: i64 = date_micros + time.microseconds_since_midnight as i64;
+    // Convert to unsigned for Field
+    let total_micros_u64: u64 = total_micros as u64;
+    // Use the timezone from the date (or time if they match)
+    crate::types::XsdDateTime::new_with_tz(total_micros_u64 as Field, date.tz_offset_minutes)
+}

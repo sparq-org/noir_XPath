@@ -45,6 +45,8 @@ mod time;
 mod sequence;
 mod comparison;
 mod string;
+mod binary;
+mod gregorian;
 mod stubs;
 
 // XPath namespace modules for deterministic name mapping
@@ -55,6 +57,9 @@ pub mod xpath_xs;
 
 // Re-export types
 pub use types::{XsdDate, XsdDateTime, XsdDayTimeDuration, XsdTime};
+
+// Re-export Gregorian types
+pub use gregorian::{XsdGDay, XsdGMonth, XsdGMonthDay, XsdGYear, XsdGYearMonth};
 
 // Re-export boolean functions
 pub use boolean::{
@@ -67,7 +72,7 @@ pub use numeric::{
     abs_int, ceil_int, floor_int, max_int, min_int, numeric_add_int, numeric_divide_int,
     numeric_equal_int, numeric_ge_int, numeric_greater_than_int, numeric_le_int,
     numeric_less_than_int, numeric_mod_int, numeric_multiply_int, numeric_subtract_int,
-    numeric_unary_minus_int, numeric_unary_plus_int, round_int,
+    numeric_unary_minus_int, numeric_unary_plus_int, round_half_to_even_int, round_int,
 };
 
 // Re-export float/double types and operations (IEEE 754 compliant)
@@ -105,12 +110,12 @@ pub use numeric_types::{
 
 // Re-export datetime functions
 pub use datetime::{
-    datetime_equal, datetime_from_components, datetime_from_components_with_tz,
-    datetime_from_epoch_microseconds, datetime_from_epoch_microseconds_with_tz, datetime_ge,
-    datetime_greater_than, datetime_le, datetime_less_than, datetime_timezone_offset,
-    datetime_to_epoch_microseconds, day_from_datetime, hours_from_datetime,
-    microseconds_from_datetime, minutes_from_datetime, month_from_datetime, seconds_from_datetime,
-    timezone_from_datetime, year_from_datetime,
+    adjust_datetime_to_timezone, adjust_datetime_to_timezone_none, datetime_equal,
+    datetime_from_components, datetime_from_components_with_tz, datetime_from_epoch_microseconds,
+    datetime_from_epoch_microseconds_with_tz, datetime_ge, datetime_greater_than, datetime_le,
+    datetime_less_than, datetime_timezone_offset, datetime_to_epoch_microseconds, day_from_datetime,
+    hours_from_datetime, microseconds_from_datetime, minutes_from_datetime, month_from_datetime,
+    seconds_from_datetime, timezone_from_datetime, year_from_datetime,
 };
 
 // Re-export duration functions
@@ -125,25 +130,28 @@ pub use duration::{
 
 // Re-export date functions
 pub use date::{
-    date_add_duration, date_equal, date_from_components, date_from_components_with_tz,
-    date_from_epoch_days, date_from_epoch_days_with_tz, date_ge, date_greater_than, date_le,
-    date_less_than, date_subtract_duration, day_from_date, month_from_date, subtract_dates,
+    adjust_date_to_timezone, adjust_date_to_timezone_none, date_add_duration, date_equal,
+    date_from_components, date_from_components_with_tz, date_from_epoch_days,
+    date_from_epoch_days_with_tz, date_ge, date_greater_than, date_le, date_less_than,
+    date_subtract_duration, day_from_date, fn_dateTime, month_from_date, subtract_dates,
     timezone_from_date, year_from_date,
 };
 
 // Re-export time functions
 pub use time::{
-    hours_from_time, microseconds_from_time, minutes_from_time, seconds_from_time, subtract_times,
-    time_add_duration, time_equal, time_from_components, time_from_components_with_tz,
-    time_from_microseconds, time_from_microseconds_with_tz, time_ge, time_greater_than, time_le,
-    time_less_than, time_subtract_duration, timezone_from_time,
+    adjust_time_to_timezone, adjust_time_to_timezone_none, hours_from_time, microseconds_from_time,
+    minutes_from_time, seconds_from_time, subtract_times, time_add_duration, time_equal,
+    time_from_components, time_from_components_with_tz, time_from_microseconds,
+    time_from_microseconds_with_tz, time_ge, time_greater_than, time_le, time_less_than,
+    time_subtract_duration, timezone_from_time,
 };
 
 // Re-export sequence/aggregate functions
 pub use sequence::{
-    all_true, any_true, avg_int, avg_int_partial, count, count_true, distinct_values, exactly_one,
-    exists, head, index_of, is_empty, max_int_partial, max_int_seq, min_int_partial, min_int_seq,
-    one_or_more, reverse, subsequence, sum_int, sum_int_partial, tail, zero_or_one,
+    all_true, any_true, avg_int, avg_int_partial, count, count_true, deep_equal_int,
+    distinct_values, exactly_one, exists, head, index_of, insert_before, is_empty, max_int_partial,
+    max_int_seq, min_int_partial, min_int_seq, one_or_more, remove, reverse, sort_int, subsequence,
+    sum_int, sum_int_partial, tail, unordered, zero_or_one,
 };
 
 // Re-export comparison functions
@@ -158,25 +166,32 @@ pub use string::{
     string_less_than, string_to_codepoints,
 };
 
+// Re-export binary comparison functions
+pub use binary::{
+    base64binary_equal, base64binary_greater_than, base64binary_less_than, hexbinary_equal,
+    hexbinary_greater_than, hexbinary_less_than,
+};
+
+// Re-export gregorian comparison functions
+pub use gregorian::{gday_equal, gmonth_equal, gmonthday_equal, gyear_equal, gyearmonth_equal};
+
 // Re-export stub functions for unimplemented XPath functions
 pub use stubs::{
-    stub_fnadjust_date_to_timezone, stub_fnadjust_datetime_to_timezone,
-    stub_fnadjust_time_to_timezone, stub_fnanalyze_string, stub_fnapply,
-    stub_fnavailable_environment_variables, stub_fnavg, stub_fnbase_uri, stub_fnboolean,
-    stub_fncodepoints_to_string, stub_fncollation_key, stub_fncollection, stub_fnconcat,
-    stub_fncontains_token, stub_fncount, stub_fncurrent_date, stub_fncurrent_datetime,
-    stub_fncurrent_time, stub_fndata, stub_fndatetime, stub_fndeep_equal, stub_fndefault_collation,
-    stub_fndefault_language, stub_fndoc, stub_fndoc_available, stub_fndocument_uri,
-    stub_fnelement_with_id, stub_fnencode_for_uri, stub_fnenvironment_variable, stub_fnerror,
-    stub_fnescape_html_uri, stub_fnfilter, stub_fnfold_left, stub_fnfold_right, stub_fnfor_each,
-    stub_fnfor_each_pair, stub_fnformat_date, stub_fnformat_datetime, stub_fnformat_integer,
-    stub_fnformat_number, stub_fnformat_time, stub_fnfunction_arity, stub_fnfunction_lookup,
-    stub_fnfunction_name, stub_fngenerate_id, stub_fnhas_children, stub_fnid, stub_fnidref,
-    stub_fnimplicit_timezone, stub_fnin_scope_prefixes, stub_fninnermost, stub_fninsert_before,
-    stub_fniri_to_uri, stub_fnjson_doc, stub_fnjson_to_xml, stub_fnlang, stub_fnlast,
-    stub_fnload_xquery_module, stub_fnlocal_name, stub_fnlocal_name_from_qname, stub_fnlower_case,
-    stub_fnmatches, stub_fnmatches_re, stub_fnmax, stub_fnmin, stub_fnmonths_from_duration,
-    stub_fnname, stub_fnnamespace_uri, stub_fnnamespace_uri_for_prefix,
+    stub_fnanalyze_string, stub_fnapply, stub_fnavailable_environment_variables, stub_fnavg,
+    stub_fnbase_uri, stub_fnboolean, stub_fncodepoints_to_string, stub_fncollation_key,
+    stub_fncollection, stub_fnconcat, stub_fncontains_token, stub_fncount, stub_fncurrent_date,
+    stub_fncurrent_datetime, stub_fncurrent_time, stub_fndata, stub_fndatetime, stub_fndeep_equal,
+    stub_fndefault_collation, stub_fndefault_language, stub_fndoc, stub_fndoc_available,
+    stub_fndocument_uri, stub_fnelement_with_id, stub_fnencode_for_uri, stub_fnenvironment_variable,
+    stub_fnerror, stub_fnescape_html_uri, stub_fnfilter, stub_fnfold_left, stub_fnfold_right,
+    stub_fnfor_each, stub_fnfor_each_pair, stub_fnformat_date, stub_fnformat_datetime,
+    stub_fnformat_integer, stub_fnformat_number, stub_fnformat_time, stub_fnfunction_arity,
+    stub_fnfunction_lookup, stub_fnfunction_name, stub_fngenerate_id, stub_fnhas_children,
+    stub_fnid, stub_fnidref, stub_fnimplicit_timezone, stub_fnin_scope_prefixes, stub_fninnermost,
+    stub_fninsert_before, stub_fniri_to_uri, stub_fnjson_doc, stub_fnjson_to_xml, stub_fnlang,
+    stub_fnlast, stub_fnload_xquery_module, stub_fnlocal_name, stub_fnlocal_name_from_qname,
+    stub_fnlower_case, stub_fnmatches, stub_fnmatches_re, stub_fnmax, stub_fnmin,
+    stub_fnmonths_from_duration, stub_fnname, stub_fnnamespace_uri, stub_fnnamespace_uri_for_prefix,
     stub_fnnamespace_uri_from_qname, stub_fnnilled, stub_fnnode_name, stub_fnnormalize_space,
     stub_fnnormalize_unicode, stub_fnnumber, stub_fnoutermost, stub_fnparse_ietf_date,
     stub_fnparse_json, stub_fnparse_xml, stub_fnparse_xml_fragment, stub_fnpath, stub_fnposition,

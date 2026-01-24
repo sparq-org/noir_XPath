@@ -203,3 +203,49 @@ pub use crate::numeric_types::floor_float;
 
 // fn:floor (double)
 pub use crate::numeric_types::floor_double;
+
+// ============================================================================
+// Additional Sequence Functions
+// ============================================================================
+
+// fn:unordered
+pub use crate::sequence::unordered;
+
+// fn:remove
+pub use crate::sequence::remove;
+
+// fn:insert-before
+pub use crate::sequence::insert_before;
+
+// fn:sort (integer version)
+pub use crate::sequence::sort_int as sort;
+
+// fn:deep-equal (integer version)
+pub use crate::sequence::deep_equal_int as deep_equal;
+
+// ============================================================================
+// DateTime Construction
+// ============================================================================
+
+// fn:dateTime
+pub use crate::date::fn_dateTime as dateTime;
+
+// ============================================================================
+// Timezone Adjustment Functions
+// ============================================================================
+
+// fn:adjust-dateTime-to-timezone
+pub use crate::datetime::adjust_datetime_to_timezone as adjust_dateTime_to_timezone;
+
+// fn:adjust-date-to-timezone
+pub use crate::date::adjust_date_to_timezone as adjust_date_to_timezone;
+
+// fn:adjust-time-to-timezone
+pub use crate::time::adjust_time_to_timezone as adjust_time_to_timezone;
+
+// ============================================================================
+// Rounding Functions
+// ============================================================================
+
+// fn:round-half-to-even
+pub use crate::numeric::round_half_to_even_int as round_half_to_even;

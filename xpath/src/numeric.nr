@@ -124,3 +124,66 @@ pub fn max_int(a: i64, b: i64) -> i64 {
         b
     }
 }
+
+/// fn:round-half-to-even for integers with precision
+/// Rounds to the specified number of decimal places using banker's rounding.
+/// For integers, precision 0 returns the value unchanged.
+/// Negative precision rounds to powers of 10 (e.g., precision -1 rounds to nearest 10).
+/// Banker's rounding: if exactly halfway, round to nearest even number.
+pub fn round_half_to_even_int(value: i64, precision: i32) -> i64 {
+    if precision >= 0 {
+        // For integers with non-negative precision, no rounding needed
+        value
+    } else {
+        // Negative precision: round to power of 10
+        // precision = -1 means round to nearest 10
+        // precision = -2 means round to nearest 100, etc.
+        let scale = pow10(-precision as u32);
+        let half_scale = scale / 2;
+
+        // Get the remainder
+        let remainder = if value >= 0 {
+            value % scale
+        } else {
+            // For negative numbers, we need to handle differently
+            let abs_val = -value;
+            let abs_rem = abs_val % scale;
+            if abs_rem == 0 {
+                0
+            } else {
+                scale - abs_rem
+            }
+        };
+
+        // Calculate the rounded-down value
+        let rounded_down = value - remainder;
+
+        // Determine if we should round up
+        let should_round_up = if remainder > half_scale {
+            true
+        } else if remainder < half_scale {
+            false
+        } else {
+            // Exactly halfway - round to even
+            // Check if rounded_down / scale is odd
+            let quotient = rounded_down / scale;
+            let is_odd = (quotient % 2 != 0);
+            is_odd
+        };
+
+        if should_round_up {
+            rounded_down + scale
+        } else {
+            rounded_down
+        }
+    }
+}
+
+/// Helper function to compute 10^n for small n
+fn pow10(n: u32) -> i64 {
+    let mut result: i64 = 1;
+    for _i in 0..n {
+        result = result * 10;
+    }
+    result
+}
