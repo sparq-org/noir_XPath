@@ -11,7 +11,7 @@
 //! SPARQL hash functions return lowercase hexadecimal strings.
 //! This module provides both raw byte output and hex string conversion functions.
 
-use std::hash::sha256;
+use dep::sha256::sha256;
 
 // ============================================================================
 // SHA256 Hash Function (SPARQL 1.1)
@@ -56,8 +56,8 @@ fn byte_to_hex(b: u8) -> [u8; 2] {
         48, 49, 50, 51, 52, 53, 54, 55, // '0'-'7'
         56, 57, 97, 98, 99, 100, 101, 102, // '8'-'9', 'a'-'f'
     ];
-    let high = (b >> 4) & 0x0f;
-    let low = b & 0x0f;
+    let high: u32 = ((b >> 4) & 0x0f) as u32;
+    let low: u32 = (b & 0x0f) as u32;
     [hex_chars[high], hex_chars[low]]
 }
 
