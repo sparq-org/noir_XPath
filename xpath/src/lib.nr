@@ -40,6 +40,7 @@ mod numeric;
 mod numeric_types;
 mod datetime;
 mod duration;
+mod year_month_duration;
 mod date;
 mod time;
 mod sequence;
@@ -47,6 +48,7 @@ mod comparison;
 mod string;
 mod binary;
 mod gregorian;
+mod qname;
 mod stubs;
 
 // XPath namespace modules for deterministic name mapping
@@ -57,6 +59,18 @@ pub mod xpath_xs;
 
 // Re-export types
 pub use types::{XsdDate, XsdDateTime, XsdDayTimeDuration, XsdTime};
+
+// Re-export YearMonthDuration type and functions
+pub use year_month_duration::{
+    date_add_ym_duration, date_subtract_ym_duration, datetime_add_ym_duration,
+    datetime_subtract_ym_duration, months_from_duration, XsdYearMonthDuration, years_from_duration,
+    ym_duration_add, ym_duration_divide, ym_duration_divide_by_duration, ym_duration_equal,
+    ym_duration_ge, ym_duration_greater_than, ym_duration_le, ym_duration_less_than,
+    ym_duration_multiply, ym_duration_negate, ym_duration_subtract,
+};
+
+// Re-export QName type and functions
+pub use qname::{qname_equal, XsdQName};
 
 // Re-export Gregorian types
 pub use gregorian::{XsdGDay, XsdGMonth, XsdGMonthDay, XsdGYear, XsdGYearMonth};
@@ -149,9 +163,10 @@ pub use time::{
 // Re-export sequence/aggregate functions
 pub use sequence::{
     all_true, any_true, avg_int, avg_int_partial, count, count_true, deep_equal_int,
-    distinct_values, exactly_one, exists, head, index_of, insert_before, is_empty, max_int_partial,
-    max_int_seq, min_int_partial, min_int_seq, one_or_more, remove, reverse, sort_int, subsequence,
-    sum_int, sum_int_partial, tail, unordered, zero_or_one,
+    distinct_values, exactly_one, except_int, exists, head, index_of, insert_before, intersect_int,
+    is_empty, max_int_partial, max_int_seq, min_int_partial, min_int_seq, one_or_more, range_to,
+    remove, reverse, sort_int, subsequence, sum_int, sum_int_partial, tail, union_int, unordered,
+    zero_or_one,
 };
 
 // Re-export comparison functions

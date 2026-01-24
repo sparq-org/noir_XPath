@@ -332,3 +332,72 @@ pub use crate::gregorian::gyearmonth_equal as gYearMonth_equal;
 
 // op:gMonthDay-equal
 pub use crate::gregorian::gmonthday_equal as gMonthDay_equal;
+
+// ============================================================================
+// YearMonthDuration operators
+// ============================================================================
+
+// op:add-yearMonthDurations
+pub use crate::year_month_duration::ym_duration_add as add_yearMonthDurations;
+
+// op:subtract-yearMonthDurations
+pub use crate::year_month_duration::ym_duration_subtract as subtract_yearMonthDurations;
+
+// op:multiply-yearMonthDuration
+pub use crate::year_month_duration::ym_duration_multiply as multiply_yearMonthDuration;
+
+// op:divide-yearMonthDuration
+pub use crate::year_month_duration::ym_duration_divide as divide_yearMonthDuration;
+
+// op:divide-yearMonthDuration-by-yearMonthDuration
+pub use crate::year_month_duration::ym_duration_divide_by_duration as divide_yearMonthDuration_by_yearMonthDuration;
+
+// op:yearMonthDuration-equal
+pub use crate::year_month_duration::ym_duration_equal as yearMonthDuration_equal;
+
+// op:yearMonthDuration-less-than
+pub use crate::year_month_duration::ym_duration_less_than as yearMonthDuration_less_than;
+
+// op:yearMonthDuration-greater-than
+pub use crate::year_month_duration::ym_duration_greater_than as yearMonthDuration_greater_than;
+
+// op:yearMonthDuration-less-than-or-equal
+pub use crate::year_month_duration::ym_duration_le as yearMonthDuration_less_than_or_equal;
+
+// op:yearMonthDuration-greater-than-or-equal
+pub use crate::year_month_duration::ym_duration_ge as yearMonthDuration_greater_than_or_equal;
+
+// op:add-yearMonthDuration-to-dateTime
+pub use crate::year_month_duration::datetime_add_ym_duration as add_yearMonthDuration_to_dateTime;
+
+// op:subtract-yearMonthDuration-from-dateTime
+pub use crate::year_month_duration::datetime_subtract_ym_duration as subtract_yearMonthDuration_from_dateTime;
+
+// op:add-yearMonthDuration-to-date
+pub use crate::year_month_duration::date_add_ym_duration as add_yearMonthDuration_to_date;
+
+// op:subtract-yearMonthDuration-from-date
+pub use crate::year_month_duration::date_subtract_ym_duration as subtract_yearMonthDuration_from_date;
+
+// ============================================================================
+// Sequence set operators
+// ============================================================================
+
+// op:union
+pub use crate::sequence::union_int as union;
+
+// op:intersect
+pub use crate::sequence::intersect_int as intersect;
+
+// op:except
+pub use crate::sequence::except_int as except;
+
+// op:to (range operator)
+pub use crate::sequence::range_to as to;
+
+// ============================================================================
+// QName operators
+// ============================================================================
+
+// op:QName-equal
+pub use crate::qname::qname_equal as QName_equal;

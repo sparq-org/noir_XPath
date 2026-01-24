@@ -249,3 +249,13 @@ pub use crate::time::adjust_time_to_timezone as adjust_time_to_timezone;
 
 // fn:round-half-to-even
 pub use crate::numeric::round_half_to_even_int as round_half_to_even;
+
+// ============================================================================
+// YearMonthDuration Component Extraction
+// ============================================================================
+
+// fn:years-from-duration (for yearMonthDuration)
+pub use crate::year_month_duration::years_from_duration as years_from_duration;
+
+// fn:months-from-duration (for yearMonthDuration)
+pub use crate::year_month_duration::months_from_duration as months_from_duration;

@@ -414,6 +414,194 @@ pub fn deep_equal_int<let N: u32, let M: u32>(
 }
 
 // ============================================================================
+// Set Operations (op:union, op:intersect, op:except)
+// ============================================================================
+
+/// op:union - Returns the union of two sequences (distinct values from both)
+/// Result contains all distinct values from both sequences in order of first occurrence
+pub fn union_int<let N: u32, let M: u32, let R: u32>(
+    arr1: [i64; N],
+    len1: u32,
+    arr2: [i64; M],
+    len2: u32,
+) -> ([i64; R], u32)
+where
+    [i64; R]: std::default::Default,
+{
+    let mut result: [i64; R] = [0; R];
+    let mut result_len: u32 = 0;
+
+    // Add all distinct values from arr1
+    for i in 0..N {
+        if (i as u32) < len1 {
+            let val = arr1[i];
+            // Check if already in result
+            let mut found = false;
+            for j in 0..R {
+                if (j as u32) < result_len {
+                    if result[j] == val {
+                        found = true;
+                    }
+                }
+            }
+            if !found & (result_len < R) {
+                result[result_len] = val;
+                result_len += 1;
+            }
+        }
+    }
+
+    // Add distinct values from arr2 not already in result
+    for i in 0..M {
+        if (i as u32) < len2 {
+            let val = arr2[i];
+            // Check if already in result
+            let mut found = false;
+            for j in 0..R {
+                if (j as u32) < result_len {
+                    if result[j] == val {
+                        found = true;
+                    }
+                }
+            }
+            if !found & (result_len < R) {
+                result[result_len] = val;
+                result_len += 1;
+            }
+        }
+    }
+
+    (result, result_len)
+}
+
+/// op:intersect - Returns the intersection of two sequences
+/// Result contains values that appear in both sequences (distinct)
+pub fn intersect_int<let N: u32, let M: u32, let R: u32>(
+    arr1: [i64; N],
+    len1: u32,
+    arr2: [i64; M],
+    len2: u32,
+) -> ([i64; R], u32)
+where
+    [i64; R]: std::default::Default,
+{
+    let mut result: [i64; R] = [0; R];
+    let mut result_len: u32 = 0;
+
+    // For each value in arr1, check if it's in arr2 and not already in result
+    for i in 0..N {
+        if (i as u32) < len1 {
+            let val = arr1[i];
+
+            // Check if val is in arr2
+            let mut in_arr2 = false;
+            for j in 0..M {
+                if (j as u32) < len2 {
+                    if arr2[j] == val {
+                        in_arr2 = true;
+                    }
+                }
+            }
+
+            // Check if already in result
+            let mut in_result = false;
+            for k in 0..R {
+                if (k as u32) < result_len {
+                    if result[k] == val {
+                        in_result = true;
+                    }
+                }
+            }
+
+            if in_arr2 & !in_result & (result_len < R) {
+                result[result_len] = val;
+                result_len += 1;
+            }
+        }
+    }
+
+    (result, result_len)
+}
+
+/// op:except - Returns the difference of two sequences (values in first but not in second)
+/// Result contains distinct values from arr1 that are not in arr2
+pub fn except_int<let N: u32, let M: u32, let R: u32>(
+    arr1: [i64; N],
+    len1: u32,
+    arr2: [i64; M],
+    len2: u32,
+) -> ([i64; R], u32)
+where
+    [i64; R]: std::default::Default,
+{
+    let mut result: [i64; R] = [0; R];
+    let mut result_len: u32 = 0;
+
+    // For each value in arr1, check if it's NOT in arr2 and not already in result
+    for i in 0..N {
+        if (i as u32) < len1 {
+            let val = arr1[i];
+
+            // Check if val is in arr2
+            let mut in_arr2 = false;
+            for j in 0..M {
+                if (j as u32) < len2 {
+                    if arr2[j] == val {
+                        in_arr2 = true;
+                    }
+                }
+            }
+
+            // Check if already in result
+            let mut in_result = false;
+            for k in 0..R {
+                if (k as u32) < result_len {
+                    if result[k] == val {
+                        in_result = true;
+                    }
+                }
+            }
+
+            if !in_arr2 & !in_result & (result_len < R) {
+                result[result_len] = val;
+                result_len += 1;
+            }
+        }
+    }
+
+    (result, result_len)
+}
+
+// ============================================================================
+// Range Operator (op:to)
+// ============================================================================
+
+/// op:to - Generates a sequence of integers from start to end (inclusive)
+/// Returns (result_array, length)
+/// If start > end, returns an empty sequence
+pub fn range_to<let N: u32>(start: i64, end: i64) -> ([i64; N], u32)
+where
+    [i64; N]: std::default::Default,
+{
+    let mut result: [i64; N] = [0; N];
+    let mut result_len: u32 = 0;
+
+    if start <= end {
+        let count = (end - start + 1) as u32;
+        let actual_len = if count > N { N } else { count };
+
+        for i in 0..N {
+            if (i as u32) < actual_len {
+                result[i] = start + (i as i64);
+            }
+        }
+        result_len = actual_len;
+    }
+
+    (result, result_len)
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
