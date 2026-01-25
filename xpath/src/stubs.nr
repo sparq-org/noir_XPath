@@ -559,13 +559,6 @@ pub fn stub_fnnormalize_unicode() -> bool {
     false
 }
 
-/// fn:parse-ietf-date - CANNOT IMPLEMENT (complex date format parsing)
-/// Parses dates in IETF RFC 2822/RFC 5322 format.
-pub fn stub_fnparse_ietf_date() -> bool {
-    assert(false, "fn:parse-ietf-date - IETF date format parsing not implemented");
-    false
-}
-
 /// fn:parse-json - PARTIAL IMPLEMENTATION
 /// JSON parsing is available via JSON512b::parse_json_from_string() and similar type aliases.
 /// This stub exists for XPath conformance tests that require the exact fn:parse-json signature.
@@ -1236,5 +1229,749 @@ pub fn stub_prodwhereclause() -> bool {
 /// prod:WindowClause - FLWOR window clause (XQuery)
 pub fn stub_prodwindowclause() -> bool {
     assert(false, "prod:WindowClause is XQuery FLWOR-specific");
+    false
+}
+
+// ============================================================================
+// AUTO-GENERATED STUBS: Additional stubs needed by test packages
+// ============================================================================
+// These stubs were auto-generated because test packages reference them.
+// Feel free to add documentation explaining why each cannot be implemented.
+
+/// fn:QName - stub for unimplemented fn function
+pub fn stub_fnqname() -> bool {
+    assert(false, "fn:QName is not yet implemented");
+    false
+}
+
+/// fn:adjust-date-to-timezone - stub for unimplemented fn function
+pub fn stub_fnadjust_date_to_timezone() -> bool {
+    assert(false, "fn:adjust-date-to-timezone is not yet implemented");
+    false
+}
+
+/// fn:adjust-dateTime-to-timezone - stub for unimplemented fn function
+pub fn stub_fnadjust_datetime_to_timezone() -> bool {
+    assert(false, "fn:adjust-dateTime-to-timezone is not yet implemented");
+    false
+}
+
+/// fn:adjust-time-to-timezone - stub for unimplemented fn function
+pub fn stub_fnadjust_time_to_timezone() -> bool {
+    assert(false, "fn:adjust-time-to-timezone is not yet implemented");
+    false
+}
+
+/// fn:avg - stub for unimplemented fn function
+pub fn stub_fnavg() -> bool {
+    assert(false, "fn:avg is not yet implemented");
+    false
+}
+
+/// fn:boolean - stub for unimplemented fn function
+pub fn stub_fnboolean() -> bool {
+    assert(false, "fn:boolean is not yet implemented");
+    false
+}
+
+/// fn:codepoint-equal - stub for unimplemented fn function
+pub fn stub_fncodepoint_equal() -> bool {
+    assert(false, "fn:codepoint-equal is not yet implemented");
+    false
+}
+
+/// fn:codepoints-to-string - stub for unimplemented fn function
+pub fn stub_fncodepoints_to_string() -> bool {
+    assert(false, "fn:codepoints-to-string is not yet implemented");
+    false
+}
+
+/// fn:compare - stub for unimplemented fn function
+pub fn stub_fncompare() -> bool {
+    assert(false, "fn:compare is not yet implemented");
+    false
+}
+
+/// fn:concat - stub for unimplemented fn function
+pub fn stub_fnconcat() -> bool {
+    assert(false, "fn:concat is not yet implemented");
+    false
+}
+
+/// fn:contains-token - stub for unimplemented fn function
+pub fn stub_fncontains_token() -> bool {
+    assert(false, "fn:contains-token is not yet implemented");
+    false
+}
+
+/// fn:count - stub for unimplemented fn function
+pub fn stub_fncount() -> bool {
+    assert(false, "fn:count is not yet implemented");
+    false
+}
+
+/// fn:data - stub for unimplemented fn function
+pub fn stub_fndata() -> bool {
+    assert(false, "fn:data is not yet implemented");
+    false
+}
+
+/// fn:dateTime - stub for unimplemented fn function
+pub fn stub_fndatetime() -> bool {
+    assert(false, "fn:dateTime is not yet implemented");
+    false
+}
+
+/// fn:day-from-date - stub for unimplemented fn function
+pub fn stub_fnday_from_date() -> bool {
+    assert(false, "fn:day-from-date is not yet implemented");
+    false
+}
+
+/// fn:deep-equal - stub for unimplemented fn function
+pub fn stub_fndeep_equal() -> bool {
+    assert(false, "fn:deep-equal is not yet implemented");
+    false
+}
+
+/// fn:default-collation - stub for unimplemented fn function
+pub fn stub_fndefault_collation() -> bool {
+    assert(false, "fn:default-collation is not yet implemented");
+    false
+}
+
+/// fn:default-language - stub for unimplemented fn function
+pub fn stub_fndefault_language() -> bool {
+    assert(false, "fn:default-language is not yet implemented");
+    false
+}
+
+/// fn:distinct-values - stub for unimplemented fn function
+pub fn stub_fndistinct_values() -> bool {
+    assert(false, "fn:distinct-values is not yet implemented");
+    false
+}
+
+/// fn:empty - stub for unimplemented fn function
+pub fn stub_fnempty() -> bool {
+    assert(false, "fn:empty is not yet implemented");
+    false
+}
+
+/// fn:encode-for-uri - stub for unimplemented fn function
+pub fn stub_fnencode_for_uri() -> bool {
+    assert(false, "fn:encode-for-uri is not yet implemented");
+    false
+}
+
+/// fn:error - stub for unimplemented fn function
+pub fn stub_fnerror() -> bool {
+    assert(false, "fn:error is not yet implemented");
+    false
+}
+
+/// fn:escape-html-uri - stub for unimplemented fn function
+pub fn stub_fnescape_html_uri() -> bool {
+    assert(false, "fn:escape-html-uri is not yet implemented");
+    false
+}
+
+/// fn:exactly-one - stub for unimplemented fn function
+pub fn stub_fnexactly_one() -> bool {
+    assert(false, "fn:exactly-one is not yet implemented");
+    false
+}
+
+/// fn:exists - stub for unimplemented fn function
+pub fn stub_fnexists() -> bool {
+    assert(false, "fn:exists is not yet implemented");
+    false
+}
+
+/// fn:false - stub for unimplemented fn function
+pub fn stub_fnfalse() -> bool {
+    assert(false, "fn:false is not yet implemented");
+    false
+}
+
+/// fn:head - stub for unimplemented fn function
+pub fn stub_fnhead() -> bool {
+    assert(false, "fn:head is not yet implemented");
+    false
+}
+
+/// fn:hours-from-time - stub for unimplemented fn function
+pub fn stub_fnhours_from_time() -> bool {
+    assert(false, "fn:hours-from-time is not yet implemented");
+    false
+}
+
+/// fn:implicit-timezone - stub for unimplemented fn function
+pub fn stub_fnimplicit_timezone() -> bool {
+    assert(false, "fn:implicit-timezone is not yet implemented");
+    false
+}
+
+/// fn:index-of - stub for unimplemented fn function
+pub fn stub_fnindex_of() -> bool {
+    assert(false, "fn:index-of is not yet implemented");
+    false
+}
+
+/// fn:insert-before - stub for unimplemented fn function
+pub fn stub_fninsert_before() -> bool {
+    assert(false, "fn:insert-before is not yet implemented");
+    false
+}
+
+/// fn:iri-to-uri - stub for unimplemented fn function
+pub fn stub_fniri_to_uri() -> bool {
+    assert(false, "fn:iri-to-uri is not yet implemented");
+    false
+}
+
+/// fn:last - stub for unimplemented fn function
+pub fn stub_fnlast() -> bool {
+    assert(false, "fn:last is not yet implemented");
+    false
+}
+
+/// fn:local-name-from-QName - stub for unimplemented fn function
+pub fn stub_fnlocal_name_from_qname() -> bool {
+    assert(false, "fn:local-name-from-QName is not yet implemented");
+    false
+}
+
+/// fn:lower-case - stub for unimplemented fn function
+pub fn stub_fnlower_case() -> bool {
+    assert(false, "fn:lower-case is not yet implemented");
+    false
+}
+
+/// fn:max - stub for unimplemented fn function
+pub fn stub_fnmax() -> bool {
+    assert(false, "fn:max is not yet implemented");
+    false
+}
+
+/// fn:min - stub for unimplemented fn function
+pub fn stub_fnmin() -> bool {
+    assert(false, "fn:min is not yet implemented");
+    false
+}
+
+/// fn:minutes-from-time - stub for unimplemented fn function
+pub fn stub_fnminutes_from_time() -> bool {
+    assert(false, "fn:minutes-from-time is not yet implemented");
+    false
+}
+
+/// fn:month-from-date - stub for unimplemented fn function
+pub fn stub_fnmonth_from_date() -> bool {
+    assert(false, "fn:month-from-date is not yet implemented");
+    false
+}
+
+/// fn:months-from-duration - stub for unimplemented fn function
+pub fn stub_fnmonths_from_duration() -> bool {
+    assert(false, "fn:months-from-duration is not yet implemented");
+    false
+}
+
+/// fn:namespace-uri-from-QName - stub for unimplemented fn function
+pub fn stub_fnnamespace_uri_from_qname() -> bool {
+    assert(false, "fn:namespace-uri-from-QName is not yet implemented");
+    false
+}
+
+/// fn:normalize-space - stub for unimplemented fn function
+pub fn stub_fnnormalize_space() -> bool {
+    assert(false, "fn:normalize-space is not yet implemented");
+    false
+}
+
+/// fn:number - stub for unimplemented fn function
+pub fn stub_fnnumber() -> bool {
+    assert(false, "fn:number is not yet implemented");
+    false
+}
+
+/// fn:one-or-more - stub for unimplemented fn function
+pub fn stub_fnone_or_more() -> bool {
+    assert(false, "fn:one-or-more is not yet implemented");
+    false
+}
+
+/// fn:position - stub for unimplemented fn function
+pub fn stub_fnposition() -> bool {
+    assert(false, "fn:position is not yet implemented");
+    false
+}
+
+/// fn:prefix-from-QName - stub for unimplemented fn function
+pub fn stub_fnprefix_from_qname() -> bool {
+    assert(false, "fn:prefix-from-QName is not yet implemented");
+    false
+}
+
+/// fn:remove - stub for unimplemented fn function
+pub fn stub_fnremove() -> bool {
+    assert(false, "fn:remove is not yet implemented");
+    false
+}
+
+/// fn:reverse - stub for unimplemented fn function
+pub fn stub_fnreverse() -> bool {
+    assert(false, "fn:reverse is not yet implemented");
+    false
+}
+
+/// fn:round-half-to-even - stub for unimplemented fn function
+pub fn stub_fnround_half_to_even() -> bool {
+    assert(false, "fn:round-half-to-even is not yet implemented");
+    false
+}
+
+/// fn:seconds-from-time - stub for unimplemented fn function
+pub fn stub_fnseconds_from_time() -> bool {
+    assert(false, "fn:seconds-from-time is not yet implemented");
+    false
+}
+
+/// fn:sort - stub for unimplemented fn function
+pub fn stub_fnsort() -> bool {
+    assert(false, "fn:sort is not yet implemented");
+    false
+}
+
+/// fn:string - stub for unimplemented fn function
+pub fn stub_fnstring() -> bool {
+    assert(false, "fn:string is not yet implemented");
+    false
+}
+
+/// fn:string-join - stub for unimplemented fn function
+pub fn stub_fnstring_join() -> bool {
+    assert(false, "fn:string-join is not yet implemented");
+    false
+}
+
+/// fn:string-to-codepoints - stub for unimplemented fn function
+pub fn stub_fnstring_to_codepoints() -> bool {
+    assert(false, "fn:string-to-codepoints is not yet implemented");
+    false
+}
+
+/// fn:subsequence - stub for unimplemented fn function
+pub fn stub_fnsubsequence() -> bool {
+    assert(false, "fn:subsequence is not yet implemented");
+    false
+}
+
+/// fn:substring - stub for unimplemented fn function
+pub fn stub_fnsubstring() -> bool {
+    assert(false, "fn:substring is not yet implemented");
+    false
+}
+
+/// fn:substring-after - stub for unimplemented fn function
+pub fn stub_fnsubstring_after() -> bool {
+    assert(false, "fn:substring-after is not yet implemented");
+    false
+}
+
+/// fn:substring-before - stub for unimplemented fn function
+pub fn stub_fnsubstring_before() -> bool {
+    assert(false, "fn:substring-before is not yet implemented");
+    false
+}
+
+/// fn:sum - stub for unimplemented fn function
+pub fn stub_fnsum() -> bool {
+    assert(false, "fn:sum is not yet implemented");
+    false
+}
+
+/// fn:tail - stub for unimplemented fn function
+pub fn stub_fntail() -> bool {
+    assert(false, "fn:tail is not yet implemented");
+    false
+}
+
+/// fn:timezone-from-date - stub for unimplemented fn function
+pub fn stub_fntimezone_from_date() -> bool {
+    assert(false, "fn:timezone-from-date is not yet implemented");
+    false
+}
+
+/// fn:timezone-from-time - stub for unimplemented fn function
+pub fn stub_fntimezone_from_time() -> bool {
+    assert(false, "fn:timezone-from-time is not yet implemented");
+    false
+}
+
+/// fn:tokenize - stub for unimplemented fn function
+pub fn stub_fntokenize() -> bool {
+    assert(false, "fn:tokenize is not yet implemented");
+    false
+}
+
+/// fn:trace - stub for unimplemented fn function
+pub fn stub_fntrace() -> bool {
+    assert(false, "fn:trace is not yet implemented");
+    false
+}
+
+/// fn:translate - stub for unimplemented fn function
+pub fn stub_fntranslate() -> bool {
+    assert(false, "fn:translate is not yet implemented");
+    false
+}
+
+/// fn:true - stub for unimplemented fn function
+pub fn stub_fntrue() -> bool {
+    assert(false, "fn:true is not yet implemented");
+    false
+}
+
+/// fn:unordered - stub for unimplemented fn function
+pub fn stub_fnunordered() -> bool {
+    assert(false, "fn:unordered is not yet implemented");
+    false
+}
+
+/// fn:upper-case - stub for unimplemented fn function
+pub fn stub_fnupper_case() -> bool {
+    assert(false, "fn:upper-case is not yet implemented");
+    false
+}
+
+/// fn:year-from-date - stub for unimplemented fn function
+pub fn stub_fnyear_from_date() -> bool {
+    assert(false, "fn:year-from-date is not yet implemented");
+    false
+}
+
+/// fn:years-from-duration - stub for unimplemented fn function
+pub fn stub_fnyears_from_duration() -> bool {
+    assert(false, "fn:years-from-duration is not yet implemented");
+    false
+}
+
+/// fn:zero-or-one - stub for unimplemented fn function
+pub fn stub_fnzero_or_one() -> bool {
+    assert(false, "fn:zero-or-one is not yet implemented");
+    false
+}
+
+/// op:QName-equal - stub for unimplemented operator
+pub fn stub_opqname_equal() -> bool {
+    assert(false, "op:QName-equal is not yet implemented");
+    false
+}
+
+/// op:add-dayTimeDuration-to-date - stub for unimplemented operator
+pub fn stub_opadd_daytimeduration_to_date() -> bool {
+    assert(false, "op:add-dayTimeDuration-to-date is not yet implemented");
+    false
+}
+
+/// op:add-dayTimeDuration-to-time - stub for unimplemented operator
+pub fn stub_opadd_daytimeduration_to_time() -> bool {
+    assert(false, "op:add-dayTimeDuration-to-time is not yet implemented");
+    false
+}
+
+/// op:add-yearMonthDuration-to-date - stub for unimplemented operator
+pub fn stub_opadd_yearmonthduration_to_date() -> bool {
+    assert(false, "op:add-yearMonthDuration-to-date is not yet implemented");
+    false
+}
+
+/// op:add-yearMonthDuration-to-dateTime - stub for unimplemented operator
+pub fn stub_opadd_yearmonthduration_to_datetime() -> bool {
+    assert(false, "op:add-yearMonthDuration-to-dateTime is not yet implemented");
+    false
+}
+
+/// op:add-yearMonthDurations - stub for unimplemented operator
+pub fn stub_opadd_yearmonthdurations() -> bool {
+    assert(false, "op:add-yearMonthDurations is not yet implemented");
+    false
+}
+
+/// op:anyURI-equal - stub for unimplemented operator
+pub fn stub_opanyuri_equal() -> bool {
+    assert(false, "op:anyURI-equal is not yet implemented");
+    false
+}
+
+/// op:anyURI-greater-than - stub for unimplemented operator
+pub fn stub_opanyuri_greater_than() -> bool {
+    assert(false, "op:anyURI-greater-than is not yet implemented");
+    false
+}
+
+/// op:anyURI-less-than - stub for unimplemented operator
+pub fn stub_opanyuri_less_than() -> bool {
+    assert(false, "op:anyURI-less-than is not yet implemented");
+    false
+}
+
+/// op:base64Binary-equal - stub for unimplemented operator
+pub fn stub_opbase64binary_equal() -> bool {
+    assert(false, "op:base64Binary-equal is not yet implemented");
+    false
+}
+
+/// op:base64Binary-greater-than - stub for unimplemented operator
+pub fn stub_opbase64binary_greater_than() -> bool {
+    assert(false, "op:base64Binary-greater-than is not yet implemented");
+    false
+}
+
+/// op:base64Binary-less-than - stub for unimplemented operator
+pub fn stub_opbase64binary_less_than() -> bool {
+    assert(false, "op:base64Binary-less-than is not yet implemented");
+    false
+}
+
+/// op:concatenate - stub for unimplemented operator
+pub fn stub_opconcatenate() -> bool {
+    assert(false, "op:concatenate is not yet implemented");
+    false
+}
+
+/// op:date-equal - stub for unimplemented operator
+pub fn stub_opdate_equal() -> bool {
+    assert(false, "op:date-equal is not yet implemented");
+    false
+}
+
+/// op:date-greater-than - stub for unimplemented operator
+pub fn stub_opdate_greater_than() -> bool {
+    assert(false, "op:date-greater-than is not yet implemented");
+    false
+}
+
+/// op:date-less-than - stub for unimplemented operator
+pub fn stub_opdate_less_than() -> bool {
+    assert(false, "op:date-less-than is not yet implemented");
+    false
+}
+
+/// op:divide-dayTimeDuration - stub for unimplemented operator
+pub fn stub_opdivide_daytimeduration() -> bool {
+    assert(false, "op:divide-dayTimeDuration is not yet implemented");
+    false
+}
+
+/// op:divide-dayTimeDuration-by-dayTimeDuration - stub for unimplemented operator
+pub fn stub_opdivide_daytimeduration_by_daytimeduration() -> bool {
+    assert(false, "op:divide-dayTimeDuration-by-dayTimeDuration is not yet implemented");
+    false
+}
+
+/// op:divide-yearMonthDuration - stub for unimplemented operator
+pub fn stub_opdivide_yearmonthduration() -> bool {
+    assert(false, "op:divide-yearMonthDuration is not yet implemented");
+    false
+}
+
+/// op:divide-yearMonthDuration-by-yearMonthDuration - stub for unimplemented operator
+pub fn stub_opdivide_yearmonthduration_by_yearmonthduration() -> bool {
+    assert(false, "op:divide-yearMonthDuration-by-yearMonthDuration is not yet implemented");
+    false
+}
+
+/// op:duration-equal - stub for unimplemented operator
+pub fn stub_opduration_equal() -> bool {
+    assert(false, "op:duration-equal is not yet implemented");
+    false
+}
+
+/// op:except - stub for unimplemented operator
+pub fn stub_opexcept() -> bool {
+    assert(false, "op:except is not yet implemented");
+    false
+}
+
+/// op:gDay-equal - stub for unimplemented operator
+pub fn stub_opgday_equal() -> bool {
+    assert(false, "op:gDay-equal is not yet implemented");
+    false
+}
+
+/// op:gMonth-equal - stub for unimplemented operator
+pub fn stub_opgmonth_equal() -> bool {
+    assert(false, "op:gMonth-equal is not yet implemented");
+    false
+}
+
+/// op:gMonthDay-equal - stub for unimplemented operator
+pub fn stub_opgmonthday_equal() -> bool {
+    assert(false, "op:gMonthDay-equal is not yet implemented");
+    false
+}
+
+/// op:gYear-equal - stub for unimplemented operator
+pub fn stub_opgyear_equal() -> bool {
+    assert(false, "op:gYear-equal is not yet implemented");
+    false
+}
+
+/// op:gYearMonth-equal - stub for unimplemented operator
+pub fn stub_opgyearmonth_equal() -> bool {
+    assert(false, "op:gYearMonth-equal is not yet implemented");
+    false
+}
+
+/// op:hexBinary-equal - stub for unimplemented operator
+pub fn stub_ophexbinary_equal() -> bool {
+    assert(false, "op:hexBinary-equal is not yet implemented");
+    false
+}
+
+/// op:hexBinary-greater-than - stub for unimplemented operator
+pub fn stub_ophexbinary_greater_than() -> bool {
+    assert(false, "op:hexBinary-greater-than is not yet implemented");
+    false
+}
+
+/// op:hexBinary-less-than - stub for unimplemented operator
+pub fn stub_ophexbinary_less_than() -> bool {
+    assert(false, "op:hexBinary-less-than is not yet implemented");
+    false
+}
+
+/// op:intersect - stub for unimplemented operator
+pub fn stub_opintersect() -> bool {
+    assert(false, "op:intersect is not yet implemented");
+    false
+}
+
+/// op:multiply-dayTimeDuration - stub for unimplemented operator
+pub fn stub_opmultiply_daytimeduration() -> bool {
+    assert(false, "op:multiply-dayTimeDuration is not yet implemented");
+    false
+}
+
+/// op:multiply-yearMonthDuration - stub for unimplemented operator
+pub fn stub_opmultiply_yearmonthduration() -> bool {
+    assert(false, "op:multiply-yearMonthDuration is not yet implemented");
+    false
+}
+
+/// op:string-equal - stub for unimplemented operator
+pub fn stub_opstring_equal() -> bool {
+    assert(false, "op:string-equal is not yet implemented");
+    false
+}
+
+/// op:string-greater-than - stub for unimplemented operator
+pub fn stub_opstring_greater_than() -> bool {
+    assert(false, "op:string-greater-than is not yet implemented");
+    false
+}
+
+/// op:string-less-than - stub for unimplemented operator
+pub fn stub_opstring_less_than() -> bool {
+    assert(false, "op:string-less-than is not yet implemented");
+    false
+}
+
+/// op:subtract-dates - stub for unimplemented operator
+pub fn stub_opsubtract_dates() -> bool {
+    assert(false, "op:subtract-dates is not yet implemented");
+    false
+}
+
+/// op:subtract-dayTimeDuration-from-date - stub for unimplemented operator
+pub fn stub_opsubtract_daytimeduration_from_date() -> bool {
+    assert(false, "op:subtract-dayTimeDuration-from-date is not yet implemented");
+    false
+}
+
+/// op:subtract-dayTimeDuration-from-time - stub for unimplemented operator
+pub fn stub_opsubtract_daytimeduration_from_time() -> bool {
+    assert(false, "op:subtract-dayTimeDuration-from-time is not yet implemented");
+    false
+}
+
+/// op:subtract-times - stub for unimplemented operator
+pub fn stub_opsubtract_times() -> bool {
+    assert(false, "op:subtract-times is not yet implemented");
+    false
+}
+
+/// op:subtract-yearMonthDuration-from-date - stub for unimplemented operator
+pub fn stub_opsubtract_yearmonthduration_from_date() -> bool {
+    assert(false, "op:subtract-yearMonthDuration-from-date is not yet implemented");
+    false
+}
+
+/// op:subtract-yearMonthDuration-from-dateTime - stub for unimplemented operator
+pub fn stub_opsubtract_yearmonthduration_from_datetime() -> bool {
+    assert(false, "op:subtract-yearMonthDuration-from-dateTime is not yet implemented");
+    false
+}
+
+/// op:subtract-yearMonthDurations - stub for unimplemented operator
+pub fn stub_opsubtract_yearmonthdurations() -> bool {
+    assert(false, "op:subtract-yearMonthDurations is not yet implemented");
+    false
+}
+
+/// op:time-equal - stub for unimplemented operator
+pub fn stub_optime_equal() -> bool {
+    assert(false, "op:time-equal is not yet implemented");
+    false
+}
+
+/// op:time-greater-than - stub for unimplemented operator
+pub fn stub_optime_greater_than() -> bool {
+    assert(false, "op:time-greater-than is not yet implemented");
+    false
+}
+
+/// op:time-less-than - stub for unimplemented operator
+pub fn stub_optime_less_than() -> bool {
+    assert(false, "op:time-less-than is not yet implemented");
+    false
+}
+
+/// op:to - stub for unimplemented operator
+pub fn stub_opto() -> bool {
+    assert(false, "op:to is not yet implemented");
+    false
+}
+
+/// op:union - stub for unimplemented operator
+pub fn stub_opunion() -> bool {
+    assert(false, "op:union is not yet implemented");
+    false
+}
+
+/// op:yearMonthDuration-greater-than - stub for unimplemented operator
+pub fn stub_opyearmonthduration_greater_than() -> bool {
+    assert(false, "op:yearMonthDuration-greater-than is not yet implemented");
+    false
+}
+
+/// op:yearMonthDuration-less-than - stub for unimplemented operator
+pub fn stub_opyearmonthduration_less_than() -> bool {
+    assert(false, "op:yearMonthDuration-less-than is not yet implemented");
+    false
+}
+
+// ============================================================================
+// AUTO-GENERATED STUBS: Additional stubs needed by test packages
+// ============================================================================
+// These stubs were auto-generated because test packages reference them.
+// Feel free to add documentation explaining why each cannot be implemented.
+
+/// fn:parse-ietf-date - stub for unimplemented fn function
+pub fn stub_fnparse_ietf_date() -> bool {
+    assert(false, "fn:parse-ietf-date is not yet implemented");
     false
 }
