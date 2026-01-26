@@ -72,6 +72,93 @@ impl Eq for XsdYearMonthDuration {
 }
 
 // ============================================================================
+// String Conversion Functions
+// ============================================================================
+
+/// fn:string for yearMonthDuration - Converts to lexical representation
+/// XPath: fn:string($arg as xs:yearMonthDuration) as xs:string
+/// Format: [-]P[nY][nM] (e.g., "P1Y2M", "-P6M", "P0M")
+/// Returns (bytes, length) where bytes contains ASCII representation
+pub fn fn_string_from_ym_duration<let N: u32>(dur: XsdYearMonthDuration) -> ([u8; N], u32) {
+    let mut result: [u8; N] = [0; N];
+    let mut pos: u32 = 0;
+
+    let negative = dur.total_months < 0;
+    let abs_months = dur.abs_months();
+    let years = abs_months / 12;
+    let months = abs_months % 12;
+
+    // Add '-' if negative
+    if negative & (pos < N) {
+        result[pos] = 0x2D; // '-'
+        pos += 1;
+    }
+
+    // Add 'P'
+    if pos < N {
+        result[pos] = 0x50; // 'P'
+        pos += 1;
+    }
+
+    // Helper to write an unsigned integer
+    // Returns the number of digits written
+    let write_uint = |buf: &mut [u8; N], start: u32, val: u32| -> u32 {
+        if val == 0 {
+            if start < N {
+                buf[start] = 0x30; // '0'
+            }
+            1
+        } else {
+            // Count digits
+            let mut temp_val = val;
+            let mut digit_count: u32 = 0;
+            for _ in 0..10 {
+                if temp_val > 0 {
+                    digit_count += 1;
+                    temp_val = temp_val / 10;
+                }
+            }
+
+            // Write digits in reverse
+            let mut write_pos = start + digit_count;
+            let mut v = val;
+            for _ in 0..10 {
+                if v > 0 {
+                    write_pos -= 1;
+                    if write_pos < N {
+                        buf[write_pos] = 0x30 + (v % 10) as u8; // '0' + digit
+                    }
+                    v = v / 10;
+                }
+            }
+            digit_count
+        }
+    };
+
+    // Add years component if non-zero
+    if years > 0 {
+        let digits = write_uint(&mut result, pos, years);
+        pos += digits;
+        if pos < N {
+            result[pos] = 0x59; // 'Y'
+            pos += 1;
+        }
+    }
+
+    // Add months component (always include if years is 0, to ensure at least "P0M")
+    if (months > 0) | (years == 0) {
+        let digits = write_uint(&mut result, pos, months);
+        pos += digits;
+        if pos < N {
+            result[pos] = 0x4D; // 'M'
+            pos += 1;
+        }
+    }
+
+    (result, pos)
+}
+
+// ============================================================================
 // Component Extraction Functions
 // ============================================================================
 
@@ -370,4 +457,79 @@ fn test_date_ym_duration_arithmetic() {
     assert(year_from_date(d_minus) == 1998);
     assert(month_from_date(d_minus) == 12);
     assert(day_from_date(d_minus) == 31);
+}
+
+#[test]
+fn test_fn_string_from_ym_duration() {
+    // P1Y2M (14 months)
+    let dur1 = XsdYearMonthDuration::new(14);
+    let (bytes1, len1): ([u8; 5], u32) = fn_string_from_ym_duration(dur1);
+    let expected1 = "P1Y2M".as_bytes();
+    assert(len1 == 5);
+    for i in 0..5 {
+        assert(bytes1[i] == expected1[i]);
+    }
+
+    // P0M (0 months)
+    let dur2 = XsdYearMonthDuration::new(0);
+    let (bytes2, len2): ([u8; 3], u32) = fn_string_from_ym_duration(dur2);
+    let expected2 = "P0M".as_bytes();
+    assert(len2 == 3);
+    for i in 0..3 {
+        assert(bytes2[i] == expected2[i]);
+    }
+
+    // P6M (6 months, no years)
+    let dur3 = XsdYearMonthDuration::new(6);
+    let (bytes3, len3): ([u8; 3], u32) = fn_string_from_ym_duration(dur3);
+    let expected3 = "P6M".as_bytes();
+    assert(len3 == 3);
+    for i in 0..3 {
+        assert(bytes3[i] == expected3[i]);
+    }
+
+    // P2Y (24 months, no extra months)
+    let dur4 = XsdYearMonthDuration::new(24);
+    let (bytes4, len4): ([u8; 3], u32) = fn_string_from_ym_duration(dur4);
+    let expected4 = "P2Y".as_bytes();
+    assert(len4 == 3);
+    for i in 0..3 {
+        assert(bytes4[i] == expected4[i]);
+    }
+
+    // -P1Y2M (negative 14 months)
+    let dur5 = XsdYearMonthDuration::new(-14);
+    let (bytes5, len5): ([u8; 6], u32) = fn_string_from_ym_duration(dur5);
+    let expected5 = "-P1Y2M".as_bytes();
+    assert(len5 == 6);
+    for i in 0..6 {
+        assert(bytes5[i] == expected5[i]);
+    }
+
+    // -P6M (negative 6 months)
+    let dur6 = XsdYearMonthDuration::new(-6);
+    let (bytes6, len6): ([u8; 4], u32) = fn_string_from_ym_duration(dur6);
+    let expected6 = "-P6M".as_bytes();
+    assert(len6 == 4);
+    for i in 0..4 {
+        assert(bytes6[i] == expected6[i]);
+    }
+
+    // P10Y (120 months)
+    let dur7 = XsdYearMonthDuration::new(120);
+    let (bytes7, len7): ([u8; 4], u32) = fn_string_from_ym_duration(dur7);
+    let expected7 = "P10Y".as_bytes();
+    assert(len7 == 4);
+    for i in 0..4 {
+        assert(bytes7[i] == expected7[i]);
+    }
+
+    // P10Y11M (131 months)
+    let dur8 = XsdYearMonthDuration::new(131);
+    let (bytes8, len8): ([u8; 7], u32) = fn_string_from_ym_duration(dur8);
+    let expected8 = "P10Y11M".as_bytes();
+    assert(len8 == 7);
+    for i in 0..7 {
+        assert(bytes8[i] == expected8[i]);
+    }
 }

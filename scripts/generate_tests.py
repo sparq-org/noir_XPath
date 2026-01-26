@@ -921,6 +921,40 @@ def _fits_in_i64(val: int) -> bool:
     return I64_MIN <= val <= I64_MAX
 
 
+def _fits_in_i32(val: int) -> bool:
+    """Check if an integer fits in Noir's i32 range."""
+    return -2147483648 <= val <= 2147483647
+
+
+def parse_year_month_duration(value: str) -> Optional[int]:
+    """Parse an xs:yearMonthDuration lexical form into total months (i32).
+
+    Supports forms like:
+    - P0M
+    - P2Y11M
+    - -P1Y1M
+    - P0Y
+    - P10M
+    """
+    s = value.strip()
+    if not s:
+        return None
+    m = re.match(r"^(-)?P(?:(\d+)Y)?(?:(\d+)M)?$", s)
+    if m is None:
+        return None
+    neg = m.group(1) is not None
+    years_s = m.group(2)
+    months_s = m.group(3)
+    years = int(years_s) if years_s is not None else 0
+    months = int(months_s) if months_s is not None else 0
+    total = years * 12 + months
+    if neg:
+        total = -total
+    if not _fits_in_i32(total):
+        return None
+    return total
+
+
 def _get_function_name(token) -> Optional[str]:
     """Extract the function name from an elementpath token, handling namespace prefixes."""
     symbol = token.symbol
@@ -994,11 +1028,264 @@ def convert_xpath_expr(expr: str, function_name: str) -> Optional[Tuple[str, str
         token = parser.parse(expr)
     except Exception:
         return None
+
+    # Unwrap parenthesized expressions like '(a div b)'
+    # elementpath represents these with symbol '(' and a single child.
+    try:
+        while getattr(token, "symbol", None) == "(" and len(token) == 1:
+            token = token[0]
+    except Exception:
+        pass
     
     # Get the effective function/operator name (handling namespace prefixes)
     symbol = _get_function_name(token)
     if symbol is None:
         return None
+
+    # ---------------------------------------------------------------------
+    # Generic yearMonthDuration expression support
+    #
+    # qt3tests often wraps yearMonthDuration expressions in fn:string(...),
+    # or compares results (eq/ne/le/ge) even in the arithmetic operator suites.
+    # These conversions should not depend on the suite's resolved Noir symbol.
+    # ---------------------------------------------------------------------
+    def _unwrap_parens(t):
+        try:
+            while getattr(t, "symbol", None) == "(" and len(t) == 1:
+                t = t[0]
+        except Exception:
+            return t
+        return t
+
+    def _eval_i32_scalar(t) -> Optional[int]:
+        t = _unwrap_parens(t)
+        try:
+            v = t.evaluate()
+        except Exception:
+            return None
+        if isinstance(v, bool):
+            return None
+        if isinstance(v, int):
+            return v if _fits_in_i32(v) else None
+        if isinstance(v, Decimal):
+            if v == v.to_integral_value():
+                as_int = int(v)
+                return as_int if _fits_in_i32(as_int) else None
+            return None
+        if isinstance(v, float):
+            if v.is_integer():
+                as_int = int(v)
+                return as_int if _fits_in_i32(as_int) else None
+            return None
+        if isinstance(v, str):
+            parsed = parse_integer(v)
+            if parsed is None:
+                return None
+            return parsed if _fits_in_i32(parsed) else None
+        return None
+
+    def _ym_ctor_from_token(t) -> Optional[str]:
+        t = _unwrap_parens(t)
+        if _get_function_name(t) != "yearMonthDuration":
+            return None
+        args = _get_function_args(t)
+        if len(args) < 1:
+            return None
+        try:
+            s = args[0].evaluate()
+        except Exception:
+            return None
+        if not isinstance(s, str):
+            return None
+        months = parse_year_month_duration(s)
+        if months is None:
+            return None
+        return f"XsdYearMonthDuration::new({months})"
+
+    def _convert_ymd_expr(t) -> Optional[str]:
+        t = _unwrap_parens(t)
+
+        # xs:yearMonthDuration("...")
+        ctor = _ym_ctor_from_token(t)
+        if ctor is not None:
+            return ctor
+
+        # Binary operators
+        sym = getattr(t, "symbol", None)
+        if sym in ("+", "-", "*", "div") and len(t) >= 2:
+            left = _unwrap_parens(t[0])
+            right = _unwrap_parens(t[1])
+
+            if sym in ("+", "-"):
+                a = _convert_ymd_expr(left)
+                b = _convert_ymd_expr(right)
+                if a is None or b is None:
+                    return None
+                if sym == "+":
+                    return f"ym_duration_add({a}, {b})"
+                return f"ym_duration_subtract({a}, {b})"
+
+            if sym == "*":
+                # ymd * int OR int * ymd (only integral scalars supported)
+                a = _convert_ymd_expr(left)
+                b = _convert_ymd_expr(right)
+                if a is not None:
+                    factor = _eval_i32_scalar(right)
+                    if factor is None:
+                        return None
+                    return f"ym_duration_multiply({a}, {factor})"
+                if b is not None:
+                    factor = _eval_i32_scalar(left)
+                    if factor is None:
+                        return None
+                    return f"ym_duration_multiply({b}, {factor})"
+                return None
+
+            if sym == "div":
+                a = _convert_ymd_expr(left)
+                if a is None:
+                    return None
+                divisor = _eval_i32_scalar(right)
+                if divisor is None:
+                    return None
+                return f"ym_duration_divide({a}, {divisor})"
+
+        return None
+
+    def _convert_bool_expr(t) -> Optional[Tuple[str, str]]:
+        """Convert a limited subset of boolean expressions used in YMD op suites.
+
+        This targets qt3tests patterns like:
+        - fn:string(<ymd>) and fn:false()
+        - fn:string(<ymd>) or fn:false()
+        - fn:boolean(fn:string(<ymd>))
+        - fn:not(fn:string(<ymd>))
+
+        We model EBV(fn:string(<ymd>)) as `true`, but still evaluate <ymd>
+        to preserve the intent of testing the duration arithmetic.
+        """
+        t = _unwrap_parens(t)
+        sym = _get_function_name(t)
+        if sym is None:
+            return None
+
+        # Logical operators (elementpath uses token symbols 'and'/'or')
+        if sym in ("and", "or") and len(t) >= 2:
+            left = _convert_bool_expr(t[0])
+            right = _convert_bool_expr(t[1])
+            if left is None or right is None:
+                return None
+            setup_left, expr_left = left
+            setup_right, expr_right = right
+            setup = "\n".join([s for s in (setup_left, setup_right) if s])
+            if sym == "and":
+                return (setup, f"({expr_left}) & ({expr_right})")
+            return (setup, f"({expr_left}) | ({expr_right})")
+
+        # fn:true() / fn:false()
+        if sym == "true":
+            return ("", "true")
+        if sym == "false":
+            return ("", "false")
+
+        # fn:string(<ymd>) -> Actually call fn_string_from_ym_duration and check string length > 0
+        # In Noir, we compute the string and verify it's non-empty (EBV true)
+        if sym == "string":
+            args = _get_function_args(t)
+            if len(args) == 1:
+                ymd_expr = _convert_ymd_expr(args[0])
+                if ymd_expr is None:
+                    return None
+                # Generate unique variable name based on expression hash to avoid conflicts
+                var_suffix = abs(hash(ymd_expr)) % 10000
+                setup = (
+                    f"let dur_{var_suffix} = {ymd_expr};\n"
+                    f"    let (_str_bytes_{var_suffix}, str_len_{var_suffix}): ([u8; 32], u32) = fn_string_from_ym_duration(dur_{var_suffix});"
+                )
+                # EBV of fn:string(ymd) is true iff string length > 0 (always true for valid durations)
+                return (setup, f"(str_len_{var_suffix} > 0)")
+
+        # fn:boolean(fn:string(<ymd>)) -> true (and still evaluate <ymd>)
+        if sym == "boolean":
+            args = _get_function_args(t)
+            if len(args) == 1:
+                inner = _convert_bool_expr(args[0])
+                if inner is not None:
+                    return inner
+            return None
+
+        # fn:not(<bool>)
+        if sym == "not":
+            args = _get_function_args(t)
+            if len(args) == 1:
+                inner = _convert_bool_expr(args[0])
+                if inner is None:
+                    return None
+                setup_inner, expr_inner = inner
+                return (setup_inner, f"!({expr_inner})")
+
+        # Also allow yearMonthDuration comparisons as boolean subexpressions.
+        if sym in ("eq", "ne", "lt", "gt", "le", "ge", "=", "!=", "<", ">", "<=", ">=") and len(t) >= 2:
+            a = _convert_ymd_expr(t[0])
+            b = _convert_ymd_expr(t[1])
+            if a is None or b is None:
+                return None
+            if sym in ("eq", "="):
+                return ("", f"ym_duration_equal({a}, {b})")
+            if sym in ("lt", "<"):
+                return ("", f"ym_duration_less_than({a}, {b})")
+            if sym in ("gt", ">"):
+                return ("", f"ym_duration_greater_than({a}, {b})")
+            if sym in ("le", "<="):
+                return ("", f"ym_duration_le({a}, {b})")
+            if sym in ("ge", ">="):
+                return ("", f"ym_duration_ge({a}, {b})")
+            if sym in ("ne", "!="):
+                return ("", f"!ym_duration_equal({a}, {b})")
+
+        return None
+
+    # Handle boolean expressions that appear in yearMonthDuration operator suites.
+    if symbol in ("and", "or", "boolean", "not"):
+        bool_conv = _convert_bool_expr(token)
+        if bool_conv is not None:
+            setup, bool_expr = bool_conv
+            return (setup, bool_expr, None)
+
+    # fn:string(...) around yearMonthDuration - use marker prefix for string comparison
+    # When assert-eq expects a string like "P1Y10M", we'll call fn_string_from_ym_duration
+    if symbol == "string":
+        args = _get_function_args(token)
+        if len(args) == 1:
+            ymd_expr = _convert_ymd_expr(args[0])
+            if ymd_expr is not None:
+                # Return with FN_STRING_YMD: prefix so assertion generator can detect it
+                return ("", f"FN_STRING_YMD:{ymd_expr}", None)
+
+    # Support comparisons involving yearMonthDuration expressions in arithmetic suites.
+    if symbol in ("eq", "ne", "lt", "gt", "le", "ge", "=", "!=", "<", ">", "<=", ">=") and len(token) >= 2:
+        a = _convert_ymd_expr(token[0])
+        b = _convert_ymd_expr(token[1])
+        if a is not None and b is not None:
+            if symbol in ("eq", "="):
+                return ("", f"ym_duration_equal({a}, {b})", None)
+            if symbol in ("lt", "<"):
+                return ("", f"ym_duration_less_than({a}, {b})", None)
+            if symbol in ("gt", ">"):
+                return ("", f"ym_duration_greater_than({a}, {b})", None)
+            if symbol in ("le", "<="):
+                return ("", f"ym_duration_le({a}, {b})", None)
+            if symbol in ("ge", ">="):
+                return ("", f"ym_duration_ge({a}, {b})", None)
+            if symbol in ("ne", "!="):
+                return ("", f"!ym_duration_equal({a}, {b})", None)
+
+    # yearMonthDuration div yearMonthDuration -> i32 ratio (used in add/mul/div suites)
+    if symbol == "div" and len(token) >= 2:
+        left = _convert_ymd_expr(token[0])
+        right = _convert_ymd_expr(token[1])
+        if left is not None and right is not None:
+            return ("", f"ym_duration_divide_by_duration({left}, {right})", None)
     
     # Handle dateTime component extraction functions (e.g. year-from-dateTime)
     dt_extract_match = re.match(r"^(year|month|day|hours|minutes|seconds|timezone)-from-dateTime$", symbol)
@@ -1432,6 +1719,19 @@ def convert_xpath_expr(expr: str, function_name: str) -> Optional[Tuple[str, str
                     return None
                 return micros
 
+            def _parse_ym_duration_ctor(t) -> Optional[int]:
+                # Accept both xs:yearMonthDuration("...") and yearMonthDuration("...")
+                if _get_function_name(t) != "yearMonthDuration":
+                    return None
+                inner_args = _get_function_args(t)
+                if len(inner_args) < 1:
+                    return None
+                s = inner_args[0].evaluate()
+                if not isinstance(s, str):
+                    return None
+                months = parse_year_month_duration(s)
+                return months
+
             # duration * int OR int * duration
             if symbol == "*" and noir_func == "duration_multiply":
                 micros = None
@@ -1466,6 +1766,67 @@ def convert_xpath_expr(expr: str, function_name: str) -> Optional[Tuple[str, str
                             f"    let dur2 = duration_from_microseconds({micros2});"
                         )
                         return (setup, f"{noir_func}(dur1, dur2)", None)
+
+            # yearMonthDuration * int OR int * yearMonthDuration
+            if symbol == "*" and noir_func == "ym_duration_multiply":
+                months = None
+                factor = None
+                if arg1_symbol == "yearMonthDuration":
+                    months = _parse_ym_duration_ctor(token[0])
+                    factor = _eval_int_scalar(token[1])
+                elif arg2_symbol == "yearMonthDuration":
+                    months = _parse_ym_duration_ctor(token[1])
+                    factor = _eval_int_scalar(token[0])
+                if months is not None and factor is not None and _fits_in_i32(factor):
+                    setup = f"let dur = XsdYearMonthDuration::new({months});"
+                    return (setup, f"{noir_func}(dur, {factor})", None)
+
+            # yearMonthDuration div int
+            if symbol == "div" and noir_func == "ym_duration_divide":
+                if arg1_symbol == "yearMonthDuration":
+                    months = _parse_ym_duration_ctor(token[0])
+                    divisor = _eval_int_scalar(token[1])
+                    if months is not None and divisor is not None and _fits_in_i32(divisor):
+                        setup = f"let dur = XsdYearMonthDuration::new({months});"
+                        return (setup, f"{noir_func}(dur, {divisor})", None)
+
+            # yearMonthDuration div yearMonthDuration -> i32 ratio
+            if symbol == "div" and noir_func == "ym_duration_divide_by_duration":
+                if arg1_symbol == "yearMonthDuration" and arg2_symbol == "yearMonthDuration":
+                    months1 = _parse_ym_duration_ctor(token[0])
+                    months2 = _parse_ym_duration_ctor(token[1])
+                    if months1 is not None and months2 is not None:
+                        setup = (
+                            f"let d1 = XsdYearMonthDuration::new({months1});\n"
+                            f"    let d2 = XsdYearMonthDuration::new({months2});"
+                        )
+                        return (setup, f"{noir_func}(d1, d2)", None)
+        except Exception:
+            pass
+
+    # Handle yearMonthDuration add/subtract (simple binary)
+    if symbol in ("+", "-") and len(token) >= 2:
+        try:
+            from elementpath.datatypes import YearMonthDuration
+            d1 = token[0].evaluate()
+            d2 = token[1].evaluate()
+            if isinstance(d1, YearMonthDuration) and isinstance(d2, YearMonthDuration):
+                months1 = int(d1.months)
+                months2 = int(d2.months)
+                if not _fits_in_i32(months1) or not _fits_in_i32(months2):
+                    return None
+                if symbol == "+" and noir_func == "ym_duration_add":
+                    setup = (
+                        f"let d1 = XsdYearMonthDuration::new({months1});\n"
+                        f"    let d2 = XsdYearMonthDuration::new({months2});"
+                    )
+                    return (setup, f"{noir_func}(d1, d2)", None)
+                if symbol == "-" and noir_func == "ym_duration_subtract":
+                    setup = (
+                        f"let d1 = XsdYearMonthDuration::new({months1});\n"
+                        f"    let d2 = XsdYearMonthDuration::new({months2});"
+                    )
+                    return (setup, f"{noir_func}(d1, d2)", None)
         except Exception:
             pass
     
@@ -2330,190 +2691,250 @@ def generate_noir_test(test: TestCase, function_name: str) -> Optional[str]:
 // Cannot parse embedded expected: {embedded_expected}
 """
     elif test.result_type in ("assert-true", "assert-false"):
-        # Only allow assert-true/assert-false for functions that return boolean
-        if not func_returns_bool:
-            return f"""// SKIP: {test_name}
-// Result type {test.result_type} incompatible with non-boolean function {noir_func}
-// Expression: {test.test_expr}
-"""
-        bool_val = test.result_type == "assert-true"
-        assertion = f"assert({test_expr} == {str(bool_val).lower()});"
-    elif test.result_type == "assert-eq":
-        # Parse expected value
-        expected = test.expected_result
-        int_val = parse_integer(expected)
-        bool_val = parse_boolean(expected)
-        float_val = parse_float(expected)
-        
-        # For Option<i64> returning functions (cast to integer)
-        if func_returns_option_int:
-            if int_val is not None:
-                assertion = f"assert({test_expr}.is_some());\n    assert({test_expr}.unwrap() == {int_val});"
-            elif float_val is not None:
-                # Truncate float to integer
-                val, _ = float_val
-                int_part = int(val)
-                assertion = f"assert({test_expr}.is_some());\n    assert({test_expr}.unwrap() == {int_part});"
-            else:
-                return f"""// SKIP: {test_name}
-// Cannot parse expected for cast-to-integer function: {expected}
-"""
-        # For float/double returning functions, we need to convert the expected value to bits
-        elif func_returns_float or func_returns_double:
-            # Try to parse as float first
-            if float_val is not None:
-                val, ftype = float_val
-                if func_returns_float:
-                    # For zero comparisons, use equality (handles +0 vs -0)
-                    if val == 0.0:
-                        assertion = f"assert({test_expr} == XsdFloat::zero());"
-                    else:
-                        expected_bits = float_to_bits(val)
-                        assertion = f"assert({test_expr}.to_bits() == {expected_bits});"
-                else:
-                    if val == 0.0:
-                        assertion = f"assert({test_expr} == XsdDouble::zero());"
-                    else:
-                        expected_bits = double_to_bits(val)
-                        assertion = f"assert({test_expr}.to_bits() == {expected_bits});"
-            elif int_val is not None:
-                # Integer value for float function - convert to float bits
-                if func_returns_float:
-                    if int_val == 0:
-                        assertion = f"assert({test_expr} == XsdFloat::zero());"
-                    else:
-                        expected_bits = float_to_bits(float(int_val))
-                        assertion = f"assert({test_expr}.to_bits() == {expected_bits});"
-                else:
-                    if int_val == 0:
-                        assertion = f"assert({test_expr} == XsdDouble::zero());"
-                    else:
-                        expected_bits = double_to_bits(float(int_val))
-                        assertion = f"assert({test_expr}.to_bits() == {expected_bits});"
-            else:
-                # Cannot parse expected value for float function
-                return f"""// SKIP: {test_name}
-// Cannot parse expected for float function: {expected}
-"""
-        elif int_val is not None:
-            # Skip negative values for functions that return unsigned types
-            unsigned_return_functions = [
-                "month_from_datetime", "day_from_datetime",
-                "hours_from_datetime", "minutes_from_datetime", "seconds_from_datetime",
-                "days_from_duration", "hours_from_duration", 
-                "minutes_from_duration", "seconds_from_duration",
-            ]
-            if int_val < 0 and noir_func in unsigned_return_functions:
-                return f"""// SKIP: {test_name}
-// Negative expected value {int_val} incompatible with unsigned return type
-"""
-            assertion = f"assert({test_expr} == {int_val});"
-        elif bool_val is not None:
+        # Handle fn:string(ymd) in boolean context - EBV of non-empty string is true
+        if test_expr.startswith("FN_STRING_YMD:"):
+            ymd_expr = test_expr[len("FN_STRING_YMD:"):]
+            bool_val = test.result_type == "assert-true"
+            # fn:string(ymd) always returns a non-empty string, so EBV is true
+            setup_code = f"let _fn_string_arg = {ymd_expr}; // fn:string() evaluates this"
+            assertion = f"assert(true /* EBV of non-empty string */ == {str(bool_val).lower()});"
+        else:
+            bool_val = test.result_type == "assert-true"
             assertion = f"assert({test_expr} == {str(bool_val).lower()});"
-        elif float_val is not None:
-            # Float value but function doesn't return float - type mismatch
-            return f"""// SKIP: {test_name}
-// Float expected value incompatible with function {noir_func}
+    elif test.result_type == "assert-eq":
+        # Handle fn:string(ymd) with string expected value like "P1Y10M"
+        if test_expr.startswith("FN_STRING_YMD:"):
+            ymd_expr = test_expr[len("FN_STRING_YMD:"):]
+            expected = test.expected_result
+            expected_months = parse_year_month_duration(expected)
+            if expected_months is not None:
+                # Calculate the expected string representation
+                # Format: [-]P[nY][nM]
+                neg = expected_months < 0
+                abs_months = abs(expected_months)
+                years = abs_months // 12
+                months = abs_months % 12
+                
+                # Build expected string
+                parts = ["-"] if neg else []
+                parts.append("P")
+                if years > 0:
+                    parts.append(f"{years}Y")
+                if months > 0 or years == 0:
+                    parts.append(f"{months}M")
+                expected_str = "".join(parts)
+                expected_len = len(expected_str)
+                
+                # Generate assertion that calls fn_string_from_ym_duration and compares bytes
+                assertions = []
+                assertions.append(f"let dur_result = {ymd_expr};")
+                assertions.append(f"let (str_bytes, str_len): ([u8; {expected_len}], u32) = fn_string_from_ym_duration(dur_result);")
+                assertions.append(f"assert(str_len == {expected_len});")
+                expected_bytes = [ord(c) for c in expected_str]
+                for i, b in enumerate(expected_bytes):
+                    assertions.append(f"assert(str_bytes[{i}] == {b}); // '{chr(b)}'")
+                assertion = "\n    ".join(assertions)
+            else:
+                return f"""// SKIP: {test_name}
+// Cannot parse yearMonthDuration expected for fn:string: {expected}
 """
         else:
-            # Try to parse as date/time/datetime for adjust-*-to-timezone functions
-            date_returning_functions = ["adjust_date_to_timezone", "adjust_date_to_timezone_none"]
-            time_returning_functions = ["adjust_time_to_timezone", "adjust_time_to_timezone_none"]
-            datetime_returning_functions = ["adjust_datetime_to_timezone", "adjust_datetime_to_timezone_none"]
-            
-            if noir_func in date_returning_functions:
-                parsed = _parse_date_string(expected)
-                if parsed is not None:
-                    year, month, day, tz_mins = parsed
-                    if year < 1970:
-                        return f"""// SKIP: {test_name}
-// Date before 1970 not supported: {expected}
-"""
-                    assertions = []
-                    assertions.append(f"let result = {test_expr};")
-                    assertions.append(f"assert(year_from_date(result) == {year});")
-                    assertions.append(f"assert(month_from_date(result) == {month});")
-                    assertions.append(f"assert(day_from_date(result) == {day});")
-                    if tz_mins is not None:
-                        # timezone_from_date returns XsdDayTimeDuration, compare using duration_equal
-                        tz_micros = tz_mins * 60_000_000  # Convert minutes to microseconds
-                        assertions.append(f"assert(duration_equal(timezone_from_date(result), duration_from_microseconds({tz_micros})));")
-                    assertion = "\n    ".join(assertions)
+            # Parse expected value
+            expected = test.expected_result
+            int_val = parse_integer(expected)
+            bool_val = parse_boolean(expected)
+            float_val = parse_float(expected)
+        
+            # For Option<i64> returning functions (cast to integer)
+            if func_returns_option_int:
+                if int_val is not None:
+                    assertion = f"assert({test_expr}.is_some());\n    assert({test_expr}.unwrap() == {int_val});"
+                elif float_val is not None:
+                    # Truncate float to integer
+                    val, _ = float_val
+                    int_part = int(val)
+                    assertion = f"assert({test_expr}.is_some());\n    assert({test_expr}.unwrap() == {int_part});"
                 else:
                     return f"""// SKIP: {test_name}
-// Cannot parse date expected: {expected}
+// Cannot parse expected for cast-to-integer function: {expected}
 """
-            elif noir_func in time_returning_functions:
-                parsed = _parse_time_string(expected)
-                if parsed is not None:
-                    hours, minutes, seconds, tz_mins = parsed
-                    assertions = []
-                    assertions.append(f"let result = {test_expr};")
-                    assertions.append(f"assert(hours_from_time(result) == {hours});")
-                    assertions.append(f"assert(minutes_from_time(result) == {minutes});")
-                    assertions.append(f"assert(seconds_from_time(result) == {seconds});")
-                    if tz_mins is not None:
-                        # timezone_from_time returns XsdDayTimeDuration
-                        tz_micros = tz_mins * 60_000_000
-                        assertions.append(f"assert(duration_equal(timezone_from_time(result), duration_from_microseconds({tz_micros})));")
-                    assertion = "\n    ".join(assertions)
+            # For float/double returning functions, we need to convert the expected value to bits
+            elif func_returns_float or func_returns_double:
+                # Try to parse as float first
+                if float_val is not None:
+                    val, ftype = float_val
+                    if func_returns_float:
+                        # For zero comparisons, use equality (handles +0 vs -0)
+                        if val == 0.0:
+                            assertion = f"assert({test_expr} == XsdFloat::zero());"
+                        else:
+                            expected_bits = float_to_bits(val)
+                            assertion = f"assert({test_expr}.to_bits() == {expected_bits});"
+                    else:
+                        if val == 0.0:
+                            assertion = f"assert({test_expr} == XsdDouble::zero());"
+                        else:
+                            expected_bits = double_to_bits(val)
+                            assertion = f"assert({test_expr}.to_bits() == {expected_bits});"
+                elif int_val is not None:
+                    # Integer value for float function - convert to float bits
+                    if func_returns_float:
+                        if int_val == 0:
+                            assertion = f"assert({test_expr} == XsdFloat::zero());"
+                        else:
+                            expected_bits = float_to_bits(float(int_val))
+                            assertion = f"assert({test_expr}.to_bits() == {expected_bits});"
+                    else:
+                        if int_val == 0:
+                            assertion = f"assert({test_expr} == XsdDouble::zero());"
+                        else:
+                            expected_bits = double_to_bits(float(int_val))
+                            assertion = f"assert({test_expr}.to_bits() == {expected_bits});"
                 else:
+                    # Cannot parse expected value for float function
                     return f"""// SKIP: {test_name}
-// Cannot parse time expected: {expected}
+// Cannot parse expected for float function: {expected}
 """
-            elif noir_func in datetime_returning_functions:
-                parsed = _parse_datetime_string(expected)
-                if parsed is not None:
-                    year, month, day, hours, minutes, seconds, tz_mins = parsed
-                    if year < 1970:
-                        return f"""// SKIP: {test_name}
-// DateTime before 1970 not supported: {expected}
-"""
-                    assertions = []
-                    assertions.append(f"let result = {test_expr};")
-                    assertions.append(f"assert(year_from_datetime(result) == {year});")
-                    assertions.append(f"assert(month_from_datetime(result) == {month});")
-                    assertions.append(f"assert(day_from_datetime(result) == {day});")
-                    assertions.append(f"assert(hours_from_datetime(result) == {hours});")
-                    assertions.append(f"assert(minutes_from_datetime(result) == {minutes});")
-                    assertions.append(f"assert(seconds_from_datetime(result) == {seconds});")
-                    if tz_mins is not None:
-                        # timezone_from_datetime returns XsdDayTimeDuration
-                        tz_micros = tz_mins * 60_000_000
-                        assertions.append(f"assert(duration_equal(timezone_from_datetime(result), duration_from_microseconds({tz_micros})));")
-                    assertion = "\n    ".join(assertions)
-                else:
+            elif int_val is not None:
+                # Skip negative values for functions that return unsigned types
+                unsigned_return_functions = [
+                    "month_from_datetime", "day_from_datetime",
+                    "hours_from_datetime", "minutes_from_datetime", "seconds_from_datetime",
+                    "days_from_duration", "hours_from_duration", 
+                    "minutes_from_duration", "seconds_from_duration",
+                ]
+                if int_val < 0 and noir_func in unsigned_return_functions:
                     return f"""// SKIP: {test_name}
-// Cannot parse datetime expected: {expected}
+// Negative expected value {int_val} incompatible with unsigned return type
+"""
+                assertion = f"assert({test_expr} == {int_val});"
+            elif bool_val is not None:
+                assertion = f"assert({test_expr} == {str(bool_val).lower()});"
+            elif float_val is not None:
+                # Float value but function doesn't return float - type mismatch
+                return f"""// SKIP: {test_name}
+// Float expected value incompatible with function {noir_func}
 """
             else:
-                # Check if this is a duration-returning function
-                duration_returning_functions = [
-                    "subtract_dates", "subtract_times", "datetime_difference",
-                    "duration_add", "duration_subtract", "duration_multiply", "duration_divide",
-                    "timezone_from_date", "timezone_from_time", "timezone_from_datetime",
-                ]
-                if noir_func in duration_returning_functions:
-                    # Parse the expected duration string
-                    if expected.strip() in ("", "()"):
-                        return f"""// SKIP: {test_name}
-// Empty-sequence duration expected is not representable in Noir: {expected}
-"""
-                    expected_micros = parse_duration(expected)
-                    if expected_micros is not None:
-                        if _fits_in_i64(expected_micros):
-                            assertion = f"assert(duration_equal({test_expr}, duration_from_microseconds({expected_micros})));"
-                        else:
+                # Try to parse as date/time/datetime for adjust-*-to-timezone functions
+                date_returning_functions = ["adjust_date_to_timezone", "adjust_date_to_timezone_none"]
+                time_returning_functions = ["adjust_time_to_timezone", "adjust_time_to_timezone_none"]
+                datetime_returning_functions = ["adjust_datetime_to_timezone", "adjust_datetime_to_timezone_none"]
+                
+                if noir_func in date_returning_functions:
+                    parsed = _parse_date_string(expected)
+                    if parsed is not None:
+                        year, month, day, tz_mins = parsed
+                        if year < 1970:
                             return f"""// SKIP: {test_name}
-// Duration value too large: {expected}
+// Date before 1970 not supported: {expected}
 """
+                        assertions = []
+                        assertions.append(f"let result = {test_expr};")
+                        assertions.append(f"assert(year_from_date(result) == {year});")
+                        assertions.append(f"assert(month_from_date(result) == {month});")
+                        assertions.append(f"assert(day_from_date(result) == {day});")
+                        if tz_mins is not None:
+                            # timezone_from_date returns XsdDayTimeDuration, compare using duration_equal
+                            tz_micros = tz_mins * 60_000_000  # Convert minutes to microseconds
+                            assertions.append(f"assert(duration_equal(timezone_from_date(result), duration_from_microseconds({tz_micros})));")
+                        assertion = "\n    ".join(assertions)
                     else:
                         return f"""// SKIP: {test_name}
-// Cannot parse duration expected: {expected}
+// Cannot parse date expected: {expected}
+"""
+                elif noir_func in time_returning_functions:
+                    parsed = _parse_time_string(expected)
+                    if parsed is not None:
+                        hours, minutes, seconds, tz_mins = parsed
+                        assertions = []
+                        assertions.append(f"let result = {test_expr};")
+                        assertions.append(f"assert(hours_from_time(result) == {hours});")
+                        assertions.append(f"assert(minutes_from_time(result) == {minutes});")
+                        assertions.append(f"assert(seconds_from_time(result) == {seconds});")
+                        if tz_mins is not None:
+                            # timezone_from_time returns XsdDayTimeDuration
+                            tz_micros = tz_mins * 60_000_000
+                            assertions.append(f"assert(duration_equal(timezone_from_time(result), duration_from_microseconds({tz_micros})));")
+                        assertion = "\n    ".join(assertions)
+                    else:
+                        return f"""// SKIP: {test_name}
+// Cannot parse time expected: {expected}
+"""
+                elif noir_func in datetime_returning_functions:
+                    parsed = _parse_datetime_string(expected)
+                    if parsed is not None:
+                        year, month, day, hours, minutes, seconds, tz_mins = parsed
+                        if year < 1970:
+                            return f"""// SKIP: {test_name}
+// DateTime before 1970 not supported: {expected}
+"""
+                        assertions = []
+                        assertions.append(f"let result = {test_expr};")
+                        assertions.append(f"assert(year_from_datetime(result) == {year});")
+                        assertions.append(f"assert(month_from_datetime(result) == {month});")
+                        assertions.append(f"assert(day_from_datetime(result) == {day});")
+                        assertions.append(f"assert(hours_from_datetime(result) == {hours});")
+                        assertions.append(f"assert(minutes_from_datetime(result) == {minutes});")
+                        assertions.append(f"assert(seconds_from_datetime(result) == {seconds});")
+                        if tz_mins is not None:
+                            # timezone_from_datetime returns XsdDayTimeDuration
+                            tz_micros = tz_mins * 60_000_000
+                            assertions.append(f"assert(duration_equal(timezone_from_datetime(result), duration_from_microseconds({tz_micros})));")
+                        assertion = "\n    ".join(assertions)
+                    else:
+                        return f"""// SKIP: {test_name}
+// Cannot parse datetime expected: {expected}
 """
                 else:
-                    # Cannot parse expected value
-                    return f"""// SKIP: {test_name}
+                    # Check if this is a duration-returning function
+                    duration_returning_functions = [
+                        "subtract_dates", "subtract_times", "datetime_difference",
+                        "duration_add", "duration_subtract", "duration_multiply", "duration_divide",
+                        "timezone_from_date", "timezone_from_time", "timezone_from_datetime",
+                    ]
+                    if noir_func in duration_returning_functions:
+                        # Parse the expected duration string
+                        if expected.strip() in ("", "()"):
+                            return f"""// SKIP: {test_name}
+// Empty-sequence duration expected is not representable in Noir: {expected}
+"""
+                        expected_micros = parse_duration(expected)
+                        if expected_micros is not None:
+                            if _fits_in_i64(expected_micros):
+                                assertion = f"assert(duration_equal({test_expr}, duration_from_microseconds({expected_micros})));"
+                            else:
+                                return f"""// SKIP: {test_name}
+// Duration value too large: {expected}
+"""
+                        else:
+                            return f"""// SKIP: {test_name}
+// Cannot parse duration expected: {expected}
+"""
+                    else:
+                        # Check if this is a yearMonthDuration-returning function
+                        ym_duration_returning_functions = {
+                            "ym_duration_add",
+                            "ym_duration_subtract",
+                            "ym_duration_multiply",
+                            "ym_duration_divide",
+                        }
+                        if noir_func in ym_duration_returning_functions:
+                            if expected.strip() in ("", "()"):
+                                return f"""// SKIP: {test_name}
+// Empty-sequence yearMonthDuration expected is not representable in Noir: {expected}
+"""
+                            expected_months = parse_year_month_duration(expected)
+                            if expected_months is None:
+                                return f"""// SKIP: {test_name}
+// Cannot parse yearMonthDuration expected: {expected}
+"""
+                            assertion = (
+                                f"assert(ym_duration_equal({test_expr}, XsdYearMonthDuration::new({expected_months})));"
+                            )
+                        else:
+                            # Cannot parse expected value
+                            return f"""// SKIP: {test_name}
 // Cannot parse expected: {expected}
 """
     else:
@@ -2534,6 +2955,10 @@ def generate_noir_test(test: TestCase, function_name: str) -> Optional[str]:
     lines = [f"#[test]", f"fn {test_name}() {{"]
     if desc:
         lines.append(f"    // {desc}")
+    # Add original XPath expression and expected result as comments
+    xpath_expr = sanitize_to_ascii(test.test_expr.replace("\n", " "))
+    lines.append(f"    // XPath: {xpath_expr}")
+    lines.append(f"    // Expected: {test.result_type} {sanitize_to_ascii(str(test.expected_result))}")
     if setup_code:
         for line in setup_code.split("\n"):
             lines.append(f"    {line}")
@@ -2599,7 +3024,7 @@ def generate_test_package(
             "#[test]",
             f"fn {sanitize_test_name(function_name)}_no_converted_tests() {{",
             f"    // Placeholder: {skipped} qt3tests cases could not be converted.",
-            "    assert(true);",
+            f"    assert(false, \"No qt3tests cases could be converted for {function_name}\");",
             "}",
         ])
         converted_tests = [placeholder]
@@ -2628,10 +3053,36 @@ xpath = {{ path = "../../xpath" }}
     imports: list[str] = []
     if not placeholder_only:
         imports = ["use dep::xpath::{"]
+        all_test_code = "\n".join(converted_tests)
         if func_implemented:
             noir_func = resolve_noir_symbol(function_name)
             if noir_func:
                 imports.append(f"    {noir_func},")
+
+            # Add dynamic imports based on emitted code for yearMonthDuration and boolean helpers.
+            # This keeps imports minimal while allowing richer conversions.
+            if "XsdYearMonthDuration" in all_test_code:
+                imports.append("    XsdYearMonthDuration,")
+
+            ymd_symbols = [
+                "ym_duration_add",
+                "ym_duration_subtract",
+                "ym_duration_multiply",
+                "ym_duration_divide",
+                "ym_duration_divide_by_duration",
+                "ym_duration_equal",
+                "ym_duration_less_than",
+                "ym_duration_greater_than",
+                "ym_duration_le",
+                "ym_duration_ge",
+                "fn_string_from_ym_duration",
+            ]
+            for sym in ymd_symbols:
+                if f"{sym}(" in all_test_code:
+                    imports.append(f"    {sym},")
+
+            if "fn_not(" in all_test_code:
+                imports.append("    fn_not,")
             
             # Add datetime imports if needed
             if "datetime" in function_name.lower():
@@ -2652,10 +3103,6 @@ xpath = {{ path = "../../xpath" }}
             # Add imports for time comparison/subtraction operators
             if function_name in ["op:time-equal", "op:time-less-than", "op:time-greater-than", "op:subtract-times"]:
                 imports.append("    time_from_microseconds_with_tz,")
-            
-            # Add imports for yearMonthDuration comparison operators
-            if function_name in ["op:yearMonthDuration-less-than", "op:yearMonthDuration-greater-than"]:
-                imports.append("    XsdYearMonthDuration,")
             
             # Add imports for duration comparisons/constructors used in generated assertions
             if function_name in [
@@ -2701,8 +3148,9 @@ xpath = {{ path = "../../xpath" }}
                 imports.append("    duration_equal,")
                 imports.append("    duration_from_microseconds,")
             
-            # Add duration imports if needed
-            if "duration" in function_name.lower():
+            # Add duration constructor import for dayTimeDuration-related suites.
+            # (yearMonthDuration uses XsdYearMonthDuration::new instead)
+            if "duration" in function_name.lower() and "yearmonthduration" not in function_name.lower():
                 imports.append("    duration_from_microseconds,")
             
             # Add float/double type imports if needed

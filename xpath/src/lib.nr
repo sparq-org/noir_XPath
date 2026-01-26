@@ -65,10 +65,11 @@ pub use types::{XsdDate, XsdDateTime, XsdDayTimeDuration, XsdTime};
 // Re-export YearMonthDuration type and functions
 pub use year_month_duration::{
     date_add_ym_duration, date_subtract_ym_duration, datetime_add_ym_duration,
-    datetime_subtract_ym_duration, months_from_duration, XsdYearMonthDuration, years_from_duration,
-    ym_duration_add, ym_duration_divide, ym_duration_divide_by_duration, ym_duration_equal,
-    ym_duration_ge, ym_duration_greater_than, ym_duration_le, ym_duration_less_than,
-    ym_duration_multiply, ym_duration_negate, ym_duration_subtract,
+    datetime_subtract_ym_duration, fn_string_from_ym_duration, months_from_duration,
+    XsdYearMonthDuration, years_from_duration, ym_duration_add, ym_duration_divide,
+    ym_duration_divide_by_duration, ym_duration_equal, ym_duration_ge, ym_duration_greater_than,
+    ym_duration_le, ym_duration_less_than, ym_duration_multiply, ym_duration_negate,
+    ym_duration_subtract,
 };
 
 // Re-export QName type and functions
