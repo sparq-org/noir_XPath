@@ -51,6 +51,7 @@ mod gregorian;
 mod qname;
 mod json;
 mod ietf_date;
+mod cast;
 mod stubs;
 
 // XPath namespace modules for deterministic name mapping
@@ -67,9 +68,9 @@ pub use year_month_duration::{
     date_add_ym_duration, date_subtract_ym_duration, datetime_add_ym_duration,
     datetime_subtract_ym_duration, fn_string_from_ym_duration, months_from_duration,
     XsdYearMonthDuration, years_from_duration, ym_duration_add, ym_duration_divide,
-    ym_duration_divide_by_duration, ym_duration_equal, ym_duration_ge, ym_duration_greater_than,
-    ym_duration_le, ym_duration_less_than, ym_duration_multiply, ym_duration_negate,
-    ym_duration_subtract,
+    ym_duration_divide_by_duration, ym_duration_equal, ym_duration_from_string, ym_duration_ge,
+    ym_duration_greater_than, ym_duration_le, ym_duration_less_than, ym_duration_multiply,
+    ym_duration_negate, ym_duration_subtract,
 };
 
 // Re-export QName type and functions
@@ -87,6 +88,12 @@ pub use boolean::{
     fn_boolean_from_bool, fn_boolean_from_integer, fn_boolean_from_sequence_len,
     fn_boolean_from_string_len, fn_error, fn_error_with_desc, fn_false, fn_not, fn_trace, fn_true,
     logical_and, logical_or,
+};
+
+// Re-export casting functions (string/boolean/integer conversions)
+pub use cast::{
+    boolean_to_string, fn_boolean_from_string, fn_boolean_from_unsigned, integer_to_string,
+    string_to_boolean, string_to_integer, string_to_unsigned, unsigned_to_string,
 };
 
 // Re-export numeric functions (integer only for now)

@@ -158,6 +158,105 @@ pub fn fn_string_from_ym_duration<let N: u32>(dur: XsdYearMonthDuration) -> ([u8
     (result, pos)
 }
 
+/// Parses xs:yearMonthDuration from lexical representation
+/// XPath: xs:yearMonthDuration($arg as xs:string) as xs:yearMonthDuration
+/// Format: [-]P[nY][nM] (e.g., "P1Y2M", "-P6M", "P0M")
+/// Returns (duration, valid) where valid indicates successful parsing
+pub fn ym_duration_from_string<let N: u32>(
+    bytes: [u8; N],
+    len: u32,
+) -> (XsdYearMonthDuration, bool) {
+    let mut pos: u32 = 0;
+    let mut negative = false;
+    let mut valid = len > 0;
+
+    // Check for optional leading '-'
+    if valid & (pos < len) & (pos < N) {
+        if bytes[pos] == 0x2D {
+            // '-'
+            negative = true;
+            pos += 1;
+        }
+    }
+
+    // Expect 'P'
+    if valid & (pos < len) & (pos < N) {
+        if bytes[pos] != 0x50 {
+            // 'P'
+            valid = false;
+        }
+        pos += 1;
+    } else if valid {
+        valid = false;
+    }
+
+    let mut years: u32 = 0;
+    let mut months: u32 = 0;
+    let mut has_years = false;
+    let mut has_months = false;
+
+    // Parse number followed by 'Y' or 'M'
+    // First, try to parse a number
+    let mut num: u32 = 0;
+    let mut has_num = false;
+
+    for _ in 0..N {
+        if (pos < len) & (pos < N) & valid {
+            let c = bytes[pos];
+
+            // Check if digit
+            if (c >= 0x30) & (c <= 0x39) {
+                num = num * 10 + (c - 0x30) as u32;
+                has_num = true;
+                pos += 1;
+            } else if c == 0x59 {
+                // 'Y'
+                if has_num {
+                    years = num;
+                    has_years = true;
+                    num = 0;
+                    has_num = false;
+                    pos += 1;
+                } else {
+                    valid = false;
+                }
+            } else if c == 0x4D {
+                // 'M'
+                if has_num {
+                    months = num;
+                    has_months = true;
+                    num = 0;
+                    has_num = false;
+                    pos += 1;
+                } else {
+                    valid = false;
+                }
+            } else {
+                // Invalid character
+                valid = false;
+            }
+        }
+    }
+
+    // Must have consumed all input and have at least Y or M
+    if pos != len {
+        valid = false;
+    }
+    if !has_years & !has_months {
+        valid = false;
+    }
+
+    // Build the result
+    let total_months = (years * 12 + months) as i32;
+    let signed_total = if negative {
+        -total_months
+    } else {
+        total_months
+    };
+
+    (XsdYearMonthDuration::new(signed_total), valid)
+}
+
 // ============================================================================
 // Component Extraction Functions
 // ============================================================================
@@ -532,4 +631,71 @@ fn test_fn_string_from_ym_duration() {
     for i in 0..7 {
         assert(bytes8[i] == expected8[i]);
     }
+}
+
+#[test]
+fn test_ym_duration_from_string() {
+    // P1Y2M (14 months)
+    let input1 = "P1Y2M".as_bytes();
+    let (dur1, valid1) = ym_duration_from_string(input1, 5);
+    assert(valid1);
+    assert(dur1.total_months == 14);
+
+    // P0M (0 months)
+    let input2 = "P0M".as_bytes();
+    let (dur2, valid2) = ym_duration_from_string(input2, 3);
+    assert(valid2);
+    assert(dur2.total_months == 0);
+
+    // P6M (6 months, no years)
+    let input3 = "P6M".as_bytes();
+    let (dur3, valid3) = ym_duration_from_string(input3, 3);
+    assert(valid3);
+    assert(dur3.total_months == 6);
+
+    // P2Y (24 months, no extra months)
+    let input4 = "P2Y".as_bytes();
+    let (dur4, valid4) = ym_duration_from_string(input4, 3);
+    assert(valid4);
+    assert(dur4.total_months == 24);
+
+    // -P1Y2M (negative 14 months)
+    let input5 = "-P1Y2M".as_bytes();
+    let (dur5, valid5) = ym_duration_from_string(input5, 6);
+    assert(valid5);
+    assert(dur5.total_months == -14);
+
+    // -P6M (negative 6 months)
+    let input6 = "-P6M".as_bytes();
+    let (dur6, valid6) = ym_duration_from_string(input6, 4);
+    assert(valid6);
+    assert(dur6.total_months == -6);
+
+    // P10Y (120 months)
+    let input7 = "P10Y".as_bytes();
+    let (dur7, valid7) = ym_duration_from_string(input7, 4);
+    assert(valid7);
+    assert(dur7.total_months == 120);
+
+    // P10Y11M (131 months)
+    let input8 = "P10Y11M".as_bytes();
+    let (dur8, valid8) = ym_duration_from_string(input8, 7);
+    assert(valid8);
+    assert(dur8.total_months == 131);
+
+    // P23Y11M (287 months) - the example from the user
+    let input9 = "P23Y11M".as_bytes();
+    let (dur9, valid9) = ym_duration_from_string(input9, 7);
+    assert(valid9);
+    assert(dur9.total_months == 287);
+
+    // Invalid: empty string
+    let input_empty: [u8; 1] = [0];
+    let (_dur_empty, valid_empty) = ym_duration_from_string(input_empty, 0);
+    assert(!valid_empty);
+
+    // Invalid: missing P
+    let input_no_p = "1Y2M".as_bytes();
+    let (_dur_no_p, valid_no_p) = ym_duration_from_string(input_no_p, 4);
+    assert(!valid_no_p);
 }
