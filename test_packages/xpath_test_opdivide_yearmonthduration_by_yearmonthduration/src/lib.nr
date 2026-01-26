@@ -1,4 +1,4 @@
-//! Auto-generated tests for op:divide-yearMonthDuration-by-yearMonthDuration (uses stub function)
+//! Auto-generated tests for op:divide-yearMonthDuration-by-yearMonthDuration
 //! Source: https://github.com/w3c/qt3tests
 
 mod chunk_0;

@@ -1,4 +1,4 @@
-//! Auto-generated tests for op:subtract-yearMonthDurations (uses stub function)
+//! Auto-generated tests for op:subtract-yearMonthDurations
 //! Source: https://github.com/w3c/qt3tests
 
 mod chunk_0;

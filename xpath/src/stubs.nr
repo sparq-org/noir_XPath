@@ -1975,3 +1975,15 @@ pub fn stub_fnparse_ietf_date() -> bool {
     assert(false, "fn:parse-ietf-date is not yet implemented");
     false
 }
+
+// ============================================================================
+// AUTO-GENERATED STUBS: Additional stubs needed by test packages
+// ============================================================================
+// These stubs were auto-generated because test packages reference them.
+// Feel free to add documentation explaining why each cannot be implemented.
+
+/// fn:timezone-from-dateTime - stub for unimplemented fn function
+pub fn stub_fntimezone_from_datetime() -> bool {
+    assert(false, "fn:timezone-from-dateTime is not yet implemented");
+    false
+}

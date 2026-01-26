@@ -1,4 +1,4 @@
-//! Auto-generated tests for fn:timezone-from-time (uses stub function)
+//! Auto-generated tests for fn:timezone-from-time
 //! Source: https://github.com/w3c/qt3tests
 
 mod chunk_0;

@@ -49,9 +49,9 @@ mod string;
 mod binary;
 mod gregorian;
 mod qname;
-mod stubs;
 mod json;
 mod ietf_date;
+mod stubs;
 
 // XPath namespace modules for deterministic name mapping
 // Use `xpath_fn` for fn:* functions, `xpath_op` for op:* operators, `xpath_xs` for xs:* type casts
@@ -245,14 +245,14 @@ pub use stubs::{
     stub_fnseconds_from_time, stub_fnserialize, stub_fnsort, stub_fnstatic_base_uri, stub_fnstring,
     stub_fnstring_join, stub_fnstring_to_codepoints, stub_fnsubsequence, stub_fnsubstring,
     stub_fnsubstring_after, stub_fnsubstring_before, stub_fnsum, stub_fntail,
-    stub_fntimezone_from_date, stub_fntimezone_from_time, stub_fntokenize, stub_fntrace,
-    stub_fntransform, stub_fntranslate, stub_fntrue, stub_fnunordered, stub_fnunparsed_text,
-    stub_fnunparsed_text_available, stub_fnunparsed_text_lines, stub_fnupper_case,
-    stub_fnxml_to_json, stub_fnyear_from_date, stub_fnyears_from_duration, stub_fnzero_or_one,
-    stub_opadd_daytimeduration_to_date, stub_opadd_daytimeduration_to_time,
-    stub_opadd_yearmonthduration_to_date, stub_opadd_yearmonthduration_to_datetime,
-    stub_opadd_yearmonthdurations, stub_opanyuri_equal, stub_opanyuri_greater_than,
-    stub_opanyuri_less_than, stub_opbang, stub_opbase64binary_equal,
+    stub_fntimezone_from_date, stub_fntimezone_from_datetime, stub_fntimezone_from_time,
+    stub_fntokenize, stub_fntrace, stub_fntransform, stub_fntranslate, stub_fntrue,
+    stub_fnunordered, stub_fnunparsed_text, stub_fnunparsed_text_available,
+    stub_fnunparsed_text_lines, stub_fnupper_case, stub_fnxml_to_json, stub_fnyear_from_date,
+    stub_fnyears_from_duration, stub_fnzero_or_one, stub_opadd_daytimeduration_to_date,
+    stub_opadd_daytimeduration_to_time, stub_opadd_yearmonthduration_to_date,
+    stub_opadd_yearmonthduration_to_datetime, stub_opadd_yearmonthdurations, stub_opanyuri_equal,
+    stub_opanyuri_greater_than, stub_opanyuri_less_than, stub_opbang, stub_opbase64binary_equal,
     stub_opbase64binary_greater_than, stub_opbase64binary_less_than, stub_opconcat,
     stub_opconcatenate, stub_opdate_equal, stub_opdate_greater_than, stub_opdate_less_than,
     stub_opdivide_daytimeduration, stub_opdivide_daytimeduration_by_daytimeduration,

@@ -15,7 +15,6 @@ Requirements:
 """
 
 import argparse
-import os
 import re
 import shutil
 import subprocess
@@ -28,184 +27,250 @@ from typing import Optional, Tuple, Any
 
 # Import elementpath for XPath 2.0 parsing
 from elementpath import XPath2Parser
-from elementpath.datatypes import DateTime10
+from elementpath.datatypes import DateTime10, Date10, Time, DayTimeDuration
 
 # XML namespace for qt3tests
 QT3_NS = "{http://www.w3.org/2010/09/qt-fots-catalog}"
 
-# Map XPath functions to their test file locations in qt3tests
-FUNCTION_TEST_FILES = {
-    # Numeric functions
-    "fn:abs": "fn/abs.xml",
-    "fn:ceiling": "fn/ceiling.xml",
-    "fn:floor": "fn/floor.xml",
-    "fn:round": "fn/round.xml",
-    # Numeric functions (float)
-    "fn:round-float": "fn/round.xml",
-    "fn:ceiling-float": "fn/ceiling.xml",
-    "fn:floor-float": "fn/floor.xml",
-    # Numeric functions (double)
-    "fn:round-double": "fn/round.xml",
-    "fn:ceiling-double": "fn/ceiling.xml",
-    "fn:floor-double": "fn/floor.xml",
-    # Numeric operators (integer)
-    "op:numeric-add": "op/numeric-add.xml",
-    "op:numeric-subtract": "op/numeric-subtract.xml",
-    "op:numeric-multiply": "op/numeric-multiply.xml",
-    "op:numeric-divide": "op/numeric-divide.xml",
-    "op:numeric-integer-divide": "op/numeric-integer-divide.xml",
-    "op:numeric-mod": "op/numeric-mod.xml",
-    "op:numeric-equal": "op/numeric-equal.xml",
-    "op:numeric-less-than": "op/numeric-less-than.xml",
-    "op:numeric-greater-than": "op/numeric-greater-than.xml",
-    # Numeric operators (float)
-    "op:numeric-add-float": "op/numeric-add.xml",
-    "op:numeric-subtract-float": "op/numeric-subtract.xml",
-    "op:numeric-multiply-float": "op/numeric-multiply.xml",
-    "op:numeric-divide-float": "op/numeric-divide.xml",
-    "op:numeric-equal-float": "op/numeric-equal.xml",
-    "op:numeric-less-than-float": "op/numeric-less-than.xml",
-    "op:numeric-greater-than-float": "op/numeric-greater-than.xml",
-    # Numeric operators (double)
-    "op:numeric-add-double": "op/numeric-add.xml",
-    "op:numeric-subtract-double": "op/numeric-subtract.xml",
-    "op:numeric-multiply-double": "op/numeric-multiply.xml",
-    "op:numeric-divide-double": "op/numeric-divide.xml",
-    "op:numeric-equal-double": "op/numeric-equal.xml",
-    "op:numeric-less-than-double": "op/numeric-less-than.xml",
-    "op:numeric-greater-than-double": "op/numeric-greater-than.xml",
-    # Type casting
-    "xs:float-from-int": "prod/CastExpr.xml",
-    "xs:double-from-int": "prod/CastExpr.xml",
-    "xs:integer-from-float": "prod/CastExpr.xml",
-    "xs:integer-from-double": "prod/CastExpr.xml",
-    "xs:float-from-double": "prod/CastExpr.xml",
-    # DateTime functions
-    "fn:year-from-dateTime": "fn/year-from-dateTime.xml",
-    "fn:month-from-dateTime": "fn/month-from-dateTime.xml",
-    "fn:day-from-dateTime": "fn/day-from-dateTime.xml",
-    "fn:hours-from-dateTime": "fn/hours-from-dateTime.xml",
-    "fn:minutes-from-dateTime": "fn/minutes-from-dateTime.xml",
-    "fn:seconds-from-dateTime": "fn/seconds-from-dateTime.xml",
-    "fn:timezone-from-dateTime": "fn/timezone-from-dateTime.xml",
-    # DateTime operators
-    "op:dateTime-equal": "op/dateTime-equal.xml",
-    "op:dateTime-less-than": "op/dateTime-less-than.xml",
-    "op:dateTime-greater-than": "op/dateTime-greater-than.xml",
-    # Boolean
-    "fn:not": "fn/not.xml",
-    "op:boolean-equal": "op/boolean-equal.xml",
-    "op:boolean-less-than": "op/boolean-less-than.xml",
-    "op:boolean-greater-than": "op/boolean-greater-than.xml",
-    # Duration functions (Stream A)
-    "fn:days-from-duration": "fn/days-from-duration.xml",
-    "fn:hours-from-duration": "fn/hours-from-duration.xml",
-    "fn:minutes-from-duration": "fn/minutes-from-duration.xml",
-    "fn:seconds-from-duration": "fn/seconds-from-duration.xml",
-    # Duration arithmetic and comparisons (Stream B)
-    "op:add-dayTimeDuration-to-dateTime": "op/add-dayTimeDuration-to-dateTime.xml",
-    "op:subtract-dayTimeDuration-from-dateTime": "op/subtract-dayTimeDuration-from-dateTime.xml",
-    "op:subtract-dateTimes": "op/subtract-dateTimes.xml",
-    "op:add-dayTimeDurations": "op/add-dayTimeDurations.xml",
-    "op:subtract-dayTimeDurations": "op/subtract-dayTimeDurations.xml",
-    "op:dayTimeDuration-equal": "op/duration-equal.xml",
-    "op:dayTimeDuration-less-than": "op/dayTimeDuration-less-than.xml",
-    "op:dayTimeDuration-greater-than": "op/dayTimeDuration-greater-than.xml",
-    # Numeric unary operators (Stream E)
-    "op:numeric-unary-plus": "op/numeric-unary-plus.xml",
-    "op:numeric-unary-minus": "op/numeric-unary-minus.xml",
-    # String functions
-    "fn:string-length": "fn/string-length.xml",
-    "fn:starts-with": "fn/starts-with.xml",
-    "fn:ends-with": "fn/ends-with.xml",
-    "fn:contains": "fn/contains.xml",
-}
 
-# Map XPath functions to Noir function names
-FUNCTION_MAP = {
-    # Numeric (integer)
-    "fn:abs": "abs_int",
-    "fn:ceiling": "ceil_int",
-    "fn:floor": "floor_int",
-    "fn:round": "round_int",
-    # Numeric (float)
-    "fn:round-float": "round_float",
-    "fn:ceiling-float": "ceil_float",
-    "fn:floor-float": "floor_float",
-    # Numeric (double)
-    "fn:round-double": "round_double",
-    "fn:ceiling-double": "ceil_double",
-    "fn:floor-double": "floor_double",
-    "op:numeric-add": "numeric_add_int",
-    "op:numeric-subtract": "numeric_subtract_int",
-    "op:numeric-multiply": "numeric_multiply_int",
-    "op:numeric-divide": "numeric_divide_int",
-    "op:numeric-integer-divide": "numeric_divide_int",
-    "op:numeric-mod": "numeric_mod_int",
-    "op:numeric-equal": "numeric_equal_int",
-    "op:numeric-less-than": "numeric_less_than_int",
-    "op:numeric-greater-than": "numeric_greater_than_int",
-    # Numeric (float)
-    "op:numeric-add-float": "numeric_add_float",
-    "op:numeric-subtract-float": "numeric_subtract_float",
-    "op:numeric-multiply-float": "numeric_multiply_float",
-    "op:numeric-divide-float": "numeric_divide_float",
-    "op:numeric-equal-float": "numeric_equal_float",
-    "op:numeric-less-than-float": "numeric_less_than_float",
-    "op:numeric-greater-than-float": "numeric_greater_than_float",
-    # Numeric (double)
-    "op:numeric-add-double": "numeric_add_double",
-    "op:numeric-subtract-double": "numeric_subtract_double",
-    "op:numeric-multiply-double": "numeric_multiply_double",
-    "op:numeric-divide-double": "numeric_divide_double",
-    "op:numeric-equal-double": "numeric_equal_double",
-    "op:numeric-less-than-double": "numeric_less_than_double",
-    "op:numeric-greater-than-double": "numeric_greater_than_double",
-    # Type casting
-    "xs:float-from-int": "cast_integer_to_float",
-    "xs:double-from-int": "cast_integer_to_double",
-    "xs:integer-from-float": "cast_float_to_integer",
-    "xs:integer-from-double": "cast_double_to_integer",
-    "xs:float-from-double": "cast_double_to_float",
-    # DateTime
-    "fn:year-from-dateTime": "year_from_datetime",
-    "fn:month-from-dateTime": "month_from_datetime",
-    "fn:day-from-dateTime": "day_from_datetime",
-    "fn:hours-from-dateTime": "hours_from_datetime",
-    "fn:minutes-from-dateTime": "minutes_from_datetime",
-    "fn:seconds-from-dateTime": "seconds_from_datetime",
-    "fn:timezone-from-dateTime": "timezone_from_datetime",
-    "op:dateTime-equal": "datetime_equal",
-    "op:dateTime-less-than": "datetime_less_than",
-    "op:dateTime-greater-than": "datetime_greater_than",
-    # Boolean
-    "fn:not": "fn_not",
-    "op:boolean-equal": "boolean_equal",
-    "op:boolean-less-than": "boolean_less_than",
-    "op:boolean-greater-than": "boolean_greater_than",
-    # Duration functions (Stream A)
-    "fn:days-from-duration": "days_from_duration",
-    "fn:hours-from-duration": "hours_from_duration",
-    "fn:minutes-from-duration": "minutes_from_duration",
-    "fn:seconds-from-duration": "seconds_from_duration",
-    # Duration arithmetic and comparisons (Stream B)
-    "op:add-dayTimeDuration-to-dateTime": "datetime_add_duration",
-    "op:subtract-dayTimeDuration-from-dateTime": "datetime_subtract_duration",
-    "op:subtract-dateTimes": "datetime_difference",
-    "op:add-dayTimeDurations": "duration_add",
-    "op:subtract-dayTimeDurations": "duration_subtract",
-    "op:dayTimeDuration-equal": "duration_equal",
-    "op:dayTimeDuration-less-than": "duration_less_than",
-    "op:dayTimeDuration-greater-than": "duration_greater_than",
-    # Numeric unary operators (Stream E)
-    "op:numeric-unary-plus": "numeric_unary_plus_int",
-    "op:numeric-unary-minus": "numeric_unary_minus_int",
-    # String functions
-    "fn:string-length": "string_length",
-    "fn:starts-with": "starts_with",
-    "fn:ends-with": "ends_with",
-    "fn:contains": "contains",
-}
+# Cached set of crate-root exports from xpath/src/lib.nr.
+XPATH_EXPORTED_SYMBOLS: set[str] = set()
+
+
+def _extract_identifiers_from_pub_use_stmt(stmt: str) -> set[str]:
+    """Extract exported identifiers from a single `pub use ...;` statement."""
+    exports: set[str] = set()
+    # Normalize whitespace for simpler parsing.
+    stmt = re.sub(r"\s+", " ", stmt.strip())
+    if not stmt.startswith("pub use ") or not stmt.endswith(";"):
+        return exports
+
+    # Handle `pub use path::{ a, b, c };`
+    brace_start = stmt.find("::{")
+    if brace_start != -1:
+        brace_end = stmt.rfind("}")
+        if brace_end != -1 and brace_end > brace_start:
+            inner = stmt[brace_start + 3:brace_end]
+            exports.update(re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*\b", inner))
+        return exports
+
+    # Handle `pub use path::name;`
+    m = re.match(r"^pub use (?:[A-Za-z0-9_]+::)*([A-Za-z_][A-Za-z0-9_]*)\s*;\s*$", stmt)
+    if m:
+        exports.add(m.group(1))
+    return exports
+
+
+def discover_xpath_exports(xpath_dir: Path) -> set[str]:
+    """Discover crate-root exported symbols from the Noir `xpath` library.
+
+    We parse xpath/src/lib.nr and extract:
+    - `pub fn <name>(...)`
+    - `pub use ...;` re-exports (including brace lists)
+    """
+    lib_path = xpath_dir / "src" / "lib.nr"
+    if not lib_path.exists():
+        return set()
+
+    content = lib_path.read_text()
+
+    # Strip line comments to avoid picking up identifiers in commented-out code.
+    content_no_comments = re.sub(r"//.*", "", content)
+
+    exports: set[str] = set()
+    exports.update(re.findall(r"\bpub\s+fn\s+([A-Za-z_][A-Za-z0-9_]*)\b", content_no_comments))
+
+    # Collect full `pub use ...;` statements (may span multiple lines).
+    for stmt in re.findall(r"pub\s+use\s+[\s\S]*?;", content_no_comments):
+        exports.update(_extract_identifiers_from_pub_use_stmt(stmt))
+
+    return exports
+
+TEST_FILE_OVERRIDES: dict[str, str] = {}
+
+
+def default_test_file_relpath(function_name: str) -> Optional[str]:
+    """Deterministically map a function name to a qt3tests XML relative path.
+
+    Most qt3tests file names match the post-prefix name exactly (e.g. fn:abs -> fn/abs.xml,
+    op:numeric-add -> op/numeric-add.xml). Some function variants share a base test file
+    (e.g. *-float / *-double variants), and duration equality lives in duration-equal.xml.
+    """
+    override = TEST_FILE_OVERRIDES.get(function_name)
+    if override is not None:
+        return override
+
+    if function_name.startswith("xs:"):
+        # Cast expressions are tested in prod/CastExpr.xml
+        return "prod/CastExpr.xml"
+
+    m = re.match(r"^(fn|op):(.+)$", function_name)
+    if not m:
+        return None
+
+    group = m.group(1)
+    stem = m.group(2)
+
+    # Most float/double variants reuse the base file (e.g. round-float -> round.xml).
+    stem = re.sub(r"-(float|double)$", "", stem)
+
+    # Duration equality is in duration-equal.xml
+    if group == "op" and stem.endswith("Duration-equal"):
+        stem = "duration-equal"
+
+    return f"{group}/{stem}.xml"
+
+def _qt3_op_to_snake(op: str) -> str:
+    return op.replace("-", "_")
+
+
+def _qt3_cmp_to_snake(op: str) -> str:
+    return op.replace("-", "_")
+
+
+def _candidate_noir_symbols(function_name: str) -> list[str]:
+    """Produce candidate Noir symbol names for a qt3tests function/operator name.
+
+    We keep this intentionally conservative and order candidates by preference.
+    """
+    # Synthetic cast pseudo-functions.
+    if function_name.startswith("xs:"):
+        m = re.match(r"^xs:([A-Za-z]+)-from-([A-Za-z]+)$", function_name)
+        if m:
+            target, source = m.group(1), m.group(2)
+            norm = {"int": "integer"}
+            target_norm = norm.get(target, target)
+            source_norm = norm.get(source, source)
+            return [f"cast_{source_norm}_to_{target_norm}"]
+        return []
+
+    m = re.match(r"^(fn|op):(.+)$", function_name)
+    if not m:
+        return []
+
+    kind, stem = m.group(1), m.group(2)
+    candidates: list[str] = []
+
+    if kind == "fn":
+        # qt3tests uses `dateTime` (camel case); Noir exports use `datetime`.
+        stem = stem.replace("dateTime", "datetime")
+
+        # Handle float/double variants.
+        variant = None
+        if stem.endswith("-float"):
+            variant = "float"
+            stem = stem[: -len("-float")]
+        elif stem.endswith("-double"):
+            variant = "double"
+            stem = stem[: -len("-double")]
+
+        if stem == "dateTime":
+            # Exported as fn_dateTime (note camel case)
+            candidates.extend(["fn_dateTime", "fn_datetime", "datetime"])
+            return candidates
+
+        if stem == "not":
+            candidates.extend(["fn_not"])
+            return candidates
+
+        # Numeric functions use *_int naming for the integer variants.
+        if stem in {"abs", "round", "floor", "ceiling"}:
+            base = "ceil" if stem == "ceiling" else stem
+            if variant is None:
+                candidates.append(f"{base}_int")
+            else:
+                candidates.append(f"{base}_{variant}")
+            return candidates
+
+        snake = _qt3_op_to_snake(stem)
+        candidates.append(snake)
+        candidates.append(f"fn_{snake}")
+        return candidates
+
+    # Operators
+    # qt3tests uses `dateTime` (camel case); Noir exports use `datetime`.
+    stem_norm = stem.replace("dateTime", "datetime")
+
+    if stem.startswith("numeric-unary-"):
+        op = stem[len("numeric-unary-"):]
+        candidates.append(f"numeric_unary_{_qt3_op_to_snake(op)}_int")
+        return candidates
+
+    # Numeric binary operators
+    num = re.match(
+        r"^numeric-(add|subtract|multiply|divide|integer-divide|mod|equal|less-than|greater-than)(?:-(float|double))?$",
+        stem_norm,
+    )
+    if num:
+        op, variant = num.group(1), num.group(2)
+        if op == "integer-divide":
+            op = "divide"
+        op_snake = _qt3_op_to_snake(op)
+        suffix = variant if variant is not None else "int"
+        candidates.append(f"numeric_{op_snake}_{suffix}")
+        return candidates
+
+    # dateTime/date/time/boolean comparisons
+    dt_cmp = re.match(r"^(datetime|date|time|boolean)-(equal|less-than|greater-than)$", stem_norm)
+    if dt_cmp:
+        lhs, op = dt_cmp.group(1), dt_cmp.group(2)
+        candidates.append(f"{lhs}_{_qt3_cmp_to_snake(op)}")
+        return candidates
+
+    # subtract of same-type values
+    if stem in ("subtract-dateTimes", "subtract-datetimes"):
+        return ["datetime_difference"]
+    if stem == "subtract-dates":
+        return ["subtract_dates"]
+    if stem == "subtract-times":
+        return ["subtract_times"]
+
+    # Add/subtract duration to date/dateTime/time
+    dur_to_from = re.match(r"^(add|subtract)-(dayTimeDuration|yearMonthDuration)-(to|from)-(datetime|date|time)$", stem_norm)
+    if dur_to_from:
+        op, dur_kind, _, subject = dur_to_from.groups()
+        dur_suffix = "duration" if dur_kind == "dayTimeDuration" else "ym_duration"
+        candidates.append(f"{subject}_{op}_{dur_suffix}")
+        return candidates
+
+    # DayTimeDuration arithmetic and comparisons
+    if stem in {"add-dayTimeDurations", "subtract-dayTimeDurations"}:
+        op = "add" if stem.startswith("add-") else "subtract"
+        return [f"duration_{op}"]
+    if stem in {"multiply-dayTimeDuration", "divide-dayTimeDuration"}:
+        op = "multiply" if stem.startswith("multiply-") else "divide"
+        return [f"duration_{op}"]
+    if stem == "divide-dayTimeDuration-by-dayTimeDuration":
+        return ["duration_divide_by_duration"]
+    dtd_cmp = re.match(r"^dayTimeDuration-(equal|less-than|greater-than)$", stem)
+    if dtd_cmp:
+        return [f"duration_{_qt3_cmp_to_snake(dtd_cmp.group(1))}"]
+
+    # YearMonthDuration arithmetic and comparisons
+    if stem in {"add-yearMonthDurations", "subtract-yearMonthDurations"}:
+        op = "add" if stem.startswith("add-") else "subtract"
+        return [f"ym_duration_{op}"]
+    if stem in {"multiply-yearMonthDuration", "divide-yearMonthDuration"}:
+        op = "multiply" if stem.startswith("multiply-") else "divide"
+        return [f"ym_duration_{op}"]
+    if stem == "divide-yearMonthDuration-by-yearMonthDuration":
+        return ["ym_duration_divide_by_duration"]
+    ymd_cmp = re.match(r"^yearMonthDuration-(equal|less-than|greater-than)$", stem)
+    if ymd_cmp:
+        return [f"ym_duration_{_qt3_cmp_to_snake(ymd_cmp.group(1))}"]
+
+    # Fallback: direct snake-case mapping
+    candidates.append(_qt3_op_to_snake(stem))
+    return candidates
+
+
+def resolve_noir_symbol(function_name: str, exports: Optional[set[str]] = None) -> Optional[str]:
+    """Resolve qt3tests name to an exported Noir symbol, or None if unknown/unexported."""
+    exports = XPATH_EXPORTED_SYMBOLS if exports is None else exports
+    for cand in _candidate_noir_symbols(function_name):
+        if cand in exports:
+            return cand
+    return None
 
 # Float type filter - which function variants accept which types
 FLOAT_FUNCTION_TYPES = {
@@ -241,12 +306,15 @@ CAST_FUNCTION_PATTERNS = {
     "xs:float-from-double": ("double", "float"), # xs:float(xs:double(...))
 }
 
-# Functions currently implemented (those with a mapping in FUNCTION_MAP)
-IMPLEMENTED_FUNCTIONS = list(FUNCTION_MAP.keys())
+def discover_available_functions(qt3_dir: Path) -> set[str]:
+    """Discover available function/operator names from qt3tests XML files."""
+    if not qt3_dir.exists():
+        return set()
+    return set(discover_all_test_files(qt3_dir).keys())
 
 
-def discover_all_test_files(qt3_dir: Path) -> dict[str, str]:
-    """Discover all test files in qt3tests fn/ and op/ directories.
+def discover_all_test_files(qt3_dir: Path, *, include_prod: bool = False) -> dict[str, str]:
+    """Discover test files in qt3tests.
     
     Returns a dict mapping function names (e.g., 'fn:abs', 'op:numeric-add') 
     to their test file paths relative to qt3_dir.
@@ -270,19 +338,25 @@ def discover_all_test_files(qt3_dir: Path) -> dict[str, str]:
             func_name = xml_file.stem
             all_functions[f"op:{func_name}"] = f"op/{xml_file.name}"
     
-    # Discover prod/ test files (for type casting etc.)
-    prod_dir = qt3_dir / "prod"
-    if prod_dir.exists():
-        for xml_file in prod_dir.glob("*.xml"):
-            func_name = xml_file.stem
-            all_functions[f"prod:{func_name}"] = f"prod/{xml_file.name}"
+    # Optionally discover prod/ XML files (XQuery/XPath productions).
+    # These are not function/operator tests, but they can be useful for inspection.
+    if include_prod:
+        prod_dir = qt3_dir / "prod"
+        if prod_dir.exists():
+            for xml_file in prod_dir.glob("*.xml"):
+                func_name = xml_file.stem
+                all_functions[f"prod:{func_name}"] = f"prod/{xml_file.name}"
     
     return all_functions
 
 
 def is_function_implemented(function_name: str) -> bool:
-    """Check if a function is implemented (has a mapping in FUNCTION_MAP)."""
-    return function_name in FUNCTION_MAP
+    """Check if a function is implemented by verifying Noir exports.
+
+    We consider a function implemented if we can deterministically resolve it to an
+    exported Noir symbol from the xpath crate root (xpath/src/lib.nr).
+    """
+    return resolve_noir_symbol(function_name) is not None
 
 
 @dataclass
@@ -497,111 +571,79 @@ def generate_stub_functions_module(xpath_dir: Path) -> None:
 
 
 def update_lib_nr_with_stubs(xpath_dir: Path) -> None:
-    """Update lib.nr to include the stubs module and export all stub functions."""
+    """Ensure lib.nr includes and re-exports the stubs module.
+
+    Important: Do not remove stubs support just because the current generator run
+    didn't require any new stubs. Existing generated test packages may still
+    depend on previously-generated stubs.
+    """
     lib_file = xpath_dir / "src" / "lib.nr"
+    if not lib_file.exists():
+        return
+
+    stubs_file = xpath_dir / "src" / "stubs.nr"
+    if not stubs_file.exists():
+        return
+
     content = lib_file.read_text()
-    
     stubs_module_line = "mod stubs;"
-    
-    if STUB_FUNCTIONS_NEEDED:
-        # Add stubs module if not present
-        if stubs_module_line not in content:
-            # Add after the last mod statement
-            lines = content.split('\n')
-            insert_idx = 0
-            for i, line in enumerate(lines):
-                if line.startswith('mod '):
-                    insert_idx = i + 1
-            lines.insert(insert_idx, stubs_module_line)
-            content = '\n'.join(lines)
-        
-        # Build the explicit export list for all stub functions
-        stub_exports = [get_stub_function_name(f) for f in sorted(STUB_FUNCTIONS_NEEDED)]
-        
-        # Remove old export block if present - handles both single and multi-line blocks
-        # The block starts with marker comment and ends with "};", which may have things between
-        old_export_marker = "// Re-export stub functions for unimplemented XPath functions"
-        
-        if old_export_marker in content:
-            # Find the start of the export block (the comment line)
-            start_idx = content.find(old_export_marker)
-            
-            # Find the end - look for "};" that closes "pub use stubs::{"
-            # Start searching from after the marker
-            search_start = start_idx + len(old_export_marker)
-            
-            # Find "pub use stubs::{" first
-            pub_use_start = content.find("pub use stubs::{", search_start)
-            if pub_use_start != -1:
-                # Now find the matching "};"
-                # Count braces to handle nested content
-                brace_count = 0
-                in_block = False
-                end_idx = pub_use_start
-                for i in range(pub_use_start, len(content)):
-                    c = content[i]
-                    if c == '{':
-                        brace_count += 1
-                        in_block = True
-                    elif c == '}':
-                        brace_count -= 1
-                        if in_block and brace_count == 0:
-                            # Found the closing brace, look for semicolon
-                            end_idx = i + 1
-                            # Skip any trailing semicolon and newline
-                            while end_idx < len(content) and content[end_idx] in ';\n':
-                                end_idx += 1
-                            break
-                
-                # Remove the old block
-                content = content[:start_idx] + content[end_idx:]
-        
-        # Also remove any "Note: Many stubs have been removed" line that precedes the export
-        note_marker = "// Note: Many stubs have been removed as they now have real implementations"
-        content = content.replace(note_marker + "\n", "")
-        
-        # Clean up extra newlines that might have been left
-        while '\n\n\n' in content:
-            content = content.replace('\n\n\n', '\n\n')
-        
-        # Add new export block at the end
-        if not content.endswith('\n'):
-            content += '\n'
-        content += f"\n// Re-export stub functions for unimplemented XPath functions\npub use stubs::{{\n"
-        for stub_name in stub_exports:
-            content += f"    {stub_name},\n"
-        content += "};\n"
-        
-        lib_file.write_text(content)
-    else:
-        # Remove stubs module and export if no stubs needed
-        if stubs_module_line in content:
-            content = content.replace(stubs_module_line + '\n', '')
-        
-        # Remove export block using same logic
-        old_export_marker = "// Re-export stub functions for unimplemented XPath functions"
-        if old_export_marker in content:
-            start_idx = content.find(old_export_marker)
-            pub_use_start = content.find("pub use stubs::{", start_idx)
-            if pub_use_start != -1:
-                brace_count = 0
-                in_block = False
-                end_idx = pub_use_start
-                for i in range(pub_use_start, len(content)):
-                    c = content[i]
-                    if c == '{':
-                        brace_count += 1
-                        in_block = True
-                    elif c == '}':
-                        brace_count -= 1
-                        if in_block and brace_count == 0:
-                            end_idx = i + 1
-                            while end_idx < len(content) and content[end_idx] in ';\n':
-                                end_idx += 1
-                            break
-                content = content[:start_idx] + content[end_idx:]
-        
-        lib_file.write_text(content)
+
+    # Ensure `mod stubs;` exists (insert after the last `mod ...;` line).
+    if stubs_module_line not in content:
+        lines = content.split('\n')
+        insert_idx = 0
+        for i, line in enumerate(lines):
+            if line.startswith('mod '):
+                insert_idx = i + 1
+        lines.insert(insert_idx, stubs_module_line)
+        content = '\n'.join(lines)
+
+    # Determine all stub functions available in `stubs.nr`.
+    stubs_content = stubs_file.read_text()
+    stub_names = sorted(set(re.findall(r"\bpub\s+fn\s+(stub_[A-Za-z0-9_]+)\b", stubs_content)))
+
+    # Remove any existing export block (explicit list) and any previous wildcard attempt.
+    old_export_marker = "// Re-export stub functions for unimplemented XPath functions"
+    content = content.replace("pub use stubs::*;\n", "")
+    content = content.replace("pub use stubs::*;", "")
+
+    if old_export_marker in content:
+        start_idx = content.find(old_export_marker)
+        pub_use_start = content.find("pub use stubs::{", start_idx)
+        if pub_use_start != -1:
+            brace_count = 0
+            in_block = False
+            end_idx = pub_use_start
+            for i in range(pub_use_start, len(content)):
+                c = content[i]
+                if c == '{':
+                    brace_count += 1
+                    in_block = True
+                elif c == '}':
+                    brace_count -= 1
+                    if in_block and brace_count == 0:
+                        end_idx = i + 1
+                        while end_idx < len(content) and content[end_idx] in ';\n':
+                            end_idx += 1
+                        break
+            content = content[:start_idx] + content[end_idx:]
+        else:
+            content = content.replace(old_export_marker + "\n", "")
+
+    # Clean up excessive blank lines after removal.
+    while "\n\n\n" in content:
+        content = content.replace("\n\n\n", "\n\n")
+
+    # Append a fresh explicit export list.
+    if not content.endswith("\n"):
+        content += "\n"
+    content += "\n// Re-export stub functions for unimplemented XPath functions\n"
+    content += "pub use stubs::{\n"
+    for name in stub_names:
+        content += f"    {name},\n"
+    content += "};\n"
+
+    lib_file.write_text(content)
 
 
 def generate_stub_test_with_function(test: 'TestCase', function_name: str) -> Optional[str]:
@@ -909,25 +951,40 @@ def convert_xpath_expr(expr: str, function_name: str) -> Optional[Tuple[str, str
     and the expected value is extracted from the expression itself.
     """
     expr = expr.strip()
-    noir_func = FUNCTION_MAP.get(function_name)
+    noir_func = resolve_noir_symbol(function_name)
     if not noir_func:
         return None
     
-    # Check if this is a cast function - skip type filtering for casts
+    # Numeric type filtering (int vs float vs double) is only meaningful for numeric ops.
+    # Applying it broadly causes non-numeric suites (e.g., duration arithmetic) to be skipped.
     is_cast_function = function_name in CAST_FUNCTION_PATTERNS
-    
-    # Check if this is a float/double variant
     expected_type = FLOAT_FUNCTION_TYPES.get(function_name)
     detected_type = detect_operand_type(expr)
-    
-    # Skip type filtering for cast functions (they handle their own type checking)
-    if not is_cast_function:
+
+    is_numeric_suite = (
+        function_name.startswith("op:numeric-")
+        or function_name.startswith("op:numeric-unary-")
+        or function_name in {
+            "fn:abs",
+            "fn:ceiling",
+            "fn:floor",
+            "fn:round",
+            "fn:round-float",
+            "fn:ceiling-float",
+            "fn:floor-float",
+            "fn:round-double",
+            "fn:ceiling-double",
+            "fn:floor-double",
+        }
+    )
+
+    if is_cast_function or is_numeric_suite or expected_type is not None:
         # For float/double variants, filter to only matching type tests
         if expected_type is not None:
             if expected_type != detected_type:
                 return None
         # For integer variants, skip float/double tests
-        elif detected_type in ('float', 'double'):
+        elif detected_type in ("float", "double") and not is_cast_function:
             return None
     
     parser = XPath2Parser()
@@ -943,19 +1000,10 @@ def convert_xpath_expr(expr: str, function_name: str) -> Optional[Tuple[str, str
     if symbol is None:
         return None
     
-    # Map XPath function names to Noir functions
-    xpath_to_noir_dt_funcs = {
-        "year-from-dateTime": "year_from_datetime",
-        "month-from-dateTime": "month_from_datetime",
-        "day-from-dateTime": "day_from_datetime",
-        "hours-from-dateTime": "hours_from_datetime",
-        "minutes-from-dateTime": "minutes_from_datetime",
-        "seconds-from-dateTime": "seconds_from_datetime",
-    }
-    
-    # Handle datetime component extraction functions
-    if symbol in xpath_to_noir_dt_funcs:
-        expected_noir_fn = xpath_to_noir_dt_funcs[symbol]
+    # Handle dateTime component extraction functions (e.g. year-from-dateTime)
+    dt_extract_match = re.match(r"^(year|month|day|hours|minutes|seconds|timezone)-from-dateTime$", symbol)
+    if dt_extract_match is not None:
+        expected_noir_fn = f"{dt_extract_match.group(1)}_from_datetime"
         if expected_noir_fn != noir_func:
             return None
         
@@ -981,17 +1029,160 @@ def convert_xpath_expr(expr: str, function_name: str) -> Optional[Tuple[str, str
             except Exception:
                 pass
         return None
+
+    # Handle date component extraction functions (e.g. year-from-date)
+    date_extract_match = re.match(r"^(year|month|day|timezone)-from-date$", symbol)
+    if date_extract_match is not None:
+        expected_noir_fn = f"{date_extract_match.group(1)}_from_date"
+        if expected_noir_fn != noir_func:
+            return None
+        
+        # Get function arguments
+        args = _get_function_args(token)
+        
+        # The argument should be a date - try to extract it
+        if len(args) >= 1:
+            arg = args[0]
+            try:
+                date_val = arg.evaluate()
+                if isinstance(date_val, Date10):
+                    result = _date_to_epoch_days(date_val)
+                    if result is None:
+                        return None
+                    epoch_days, tz_offset = result
+                    # Skip dates before 1970 (negative epoch) - not supported
+                    if epoch_days < 0:
+                        return None
+                    setup = f"let d = date_from_epoch_days_with_tz({epoch_days}, {tz_offset});"
+                    return (setup, f"{noir_func}(d)", None)
+            except Exception:
+                pass
+        return None
+
+    # Handle time component extraction functions (e.g. hours-from-time)
+    time_extract_match = re.match(r"^(hours|minutes|seconds|timezone)-from-time$", symbol)
+    if time_extract_match is not None:
+        expected_noir_fn = f"{time_extract_match.group(1)}_from_time"
+        if expected_noir_fn != noir_func:
+            return None
+        
+        # Get function arguments
+        args = _get_function_args(token)
+        
+        # The argument should be a time - try to extract it
+        if len(args) >= 1:
+            arg = args[0]
+            try:
+                time_val = arg.evaluate()
+                if isinstance(time_val, Time):
+                    result = _time_to_microseconds(time_val)
+                    if result is None:
+                        return None
+                    micros, tz_offset = result
+                    setup = f"let t = time_from_microseconds_with_tz({micros}, {tz_offset});"
+                    return (setup, f"{noir_func}(t)", None)
+            except Exception:
+                pass
+        return None
     
-    # Handle duration component extraction functions (Stream A)
-    xpath_to_noir_dur_funcs = {
-        "days-from-duration": "days_from_duration",
-        "hours-from-duration": "hours_from_duration",
-        "minutes-from-duration": "minutes_from_duration",
-        "seconds-from-duration": "seconds_from_duration",
-    }
+    # Handle adjust-*-to-timezone functions
+    # These functions return date/time/datetime values
+    # Expected results are strings like "2002-03-07T10:00:00-05:00" which we parse and compare components
+    if symbol in ("adjust-dateTime-to-timezone", "adjust-date-to-timezone", "adjust-time-to-timezone"):
+        if noir_func in ("adjust_datetime_to_timezone", "adjust_date_to_timezone", "adjust_time_to_timezone"):
+            args = _get_function_args(token)
+            if len(args) >= 1:
+                try:
+                    # For adjust-date-to-timezone
+                    if symbol == "adjust-date-to-timezone" and noir_func == "adjust_date_to_timezone":
+                        date_val = args[0].evaluate()
+                        if isinstance(date_val, Date10):
+                            result = _date_to_epoch_days(date_val)
+                            if result is None:
+                                return None
+                            epoch_days, src_tz = result
+                            if epoch_days < 0:
+                                return None
+                            
+                            setup = f"let d = date_from_epoch_days_with_tz({epoch_days}, {src_tz});"
+                            
+                            # Check second argument
+                            if len(args) == 1:
+                                # Single argument - uses implicit timezone, skip
+                                return None
+                            
+                            arg2_val = args[1].evaluate()
+                            # Check if second arg is empty sequence ()
+                            if isinstance(arg2_val, list) and len(arg2_val) == 0:
+                                # Use the _none variant to remove timezone
+                                return (setup, "adjust_date_to_timezone_none(d)", None)
+                            
+                            # Check if second arg is a DayTimeDuration
+                            if isinstance(arg2_val, DayTimeDuration):
+                                target_tz_mins = int(arg2_val.seconds / 60)
+                                return (setup, f"adjust_date_to_timezone(d, {target_tz_mins})", None)
+                    
+                    # For adjust-time-to-timezone
+                    elif symbol == "adjust-time-to-timezone" and noir_func == "adjust_time_to_timezone":
+                        time_val = args[0].evaluate()
+                        if isinstance(time_val, Time):
+                            result = _time_to_microseconds(time_val)
+                            if result is None:
+                                return None
+                            micros, src_tz = result
+                            
+                            setup = f"let t = time_from_microseconds_with_tz({micros}, {src_tz});"
+                            
+                            # Check second argument
+                            if len(args) == 1:
+                                # Single argument - uses implicit timezone, skip
+                                return None
+                            
+                            arg2_val = args[1].evaluate()
+                            # Check if second arg is empty sequence ()
+                            if isinstance(arg2_val, list) and len(arg2_val) == 0:
+                                return (setup, "adjust_time_to_timezone_none(t)", None)
+                            
+                            # Check if second arg is a DayTimeDuration
+                            if isinstance(arg2_val, DayTimeDuration):
+                                target_tz_mins = int(arg2_val.seconds / 60)
+                                return (setup, f"adjust_time_to_timezone(t, {target_tz_mins})", None)
+                    
+                    # For adjust-dateTime-to-timezone
+                    elif symbol == "adjust-dateTime-to-timezone" and noir_func == "adjust_datetime_to_timezone":
+                        dt_val = args[0].evaluate()
+                        if isinstance(dt_val, DateTime10):
+                            result = _datetime_to_epoch(dt_val)
+                            if result is None:
+                                return None
+                            utc_micros, src_tz = result
+                            if utc_micros < 0:
+                                return None
+                            
+                            setup = f"let dt = datetime_from_epoch_microseconds_with_tz({utc_micros}, {src_tz});"
+                            
+                            # Check second argument
+                            if len(args) == 1:
+                                # Single argument - uses implicit timezone, skip
+                                return None
+                            
+                            arg2_val = args[1].evaluate()
+                            # Check if second arg is empty sequence ()
+                            if isinstance(arg2_val, list) and len(arg2_val) == 0:
+                                return (setup, "adjust_datetime_to_timezone_none(dt)", None)
+                            
+                            # Check if second arg is a DayTimeDuration
+                            if isinstance(arg2_val, DayTimeDuration):
+                                target_tz_mins = int(arg2_val.seconds / 60)
+                                return (setup, f"adjust_datetime_to_timezone(dt, {target_tz_mins})", None)
+                except Exception:
+                    pass
+        return None
     
-    if symbol in xpath_to_noir_dur_funcs:
-        expected_noir_fn = xpath_to_noir_dur_funcs[symbol]
+    # Handle duration component extraction functions
+    dur_extract_match = re.match(r"^(days|hours|minutes|seconds|years|months)-from-duration$", symbol)
+    if dur_extract_match is not None:
+        expected_noir_fn = f"{dur_extract_match.group(1)}_from_duration"
         if expected_noir_fn != noir_func:
             return None
         
@@ -1157,9 +1348,126 @@ def convert_xpath_expr(expr: str, function_name: str) -> Optional[Tuple[str, str
                                 if utc_micros1 >= 0 and utc_micros2 >= 0:
                                     setup = f"let dt1 = datetime_from_epoch_microseconds_with_tz({utc_micros1}, {tz_offset1});\n    let dt2 = datetime_from_epoch_microseconds_with_tz({utc_micros2}, {tz_offset2});"
                                     return (setup, f"{noir_func}(dt1, dt2)", None)
+                
+                # Date - Date (returns dayTimeDuration)
+                elif arg1_symbol == "date" and arg2_symbol == "date":
+                    if symbol == "-" and noir_func == "subtract_dates":
+                        d1 = token[0].evaluate()
+                        d2 = token[1].evaluate()
+                        
+                        if isinstance(d1, Date10) and isinstance(d2, Date10):
+                            result1 = _date_to_epoch_days(d1)
+                            result2 = _date_to_epoch_days(d2)
+                            
+                            if result1 is not None and result2 is not None:
+                                epoch_days1, tz_offset1 = result1
+                                epoch_days2, tz_offset2 = result2
+                                
+                                if epoch_days1 >= 0 and epoch_days2 >= 0:
+                                    setup = f"let d1 = date_from_epoch_days_with_tz({epoch_days1}, {tz_offset1});\n    let d2 = date_from_epoch_days_with_tz({epoch_days2}, {tz_offset2});"
+                                    return (setup, f"{noir_func}(d1, d2)", None)
+                
+                # Time - Time (returns dayTimeDuration)
+                elif arg1_symbol == "time" and arg2_symbol == "time":
+                    if symbol == "-" and noir_func == "subtract_times":
+                        t1 = token[0].evaluate()
+                        t2 = token[1].evaluate()
+                        
+                        if isinstance(t1, Time) and isinstance(t2, Time):
+                            result1 = _time_to_microseconds(t1)
+                            result2 = _time_to_microseconds(t2)
+                            
+                            if result1 is not None and result2 is not None:
+                                micros1, tz_offset1 = result1
+                                micros2, tz_offset2 = result2
+                                setup = f"let t1 = time_from_microseconds_with_tz({micros1}, {tz_offset1});\n    let t2 = time_from_microseconds_with_tz({micros2}, {tz_offset2});"
+                                return (setup, f"{noir_func}(t1, t2)", None)
             except Exception:
                 # Skip tests that cannot be evaluated (e.g., complex expressions)
                 pass
+
+    # Handle duration scalar multiply/divide (Stream B)
+    if symbol in ("*", "div") and len(token) >= 2:
+        try:
+            arg1_symbol = _get_function_name(token[0])
+            arg2_symbol = _get_function_name(token[1])
+
+            def _eval_int_scalar(t) -> Optional[int]:
+                try:
+                    v = t.evaluate()
+                except Exception:
+                    return None
+                if isinstance(v, bool):
+                    return None
+                if isinstance(v, int):
+                    return v if _fits_in_i64(v) else None
+                if isinstance(v, Decimal):
+                    if v == v.to_integral_value():
+                        as_int = int(v)
+                        return as_int if _fits_in_i64(as_int) else None
+                    return None
+                if isinstance(v, float):
+                    if v.is_integer():
+                        as_int = int(v)
+                        return as_int if _fits_in_i64(as_int) else None
+                    return None
+                if isinstance(v, str):
+                    parsed = parse_integer(v)
+                    if parsed is None:
+                        return None
+                    return parsed if _fits_in_i64(parsed) else None
+                return None
+
+            def _parse_duration_ctor(t) -> Optional[int]:
+                if _get_function_name(t) != "dayTimeDuration":
+                    return None
+                inner_args = _get_function_args(t)
+                if len(inner_args) < 1:
+                    return None
+                s = inner_args[0].evaluate()
+                if not isinstance(s, str):
+                    return None
+                micros = parse_duration(s)
+                if micros is None or not _fits_in_i64(micros):
+                    return None
+                return micros
+
+            # duration * int OR int * duration
+            if symbol == "*" and noir_func == "duration_multiply":
+                micros = None
+                factor = None
+                if arg1_symbol == "dayTimeDuration":
+                    micros = _parse_duration_ctor(token[0])
+                    factor = _eval_int_scalar(token[1])
+                elif arg2_symbol == "dayTimeDuration":
+                    micros = _parse_duration_ctor(token[1])
+                    factor = _eval_int_scalar(token[0])
+                if micros is not None and factor is not None:
+                    setup = f"let dur = duration_from_microseconds({micros});"
+                    return (setup, f"{noir_func}(dur, {factor})", None)
+
+            # duration div int
+            if symbol == "div" and noir_func == "duration_divide":
+                if arg1_symbol == "dayTimeDuration":
+                    micros = _parse_duration_ctor(token[0])
+                    divisor = _eval_int_scalar(token[1])
+                    if micros is not None and divisor is not None:
+                        setup = f"let dur = duration_from_microseconds({micros});"
+                        return (setup, f"{noir_func}(dur, {divisor})", None)
+
+            # duration div duration -> i64 ratio
+            if symbol == "div" and noir_func == "duration_divide_by_duration":
+                if arg1_symbol == "dayTimeDuration" and arg2_symbol == "dayTimeDuration":
+                    micros1 = _parse_duration_ctor(token[0])
+                    micros2 = _parse_duration_ctor(token[1])
+                    if micros1 is not None and micros2 is not None:
+                        setup = (
+                            f"let dur1 = duration_from_microseconds({micros1});\n"
+                            f"    let dur2 = duration_from_microseconds({micros2});"
+                        )
+                        return (setup, f"{noir_func}(dur1, dur2)", None)
+        except Exception:
+            pass
     
     # Handle datetime comparison operators (eq, lt, gt)
     if symbol in ("eq", "lt", "gt", "=", "<", ">"):
@@ -1188,6 +1496,85 @@ def convert_xpath_expr(expr: str, function_name: str) -> Optional[Tuple[str, str
                             return None
                         setup = f"let dt1 = datetime_from_epoch_microseconds_with_tz({utc_micros1}, {tz_offset1});\n    let dt2 = datetime_from_epoch_microseconds_with_tz({utc_micros2}, {tz_offset2});"
                         return (setup, f"{noir_func}(dt1, dt2)", None)
+            except Exception:
+                pass
+    
+    # Handle time comparison operators (eq, lt, gt)
+    if symbol in ("eq", "lt", "gt", "=", "<", ">"):
+        time_op_map = {
+            "eq": "time_equal", "=": "time_equal",
+            "lt": "time_less_than", "<": "time_less_than",
+            "gt": "time_greater_than", ">": "time_greater_than",
+        }
+        expected_noir_fn = time_op_map.get(symbol)
+        
+        if expected_noir_fn == noir_func and len(token) >= 2:
+            try:
+                t1 = token[0].evaluate()
+                t2 = token[1].evaluate()
+                
+                if isinstance(t1, Time) and isinstance(t2, Time):
+                    result1 = _time_to_microseconds(t1)
+                    result2 = _time_to_microseconds(t2)
+                    
+                    if result1 is not None and result2 is not None:
+                        micros1, tz_offset1 = result1
+                        micros2, tz_offset2 = result2
+                        setup = f"let t1 = time_from_microseconds_with_tz({micros1}, {tz_offset1});\n    let t2 = time_from_microseconds_with_tz({micros2}, {tz_offset2});"
+                        return (setup, f"{noir_func}(t1, t2)", None)
+            except Exception:
+                pass
+    
+    # Handle date comparison operators (eq, lt, gt)
+    if symbol in ("eq", "lt", "gt", "=", "<", ">"):
+        date_op_map = {
+            "eq": "date_equal", "=": "date_equal",
+            "lt": "date_less_than", "<": "date_less_than",
+            "gt": "date_greater_than", ">": "date_greater_than",
+        }
+        expected_noir_fn = date_op_map.get(symbol)
+        
+        if expected_noir_fn == noir_func and len(token) >= 2:
+            try:
+                d1 = token[0].evaluate()
+                d2 = token[1].evaluate()
+                
+                if isinstance(d1, Date10) and isinstance(d2, Date10):
+                    result1 = _date_to_epoch_days(d1)
+                    result2 = _date_to_epoch_days(d2)
+                    
+                    if result1 is not None and result2 is not None:
+                        epoch_days1, tz_offset1 = result1
+                        epoch_days2, tz_offset2 = result2
+                        # Skip dates before 1970
+                        if epoch_days1 < 0 or epoch_days2 < 0:
+                            return None
+                        setup = f"let d1 = date_from_epoch_days_with_tz({epoch_days1}, {tz_offset1});\n    let d2 = date_from_epoch_days_with_tz({epoch_days2}, {tz_offset2});"
+                        return (setup, f"{noir_func}(d1, d2)", None)
+            except Exception:
+                pass
+    
+    # Handle yearMonthDuration comparison operators (eq, lt, gt)
+    if symbol in ("eq", "lt", "gt", "=", "<", ">"):
+        ym_op_map = {
+            "eq": "ym_duration_equal", "=": "ym_duration_equal",
+            "lt": "ym_duration_less_than", "<": "ym_duration_less_than",
+            "gt": "ym_duration_greater_than", ">": "ym_duration_greater_than",
+        }
+        expected_noir_fn = ym_op_map.get(symbol)
+        
+        if expected_noir_fn == noir_func and len(token) >= 2:
+            try:
+                from elementpath.datatypes import YearMonthDuration
+                d1 = token[0].evaluate()
+                d2 = token[1].evaluate()
+                
+                if isinstance(d1, YearMonthDuration) and isinstance(d2, YearMonthDuration):
+                    # YearMonthDuration stores months (and years as months * 12)
+                    months1 = d1.months
+                    months2 = d2.months
+                    setup = f"let d1 = XsdYearMonthDuration::new({months1});\n    let d2 = XsdYearMonthDuration::new({months2});"
+                    return (setup, f"{noir_func}(d1, d2)", None)
             except Exception:
                 pass
     
@@ -1714,6 +2101,150 @@ def _datetime_to_epoch(dt: DateTime10) -> Optional[Tuple[int, int]]:
         return None
 
 
+def _date_to_epoch_days(dt: Date10) -> Optional[Tuple[int, int]]:
+    """Convert elementpath Date10 to (epoch days, tz_offset_minutes).
+    
+    Returns (days since 1970-01-01, timezone offset in minutes).
+    """
+    try:
+        # Get timezone offset in minutes
+        tz_offset_minutes = 0
+        if dt.tzinfo is not None:
+            offset = dt.tzinfo.offset
+            tz_offset_minutes = int(offset.total_seconds() / 60)
+        
+        # Build a Python date and convert to epoch days
+        from datetime import date as pydate
+        py_date = pydate(dt.year, dt.month, dt.day)
+        epoch_date = pydate(1970, 1, 1)
+        delta = py_date - epoch_date
+        epoch_days = delta.days
+        
+        return (epoch_days, tz_offset_minutes)
+    except Exception:
+        return None
+
+
+def _parse_date_string(s: str) -> Optional[Tuple[int, int, int, Optional[int]]]:
+    """Parse a date string like '2002-03-07-05:00' or '2002-03-07'.
+    
+    Returns (year, month, day, tz_offset_minutes) or None.
+    tz_offset_minutes is None if no timezone is present.
+    """
+    import re
+    # Pattern for date with optional timezone: YYYY-MM-DD[Z|[+-]HH:MM]
+    pattern = r'^(-?\d{4})-(\d{2})-(\d{2})(Z|[+-]\d{2}:\d{2})?$'
+    match = re.match(pattern, s)
+    if not match:
+        return None
+    
+    year = int(match.group(1))
+    month = int(match.group(2))
+    day = int(match.group(3))
+    tz_str = match.group(4)
+    
+    tz_minutes = None
+    if tz_str:
+        if tz_str == 'Z':
+            tz_minutes = 0
+        else:
+            sign = 1 if tz_str[0] == '+' else -1
+            hours = int(tz_str[1:3])
+            minutes = int(tz_str[4:6])
+            tz_minutes = sign * (hours * 60 + minutes)
+    
+    return (year, month, day, tz_minutes)
+
+
+def _parse_time_string(s: str) -> Optional[Tuple[int, int, int, Optional[int]]]:
+    """Parse a time string like '11:23:00-05:00' or '11:23:00'.
+    
+    Returns (hours, minutes, seconds, tz_offset_minutes) or None.
+    tz_offset_minutes is None if no timezone is present.
+    """
+    import re
+    # Pattern for time with optional timezone: HH:MM:SS[.sss][Z|[+-]HH:MM]
+    pattern = r'^(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:\d{2})?$'
+    match = re.match(pattern, s)
+    if not match:
+        return None
+    
+    hours = int(match.group(1))
+    minutes = int(match.group(2))
+    seconds = int(match.group(3))
+    tz_str = match.group(4)
+    
+    tz_minutes = None
+    if tz_str:
+        if tz_str == 'Z':
+            tz_minutes = 0
+        else:
+            sign = 1 if tz_str[0] == '+' else -1
+            hours_tz = int(tz_str[1:3])
+            minutes_tz = int(tz_str[4:6])
+            tz_minutes = sign * (hours_tz * 60 + minutes_tz)
+    
+    return (hours, minutes, seconds, tz_minutes)
+
+
+def _parse_datetime_string(s: str) -> Optional[Tuple[int, int, int, int, int, int, Optional[int]]]:
+    """Parse a datetime string like '2002-03-07T11:23:00-05:00'.
+    
+    Returns (year, month, day, hours, minutes, seconds, tz_offset_minutes) or None.
+    """
+    import re
+    # Pattern for datetime with optional timezone
+    pattern = r'^(-?\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:\d{2})?$'
+    match = re.match(pattern, s)
+    if not match:
+        return None
+    
+    year = int(match.group(1))
+    month = int(match.group(2))
+    day = int(match.group(3))
+    hours = int(match.group(4))
+    minutes = int(match.group(5))
+    seconds = int(match.group(6))
+    tz_str = match.group(7)
+    
+    tz_minutes = None
+    if tz_str:
+        if tz_str == 'Z':
+            tz_minutes = 0
+        else:
+            sign = 1 if tz_str[0] == '+' else -1
+            hours_tz = int(tz_str[1:3])
+            minutes_tz = int(tz_str[4:6])
+            tz_minutes = sign * (hours_tz * 60 + minutes_tz)
+    
+    return (year, month, day, hours, minutes, seconds, tz_minutes)
+
+
+def _time_to_microseconds(t: Time) -> Optional[Tuple[int, int]]:
+    """Convert elementpath Time to (microseconds since midnight, tz_offset_minutes).
+    
+    Returns (microseconds since 00:00:00, timezone offset in minutes).
+    """
+    try:
+        # Get timezone offset in minutes
+        tz_offset_minutes = 0
+        if t.tzinfo is not None:
+            offset = t.tzinfo.offset
+            tz_offset_minutes = int(offset.total_seconds() / 60)
+        
+        # Calculate microseconds since midnight
+        microseconds = (
+            t.hour * 3600 * 1_000_000 +
+            t.minute * 60 * 1_000_000 +
+            int(t.second) * 1_000_000 +
+            t.microsecond
+        )
+        
+        return (microseconds, tz_offset_minutes)
+    except Exception:
+        return None
+
+
 def generate_noir_test(test: TestCase, function_name: str) -> Optional[str]:
     """Generate Noir test code for a test case.
     
@@ -1744,7 +2275,10 @@ def generate_noir_test(test: TestCase, function_name: str) -> Optional[str]:
     boolean_returning_functions = [
         "fn_not", "boolean_equal", "boolean_less_than", "boolean_greater_than",
         "datetime_equal", "datetime_less_than", "datetime_greater_than",
+        "date_equal", "date_less_than", "date_greater_than",
+        "time_equal", "time_less_than", "time_greater_than",
         "duration_equal", "duration_less_than", "duration_greater_than",
+        "ym_duration_equal", "ym_duration_less_than", "ym_duration_greater_than",
         "numeric_equal_int", "numeric_less_than_int", "numeric_greater_than_int",
         "numeric_equal_float", "numeric_less_than_float", "numeric_greater_than_float",
         "numeric_equal_double", "numeric_less_than_double", "numeric_greater_than_double",
@@ -1771,7 +2305,7 @@ def generate_noir_test(test: TestCase, function_name: str) -> Optional[str]:
         "cast_double_to_integer", # xs:integer(double)
     ]
     
-    noir_func = FUNCTION_MAP.get(function_name)
+    noir_func = resolve_noir_symbol(function_name)
     func_returns_bool = noir_func in boolean_returning_functions
     func_returns_float = noir_func in float_returning_functions
     func_returns_double = noir_func in double_returning_functions
@@ -1882,8 +2416,104 @@ def generate_noir_test(test: TestCase, function_name: str) -> Optional[str]:
 // Float expected value incompatible with function {noir_func}
 """
         else:
-            # Cannot parse expected value
-            return f"""// SKIP: {test_name}
+            # Try to parse as date/time/datetime for adjust-*-to-timezone functions
+            date_returning_functions = ["adjust_date_to_timezone", "adjust_date_to_timezone_none"]
+            time_returning_functions = ["adjust_time_to_timezone", "adjust_time_to_timezone_none"]
+            datetime_returning_functions = ["adjust_datetime_to_timezone", "adjust_datetime_to_timezone_none"]
+            
+            if noir_func in date_returning_functions:
+                parsed = _parse_date_string(expected)
+                if parsed is not None:
+                    year, month, day, tz_mins = parsed
+                    if year < 1970:
+                        return f"""// SKIP: {test_name}
+// Date before 1970 not supported: {expected}
+"""
+                    assertions = []
+                    assertions.append(f"let result = {test_expr};")
+                    assertions.append(f"assert(year_from_date(result) == {year});")
+                    assertions.append(f"assert(month_from_date(result) == {month});")
+                    assertions.append(f"assert(day_from_date(result) == {day});")
+                    if tz_mins is not None:
+                        # timezone_from_date returns XsdDayTimeDuration, compare using duration_equal
+                        tz_micros = tz_mins * 60_000_000  # Convert minutes to microseconds
+                        assertions.append(f"assert(duration_equal(timezone_from_date(result), duration_from_microseconds({tz_micros})));")
+                    assertion = "\n    ".join(assertions)
+                else:
+                    return f"""// SKIP: {test_name}
+// Cannot parse date expected: {expected}
+"""
+            elif noir_func in time_returning_functions:
+                parsed = _parse_time_string(expected)
+                if parsed is not None:
+                    hours, minutes, seconds, tz_mins = parsed
+                    assertions = []
+                    assertions.append(f"let result = {test_expr};")
+                    assertions.append(f"assert(hours_from_time(result) == {hours});")
+                    assertions.append(f"assert(minutes_from_time(result) == {minutes});")
+                    assertions.append(f"assert(seconds_from_time(result) == {seconds});")
+                    if tz_mins is not None:
+                        # timezone_from_time returns XsdDayTimeDuration
+                        tz_micros = tz_mins * 60_000_000
+                        assertions.append(f"assert(duration_equal(timezone_from_time(result), duration_from_microseconds({tz_micros})));")
+                    assertion = "\n    ".join(assertions)
+                else:
+                    return f"""// SKIP: {test_name}
+// Cannot parse time expected: {expected}
+"""
+            elif noir_func in datetime_returning_functions:
+                parsed = _parse_datetime_string(expected)
+                if parsed is not None:
+                    year, month, day, hours, minutes, seconds, tz_mins = parsed
+                    if year < 1970:
+                        return f"""// SKIP: {test_name}
+// DateTime before 1970 not supported: {expected}
+"""
+                    assertions = []
+                    assertions.append(f"let result = {test_expr};")
+                    assertions.append(f"assert(year_from_datetime(result) == {year});")
+                    assertions.append(f"assert(month_from_datetime(result) == {month});")
+                    assertions.append(f"assert(day_from_datetime(result) == {day});")
+                    assertions.append(f"assert(hours_from_datetime(result) == {hours});")
+                    assertions.append(f"assert(minutes_from_datetime(result) == {minutes});")
+                    assertions.append(f"assert(seconds_from_datetime(result) == {seconds});")
+                    if tz_mins is not None:
+                        # timezone_from_datetime returns XsdDayTimeDuration
+                        tz_micros = tz_mins * 60_000_000
+                        assertions.append(f"assert(duration_equal(timezone_from_datetime(result), duration_from_microseconds({tz_micros})));")
+                    assertion = "\n    ".join(assertions)
+                else:
+                    return f"""// SKIP: {test_name}
+// Cannot parse datetime expected: {expected}
+"""
+            else:
+                # Check if this is a duration-returning function
+                duration_returning_functions = [
+                    "subtract_dates", "subtract_times", "datetime_difference",
+                    "duration_add", "duration_subtract", "duration_multiply", "duration_divide",
+                    "timezone_from_date", "timezone_from_time", "timezone_from_datetime",
+                ]
+                if noir_func in duration_returning_functions:
+                    # Parse the expected duration string
+                    if expected.strip() in ("", "()"):
+                        return f"""// SKIP: {test_name}
+// Empty-sequence duration expected is not representable in Noir: {expected}
+"""
+                    expected_micros = parse_duration(expected)
+                    if expected_micros is not None:
+                        if _fits_in_i64(expected_micros):
+                            assertion = f"assert(duration_equal({test_expr}, duration_from_microseconds({expected_micros})));"
+                        else:
+                            return f"""// SKIP: {test_name}
+// Duration value too large: {expected}
+"""
+                    else:
+                        return f"""// SKIP: {test_name}
+// Cannot parse duration expected: {expected}
+"""
+                else:
+                    # Cannot parse expected value
+                    return f"""// SKIP: {test_name}
 // Cannot parse expected: {expected}
 """
     else:
@@ -1918,6 +2548,7 @@ def generate_test_package(
     tests: list[TestCase],
     output_dir: Path,
     chunk_size: int = 50,
+    keep_empty_packages: bool = True,
 ) -> int:
     """Generate a Noir test package for a function. Returns count of generated tests.
     
@@ -1929,6 +2560,9 @@ def generate_test_package(
         tests: List of test cases from qt3tests
         output_dir: Directory to write test packages
         chunk_size: Number of tests per chunk file
+        keep_empty_packages: If True, do not delete/skip generating a package when
+            no tests can be converted; instead emit a placeholder test so the
+            package remains present (useful for subset generation).
     """
     pkg_name = f"xpath_test_{sanitize_test_name(function_name)}"
     
@@ -1938,6 +2572,7 @@ def generate_test_package(
     # Convert tests first to see if we have any
     converted_tests = []
     skipped = 0
+    placeholder_only = False
     for test in tests:
         if func_implemented:
             # For implemented functions, use normal test generation
@@ -1953,11 +2588,22 @@ def generate_test_package(
 
     if not converted_tests:
         print(f"  No tests converted for {function_name} (skipped {skipped})")
-        # Clean up any existing empty package directory
-        pkg_dir = output_dir / pkg_name
-        if pkg_dir.exists():
-            shutil.rmtree(pkg_dir)
-        return 0
+        if not keep_empty_packages:
+            # Clean up any existing empty package directory
+            pkg_dir = output_dir / pkg_name
+            if pkg_dir.exists():
+                shutil.rmtree(pkg_dir)
+            return 0
+
+        placeholder = "\n".join([
+            "#[test]",
+            f"fn {sanitize_test_name(function_name)}_no_converted_tests() {{",
+            f"    // Placeholder: {skipped} qt3tests cases could not be converted.",
+            "    assert(true);",
+            "}",
+        ])
+        converted_tests = [placeholder]
+        placeholder_only = True
 
     # Create package directory only if we have tests
     pkg_dir = output_dir / pkg_name
@@ -1979,35 +2625,112 @@ xpath = {{ path = "../../xpath" }}
     chunks = [converted_tests[i:i + chunk_size] for i in range(0, len(converted_tests), chunk_size)]
 
     # Determine required imports
-    imports = ["use dep::xpath::{"]
-    if func_implemented:
-        noir_func = FUNCTION_MAP.get(function_name)
-        if noir_func:
-            imports.append(f"    {noir_func},")
+    imports: list[str] = []
+    if not placeholder_only:
+        imports = ["use dep::xpath::{"]
+        if func_implemented:
+            noir_func = resolve_noir_symbol(function_name)
+            if noir_func:
+                imports.append(f"    {noir_func},")
+            
+            # Add datetime imports if needed
+            if "datetime" in function_name.lower():
+                imports.append("    datetime_from_epoch_microseconds_with_tz,")
+            
+            # Add date imports if needed (for date extraction functions and date comparisons)
+            if "from-date" in function_name.lower() and "datetime" not in function_name.lower():
+                imports.append("    date_from_epoch_days_with_tz,")
+            
+            # Add imports for date comparison/subtraction operators
+            if function_name in ["op:date-equal", "op:date-less-than", "op:date-greater-than", "op:subtract-dates"]:
+                imports.append("    date_from_epoch_days_with_tz,")
+            
+            # Add time imports if needed (for time extraction functions)
+            if "from-time" in function_name.lower() and "datetime" not in function_name.lower():
+                imports.append("    time_from_microseconds_with_tz,")
+            
+            # Add imports for time comparison/subtraction operators
+            if function_name in ["op:time-equal", "op:time-less-than", "op:time-greater-than", "op:subtract-times"]:
+                imports.append("    time_from_microseconds_with_tz,")
+            
+            # Add imports for yearMonthDuration comparison operators
+            if function_name in ["op:yearMonthDuration-less-than", "op:yearMonthDuration-greater-than"]:
+                imports.append("    XsdYearMonthDuration,")
+            
+            # Add imports for duration comparisons/constructors used in generated assertions
+            if function_name in [
+                "op:subtract-dates", "op:subtract-times", "op:subtract-dateTimes",
+                "op:add-dayTimeDurations", "op:subtract-dayTimeDurations",
+                "op:multiply-dayTimeDuration", "op:divide-dayTimeDuration",
+                "fn:timezone-from-date", "fn:timezone-from-time", "fn:timezone-from-dateTime",
+            ]:
+                imports.append("    duration_equal,")
+                imports.append("    duration_from_microseconds,")
+            
+            # Add imports for adjust-*-to-timezone functions
+            if "adjust-date-to-timezone" in function_name.lower():
+                imports.append("    adjust_date_to_timezone_none,")
+                imports.append("    date_from_epoch_days_with_tz,")
+                imports.append("    year_from_date,")
+                imports.append("    month_from_date,")
+                imports.append("    day_from_date,")
+                imports.append("    timezone_from_date,")
+                imports.append("    duration_equal,")
+                imports.append("    duration_from_microseconds,")
+            
+            if "adjust-time-to-timezone" in function_name.lower():
+                imports.append("    adjust_time_to_timezone_none,")
+                imports.append("    time_from_microseconds_with_tz,")
+                imports.append("    hours_from_time,")
+                imports.append("    minutes_from_time,")
+                imports.append("    seconds_from_time,")
+                imports.append("    timezone_from_time,")
+                imports.append("    duration_equal,")
+                imports.append("    duration_from_microseconds,")
+            
+            if "adjust-datetime-to-timezone" in function_name.lower():
+                imports.append("    adjust_datetime_to_timezone_none,")
+                imports.append("    datetime_from_epoch_microseconds_with_tz,")
+                imports.append("    year_from_datetime,")
+                imports.append("    month_from_datetime,")
+                imports.append("    day_from_datetime,")
+                imports.append("    hours_from_datetime,")
+                imports.append("    minutes_from_datetime,")
+                imports.append("    seconds_from_datetime,")
+                imports.append("    timezone_from_datetime,")
+                imports.append("    duration_equal,")
+                imports.append("    duration_from_microseconds,")
+            
+            # Add duration imports if needed
+            if "duration" in function_name.lower():
+                imports.append("    duration_from_microseconds,")
+            
+            # Add float/double type imports if needed
+            # Check both function_name and noir_func for float/double
+            func_lower = function_name.lower()
+            noir_func_lower = noir_func.lower() if noir_func else ""
+            
+            if "float" in func_lower or "float" in noir_func_lower:
+                imports.append("    XsdFloat,")
+            if "double" in func_lower or "double" in noir_func_lower:
+                imports.append("    XsdDouble,")
+        else:
+            # For unimplemented functions, import the stub function
+            stub_func_name = get_stub_function_name(function_name)
+            imports.append(f"    {stub_func_name},")
         
-        # Add datetime imports if needed
-        if "datetime" in function_name.lower():
-            imports.append("    datetime_from_epoch_microseconds_with_tz,")
-        
-        # Add duration imports if needed
-        if "duration" in function_name.lower():
-            imports.append("    duration_from_microseconds,")
-        
-        # Add float/double type imports if needed
-        # Check both function_name and noir_func for float/double
-        func_lower = function_name.lower()
-        noir_func_lower = noir_func.lower() if noir_func else ""
-        
-        if "float" in func_lower or "float" in noir_func_lower:
-            imports.append("    XsdFloat,")
-        if "double" in func_lower or "double" in noir_func_lower:
-            imports.append("    XsdDouble,")
-    else:
-        # For unimplemented functions, import the stub function
-        stub_func_name = get_stub_function_name(function_name)
-        imports.append(f"    {stub_func_name},")
-    
-    imports.append("};")
+        # De-duplicate import entries while preserving order.
+        if len(imports) > 1:
+            seen: set[str] = set()
+            deduped = [imports[0]]
+            for line in imports[1:]:
+                if line in seen:
+                    continue
+                seen.add(line)
+                deduped.append(line)
+            imports = deduped
+
+        imports.append("};")
 
     # Generate lib.nr
     stub_marker = " (uses stub function)" if not func_implemented else ""
@@ -2153,40 +2876,47 @@ def main():
     )
     args = parser.parse_args()
 
-    if args.list_functions:
-        print("Implemented functions:")
-        for func in sorted(IMPLEMENTED_FUNCTIONS):
-            print(f"  {func}")
-        return
+    # Discover xpath crate exports once (used by is_function_implemented).
+    repo_root = Path(__file__).parent.parent
+    xpath_crate_dir = repo_root / "xpath"
+    global XPATH_EXPORTED_SYMBOLS
+    XPATH_EXPORTED_SYMBOLS = discover_xpath_exports(xpath_crate_dir)
 
-    # Clone/update qt3tests (needed for list-all)
+    # Clone/update qt3tests repository unless explicitly skipped.
     if not args.skip_clone:
         clone_or_update_qt3tests(args.qt3_dir)
 
+    available_functions = discover_available_functions(args.qt3_dir)
+    implemented_functions = sorted(f for f in available_functions if is_function_implemented(f))
+
+    if args.list_functions:
+        print("Implemented functions (qt3tests fn/op with exported Noir symbol):")
+        for func in implemented_functions:
+            print(f"  {func}")
+        print(f"\nTotal: {len(implemented_functions)} implemented / {len(available_functions)} available")
+        return
+
     if args.list_all:
-        all_test_files = discover_all_test_files(args.qt3_dir)
-        all_functions = {**all_test_files, **FUNCTION_TEST_FILES}
-        print("All discoverable functions:")
+        all_functions = sorted(available_functions)
+        print("All qt3tests-discovered functions:")
         print(f"  (✓ = implemented, ✗ = not implemented)\n")
-        for func in sorted(all_functions.keys()):
+        for func in all_functions:
             status = "✓" if is_function_implemented(func) else "✗"
             print(f"  [{status}] {func}")
-        print(f"\nTotal: {len(all_functions)} ({len(IMPLEMENTED_FUNCTIONS)} implemented)")
+        print(f"\nTotal: {len(all_functions)} ({len(implemented_functions)} implemented)")
         return
 
     # Determine which functions to process
-    # By default, process ALL test files from qt3tests
-    all_test_files = discover_all_test_files(args.qt3_dir)
-    # FUNCTION_TEST_FILES takes precedence to preserve specialized mappings
-    # (e.g., float/double variants that use the same test file)
-    function_test_files = {**all_test_files, **FUNCTION_TEST_FILES}
-    
     if args.functions:
         # Use explicitly specified functions
         functions_to_process = [f.strip() for f in args.functions.split(",")]
     else:
-        # Default: process ALL functions
-        functions_to_process = list(function_test_files.keys())
+        # Default: process all discovered fn/op tests plus any implemented functions
+        # (e.g., *-float/*-double variants, casts) that may not have their own XML file.
+        functions_to_process = sorted(set(discover_all_test_files(args.qt3_dir).keys()) | set(CAST_FUNCTION_PATTERNS.keys()))
+
+    # Discover fn/op test files once for resolution during generation.
+    discovered_test_files = discover_all_test_files(args.qt3_dir)
 
     # Clear the global stub functions set
     STUB_FUNCTIONS_NEEDED.clear()
@@ -2200,11 +2930,12 @@ def main():
     
     print("\nGenerating tests...")
     for func in sorted(functions_to_process):
-        if func not in function_test_files:
-            print(f"  Warning: No test file mapping for {func}")
+        relpath = discovered_test_files.get(func) or default_test_file_relpath(func)
+        if relpath is None:
+            print(f"  Warning: No deterministic test file mapping for {func}")
             continue
 
-        test_file = args.qt3_dir / function_test_files[func]
+        test_file = args.qt3_dir / relpath
         tests = parse_test_file(test_file)
         total_tests_identified += len(tests)
 
@@ -2216,7 +2947,9 @@ def main():
                 unimplemented_count += 1
             
             count = generate_test_package(
-                func, tests, args.output_dir,
+                func,
+                tests,
+                args.output_dir,
             )
             total_tests_generated += count
             if not is_impl and count > 0:
@@ -2225,34 +2958,38 @@ def main():
             print(f"  No tests found for {func}")
 
     # Generate stub functions module in xpath library
-    xpath_dir = args.output_dir.parent / "xpath"
-    if xpath_dir.exists():
-        generate_stub_functions_module(xpath_dir)
-        update_lib_nr_with_stubs(xpath_dir)
+    if xpath_crate_dir.exists():
+        generate_stub_functions_module(xpath_crate_dir)
+        update_lib_nr_with_stubs(xpath_crate_dir)
 
-    # Clean up old packages that shouldn't exist anymore
-    generated_pkg_names = set()
-    for func in functions_to_process:
-        pkg_name = f"xpath_test_{sanitize_test_name(func)}"
-        generated_pkg_names.add(pkg_name)
-    
-    # Remove packages that exist but shouldn't
-    # Only consider directories matching xpath_test_* pattern to avoid
-    # accidentally deleting user-created directories
-    existing_packages = set(
-        p.name for p in args.output_dir.iterdir() 
-        if p.is_dir() and p.name.startswith("xpath_test_")
-    )
-    packages_to_remove = existing_packages - generated_pkg_names
-    if packages_to_remove:
-        print(f"\nCleaning up {len(packages_to_remove)} obsolete test packages...")
-        for pkg_name in sorted(packages_to_remove):
-            pkg_dir = args.output_dir / pkg_name
-            shutil.rmtree(pkg_dir)
-            print(f"  Removed: {pkg_name}")
+    # Clean up old packages that shouldn't exist anymore.
+    # IMPORTANT: Only do this when generating the full suite (no --functions),
+    # otherwise subset generation would delete unrelated test packages.
+    if args.functions is None:
+        generated_pkg_names = set()
+        for func in functions_to_process:
+            pkg_name = f"xpath_test_{sanitize_test_name(func)}"
+            generated_pkg_names.add(pkg_name)
+
+        # Remove packages that exist but shouldn't
+        # Only consider directories matching xpath_test_* pattern to avoid
+        # accidentally deleting user-created directories
+        existing_packages = set(
+            p.name for p in args.output_dir.iterdir()
+            if p.is_dir() and p.name.startswith("xpath_test_")
+        )
+        packages_to_remove = existing_packages - generated_pkg_names
+        if packages_to_remove:
+            print(f"\nCleaning up {len(packages_to_remove)} obsolete test packages...")
+            for pkg_name in sorted(packages_to_remove):
+                pkg_dir = args.output_dir / pkg_name
+                shutil.rmtree(pkg_dir)
+                print(f"  Removed: {pkg_name}")
+    else:
+        print("\nSkipping obsolete test package cleanup (subset generation).")
 
     # Update workspace Nargo.toml
-    update_workspace_toml(args.output_dir.parent)
+    update_workspace_toml(repo_root)
 
     print(f"\nTest generation complete!")
     print(f"Functions processed: {implemented_count + unimplemented_count} ({implemented_count} implemented, {unimplemented_count} unimplemented)")
