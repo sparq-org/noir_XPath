@@ -1,6 +1,66 @@
-# Test Generation Scripts
+# Scripts
 
-This directory contains scripts for generating Noir tests from the W3C qt3tests test suite.
+This directory contains tooling scripts for the noir_XPath project: test generators
+(`generate_tests.py`), the broad gate-count sweep (`benchmark_gates.py`), and a focused
+benchmark harness for the unconstrained-hint optimisations (`benchmark_unconstrained.py`).
+
+## benchmark_unconstrained.py
+
+A small, focused harness that compares the constrained baseline `unsigned_to_string`
+(in `xpath/src/cast.nr`) against the unconstrained-hint + verified-relation variant
+`unsigned_to_string_verified` (in `xpath/src/unconstrained_ops.nr`).
+
+Use this script to settle the deferred call-site decision for the unconstrained
+primitive: `nargo info` is invoked once per variant, the `main` row plus every
+ancillary helper row (`directive_invert`, `unsigned_to_string_unconstrained`, etc.)
+are summed into `total_acir_opcodes`, and a side-by-side table is printed.
+
+### Usage
+
+```bash
+# Run the benchmark and append a record to bench/unconstrained_gate_counts.json
+python3 scripts/benchmark_unconstrained.py
+
+# Print the most recent ledger entry without re-running the benchmark
+python3 scripts/benchmark_unconstrained.py --summary
+
+# Direct results to a custom JSON ledger
+python3 scripts/benchmark_unconstrained.py --output /tmp/my_bench.json
+```
+
+### What it measures
+
+For each variant the harness builds a throwaway crate that calls the operation on a
+witness-driven `pub u64` (no constant folding) and folds the entire output buffer
+into a public `Field` so dead-code elimination cannot drop the call. Because the
+witness is unconstrained, the reported counts are the **worst-case** prover work —
+call-sites that pass a compile-time constant will be cheaper.
+
+| Field | Source | Notes |
+|-------|--------|-------|
+| `main_expression_width` | `nargo info` (`main` row) | Closely tracks prover-side cost. |
+| `main_acir_opcodes` | `nargo info` (`main` row) | Compressed ACIR count for `main` only. |
+| `ancillary_acir_opcodes` | sum of helper rows | Captures `directive_invert`, the Brillig hint, etc. |
+| `total_acir_opcodes` | `main + ancillary` | The figure to compare across variants. |
+
+### Ledger format
+
+`bench/unconstrained_gate_counts.json` is a JSON list. Each invocation appends one
+record with timestamp, abbreviated commit, and the per-variant fields above. Older
+entries are preserved so regressions or wins show up across runs.
+
+### Why a separate ledger?
+
+`benchmark_gates.py` sweeps a broad set of XPath ops at a coarse granularity. This
+harness is deliberately scoped to one primitive and captures Expression Width
+(which `benchmark_gates.py` does not), so it lives in its own ledger to avoid
+schema collisions.
+
+---
+
+## Test Generation Scripts
+
+The remainder of this document covers the qt3tests-driven test generators.
 
 ## generate_tests.py
 
