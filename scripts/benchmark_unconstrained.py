@@ -275,20 +275,47 @@ def benchmark_all() -> dict:
     return run_record
 
 
+class LedgerError(RuntimeError):
+    """Raised when the existing ledger cannot be parsed safely."""
+
+
 def append_to_ledger(record: dict, output_file: Path) -> None:
-    """Append ``record`` to the JSON list at ``output_file`` (creating it)."""
+    """Append ``record`` to the JSON list at ``output_file`` (creating it).
+
+    If the existing file cannot be parsed (corrupt JSON, unreadable, or
+    wrong shape), refuse to overwrite it and raise ``LedgerError``. This
+    avoids silently destroying historical benchmark data on a transient I/O
+    glitch. The caller can then decide whether to back up the corrupt file
+    and retry, or pass ``--output`` to write to a fresh path.
+    """
     output_file.parent.mkdir(parents=True, exist_ok=True)
     history: list = []
     if output_file.exists():
         try:
-            existing = json.loads(output_file.read_text())
+            raw = output_file.read_text()
+        except OSError as err:
+            raise LedgerError(
+                f"could not read existing ledger {output_file}: {err}"
+            ) from err
+        if raw.strip():
+            try:
+                existing = json.loads(raw)
+            except json.JSONDecodeError as err:
+                raise LedgerError(
+                    f"existing ledger {output_file} contains invalid JSON: "
+                    f"{err}. Move it aside or pass --output to a fresh path."
+                ) from err
             if isinstance(existing, list):
                 history = existing
-            else:
+            elif isinstance(existing, dict):
+                # Wrap a legacy single-record ledger so the schema stays
+                # uniform after the next append.
                 history = [existing]
-        except (json.JSONDecodeError, OSError):
-            # Treat an unreadable ledger as empty rather than aborting the run.
-            history = []
+            else:
+                raise LedgerError(
+                    f"existing ledger {output_file} has unexpected shape "
+                    f"({type(existing).__name__}); expected list or dict."
+                )
     history.append(record)
     output_file.write_text(json.dumps(history, indent=2) + "\n")
 
@@ -357,7 +384,13 @@ def cmd_run(output_file: Path) -> None:
         print("Error: 'nargo' command not found in PATH.", file=sys.stderr)
         sys.exit(1)
     record = benchmark_all()
-    append_to_ledger(record, output_file)
+    try:
+        append_to_ledger(record, output_file)
+    except LedgerError as err:
+        # Refuse to overwrite a ledger we cannot parse: the historical data
+        # is more valuable than the current run.
+        print(f"Error: {err}", file=sys.stderr)
+        sys.exit(2)
     print()
     print(render_table(record))
     print(f"\nResults appended to {output_file}")
@@ -368,9 +401,23 @@ def cmd_summary(output_file: Path) -> None:
     if not output_file.exists():
         print(f"No ledger found at {output_file}", file=sys.stderr)
         sys.exit(1)
-    history = json.loads(output_file.read_text())
-    if not history:
-        print("Ledger is empty", file=sys.stderr)
+    try:
+        raw = output_file.read_text()
+    except OSError as err:
+        print(f"Error: could not read {output_file}: {err}", file=sys.stderr)
+        sys.exit(1)
+    try:
+        history = json.loads(raw)
+    except json.JSONDecodeError as err:
+        print(
+            f"Error: ledger {output_file} contains invalid JSON: {err}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    if isinstance(history, dict):
+        history = [history]
+    if not isinstance(history, list) or not history:
+        print("Ledger is empty or malformed", file=sys.stderr)
         sys.exit(1)
     print(render_table(history[-1]))
 
