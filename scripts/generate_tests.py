@@ -60,6 +60,42 @@ I64_MIN = XSD_INTEGER_I64_MIN
 I64_MAX = XSD_INTEGER_I64_MAX
 
 
+# Known type-mismatch skips (qt3tests cases the Noir library cannot legitimately
+# answer because the qt3tests input type does not match the Noir signature).
+#
+# Mirrors the `KNOWN_BAD_TESTS` allow-list pattern in noir_IEEE754's
+# `scripts/generate_tests.py` (and `noir_ieee754_inputs/fptest.py`).
+#
+# Mapping: Noir target function -> set of qt3tests input "argument symbols"
+# (the function name of the constructor wrapping the argument expression --
+# e.g. `dayTimeDuration` for `xs:dayTimeDuration("...")`) that should be
+# skipped at generation time rather than emitted as broken Noir.
+#
+# Rationale for the only current entries:
+#   * `years_from_duration` and `months_from_duration` take
+#     `XsdYearMonthDuration`. qt3tests deliberately exercises them with
+#     `xs:dayTimeDuration(...)` arguments to verify the runtime type-error
+#     behaviour. The Noir port has no equivalent runtime type system -- a
+#     `dayTimeDuration` literal cannot be coerced to `yearMonthDuration` (the
+#     conversion is meaningless: months and days have non-constant relative
+#     length depending on the calendar). The right move is to skip these
+#     cases at generation time, leaving an empty package which the
+#     `generate_test_package` cleanup step then removes.
+KNOWN_TYPE_MISMATCH_SKIPS: dict[str, set[str]] = {
+    "years_from_duration": {"dayTimeDuration"},
+    "months_from_duration": {"dayTimeDuration"},
+}
+
+
+# Per-function counter of test cases skipped this run due to
+# KNOWN_TYPE_MISMATCH_SKIPS. When this equals the total skip count for a
+# function, `generate_test_package` deletes the package outright instead of
+# emitting a deliberately-failing placeholder test (which is appropriate for
+# "not yet implemented" functions but wrong for "the qt3tests case is
+# type-incorrect for our signature").
+TYPE_MISMATCH_SKIP_COUNTS: dict[str, int] = {}
+
+
 # Cached set of crate-root exports from xpath/src/lib.nr.
 XPATH_EXPORTED_SYMBOLS: set[str] = set()
 
@@ -1439,6 +1475,25 @@ def convert_xpath_expr(
             try:
                 # Check if it's a duration constructor
                 arg_symbol = _get_function_name(arg)
+
+                # Type-mismatch guard: years_from_duration / months_from_duration
+                # take XsdYearMonthDuration. qt3tests deliberately feeds
+                # xs:dayTimeDuration(...) into these to exercise the runtime
+                # type-error path. Noir has no equivalent dynamic typing and
+                # the conversion is not well-defined (months/days vary by
+                # calendar), so we skip such cases via KNOWN_TYPE_MISMATCH_SKIPS
+                # rather than emit type-incorrect Noir.
+                mismatch_inputs = KNOWN_TYPE_MISMATCH_SKIPS.get(noir_func, set())
+                if arg_symbol in mismatch_inputs:
+                    print(
+                        f"  [skip] {noir_func} cannot accept {arg_symbol} input "
+                        f"(type-mismatch); see KNOWN_TYPE_MISMATCH_SKIPS"
+                    )
+                    TYPE_MISMATCH_SKIP_COUNTS[noir_func] = (
+                        TYPE_MISMATCH_SKIP_COUNTS.get(noir_func, 0) + 1
+                    )
+                    return None
+
                 if arg_symbol == "dayTimeDuration":
                     # Get the inner string value
                     inner_args = _get_function_args(arg)
@@ -3181,6 +3236,12 @@ def generate_test_package(
     # Check if function is implemented
     func_implemented = is_function_implemented(function_name)
 
+    # Reset the per-function type-mismatch skip counter so prior invocations
+    # (e.g. from subset-regen runs) don't leak into this package's decision.
+    pre_resolved_noir_func = resolve_noir_symbol(function_name)
+    if pre_resolved_noir_func is not None:
+        TYPE_MISMATCH_SKIP_COUNTS.pop(pre_resolved_noir_func, None)
+
     # Convert tests first to see if we have any
     converted_tests = []
     skipped = 0
@@ -3200,11 +3261,32 @@ def generate_test_package(
 
     if not converted_tests:
         print(f"  No tests converted for {function_name} (skipped {skipped})")
-        if not keep_empty_packages:
+
+        # If at least one of the qt3tests cases was deliberately skipped via
+        # KNOWN_TYPE_MISMATCH_SKIPS, the package's "primary" qt3tests input
+        # was the type-mismatched one and the function's signature simply
+        # cannot accept it. Drop the package outright rather than emit a
+        # failing placeholder. This is what distinguishes "we cannot
+        # legitimately answer this qt3tests case" (delete) from "we have not
+        # implemented this function yet" (placeholder).
+        noir_func = resolve_noir_symbol(function_name)
+        type_mismatch_blocked = (
+            noir_func is not None
+            and TYPE_MISMATCH_SKIP_COUNTS.get(noir_func, 0) > 0
+        )
+
+        if not keep_empty_packages or type_mismatch_blocked:
             # Clean up any existing empty package directory
             pkg_dir = output_dir / pkg_name
             if pkg_dir.exists():
                 shutil.rmtree(pkg_dir)
+            if type_mismatch_blocked:
+                mismatch_count = TYPE_MISMATCH_SKIP_COUNTS.get(noir_func, 0)
+                print(
+                    f"  Dropped package {pkg_name}: {mismatch_count} qt3tests "
+                    f"case(s) for {noir_func} are type-mismatched "
+                    f"(see KNOWN_TYPE_MISMATCH_SKIPS)"
+                )
             return 0
 
         placeholder = "\n".join(
