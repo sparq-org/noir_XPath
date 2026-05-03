@@ -1,3 +1,16 @@
+# Canonical CI workflow template for Noir-flavoured sub-repos.
+#
+# Source of truth: zkp-sparql-workspace/templates/sub-repo/noir/.github/workflows/ci.yml.tmpl
+# Rendered by:    zkp-sparql-workspace/scripts/sync-standards.sh
+#
+# Hook blocks delimited by `# HOOK:<name>` / `# /HOOK:<name>` are kept when
+# `<name>` appears in this sub-repo's `ci_hooks` list in `.sync.json`, and
+# stripped otherwise. Variables `${PACKAGE_NAME}` etc. are NOT yet supported —
+# this template is lifted verbatim from `noir_IEEE754` (canonical per §3 of
+# `docs/cross-repo-consistency-plan.md`), so package names currently read
+# `ieee754`. Phase 2 of the migration plan introduces per-repo variable
+# substitution; until then, only `noir_IEEE754` should be rendered from this
+# template.
 name: CI
 
 on:
@@ -7,10 +20,8 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
+
   # Read Noir versions from config file
   setup:
     runs-on: ubuntu-latest
@@ -48,19 +59,17 @@ jobs:
           toolchain: ${{ matrix.noir-version }}
 
       - name: Check format
-        run: |
-          nargo fmt --check  --package xpath 
-          nargo fmt --check  --package xpath_unit_tests 
+        run: nargo fmt --check --package ieee754
 
-  # Run all tests on all Noir versions
-  test:
+  # Run unit tests on all Noir versions
+  unit-tests:
     runs-on: ubuntu-latest
     needs: [setup]
     strategy:
       fail-fast: false
       matrix:
         noir-version: ${{ fromJson(needs.setup.outputs.noir-versions) }}
-    name: test (${{ matrix.noir-version }})
+    name: unit-tests (${{ matrix.noir-version }})
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -70,13 +79,17 @@ jobs:
         with:
           toolchain: ${{ matrix.noir-version }}
 
-      - name: Run all tests
-        run: nargo test --workspace
+      - name: Run unit tests
+        run: |
+          echo "Running unit tests"
+          nargo test --package ieee754_unit_tests test_float32 || exit 1
+          nargo test --package ieee754_unit_tests test_float64 || exit 1
+
 
   # Summary job that depends on all test jobs
   test-summary:
     runs-on: ubuntu-latest
-    needs: [setup, lint, test]
+    needs: [setup, lint, unit-tests]
     if: always()
     steps:
       - name: Check test results
@@ -89,8 +102,8 @@ jobs:
             echo "Lint failed"
             exit 1
           fi
-          if [ "${{ needs.test.result }}" != "success" ]; then
-            echo "Tests failed"
+          if [ "${{ needs.unit-tests.result }}" != "success" ]; then
+            echo "Unit tests failed"
             exit 1
           fi
           echo "All checks passed!"
