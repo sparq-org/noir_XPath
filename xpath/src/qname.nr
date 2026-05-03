@@ -10,11 +10,12 @@
 // QName Type
 // ============================================================================
 
-/// Maximum length for namespace URI in bytes
-global MAX_NAMESPACE_LEN: u32 = 256;
-
-/// Maximum length for local name in bytes
-global MAX_LOCALNAME_LEN: u32 = 128;
+// QName component buffer sizes are sourced from `crate::constants` --
+// see `xpath/src/constants.nr`. The aliases below preserve the existing
+// in-module names for the call sites below.
+use crate::constants::{
+    XSD_QNAME_MAX_LOCAL_LEN as MAX_LOCALNAME_LEN, XSD_QNAME_MAX_NS_LEN as MAX_NAMESPACE_LEN,
+};
 
 /// XSD QName representation
 /// A qualified name consists of a namespace URI and a local name

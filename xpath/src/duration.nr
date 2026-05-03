@@ -9,23 +9,29 @@
 //! - op:add-dayTimeDuration-to-dateTime, op:subtract-dayTimeDuration-from-dateTime
 //! - op:dayTimeDuration-equal, op:dayTimeDuration-less-than, op:dayTimeDuration-greater-than
 
+use crate::constants::{
+    XSD_MICROS_PER_DAY, XSD_MICROS_PER_HOUR, XSD_MICROS_PER_MINUTE, XSD_MICROS_PER_SECOND,
+};
 use crate::types::{XsdDateTime, XsdDayTimeDuration};
 
 // ============================================================================
-// Time Constants (as i64 for signed arithmetic)
+// Time Constants (signed-i64 aliases of the canonical u64 constants in
+// `crate::constants`. Sign-extending the u64 globals at compile time
+// keeps the duration arithmetic below in i64 without re-declaring the
+// magic numbers.)
 // ============================================================================
 
-/// Microseconds per second
-global MICROS_PER_SECOND: i64 = 1_000_000;
+/// Microseconds per second.
+global MICROS_PER_SECOND: i64 = XSD_MICROS_PER_SECOND as i64;
 
-/// Microseconds per minute
-global MICROS_PER_MINUTE: i64 = 60_000_000;
+/// Microseconds per minute.
+global MICROS_PER_MINUTE: i64 = XSD_MICROS_PER_MINUTE as i64;
 
-/// Microseconds per hour
-global MICROS_PER_HOUR: i64 = 3_600_000_000;
+/// Microseconds per hour.
+global MICROS_PER_HOUR: i64 = XSD_MICROS_PER_HOUR as i64;
 
-/// Microseconds per day
-global MICROS_PER_DAY: i64 = 86_400_000_000;
+/// Microseconds per day.
+global MICROS_PER_DAY: i64 = XSD_MICROS_PER_DAY as i64;
 
 // ============================================================================
 // Duration Construction Functions
@@ -271,7 +277,7 @@ fn test_datetime_duration_arithmetic() {
 
     // Add one day
     let dt_plus = datetime_add_duration(dt, one_day);
-    let expected_micros: Field = 86_400_000_000;
+    let expected_micros: Field = XSD_MICROS_PER_DAY as Field;
     assert(dt_plus.epoch_microseconds == expected_micros);
 
     // Subtract back

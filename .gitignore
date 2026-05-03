@@ -2,3 +2,6 @@
 scripts/qt3tests/
 __pycache__/
 *.pyc
+
+# nargo creates Prover.toml on the unit-test crate when it runs
+xpath_unit_tests/Prover.toml

@@ -8,15 +8,15 @@
 //! - fn:timezone-from-time
 //! - op:time-equal, op:time-less-than, op:time-greater-than
 
+use crate::constants::{
+    XSD_MICROS_PER_DAY, XSD_MICROS_PER_HOUR as MICROS_PER_HOUR,
+    XSD_MICROS_PER_MINUTE as MICROS_PER_MINUTE, XSD_MICROS_PER_SECOND as MICROS_PER_SECOND,
+};
 use crate::types::{XsdDayTimeDuration, XsdTime};
 
-// ============================================================================
-// Time Constants
-// ============================================================================
-
-global MICROS_PER_SECOND: u64 = 1_000_000;
-global MICROS_PER_MINUTE: u64 = 60_000_000;
-global MICROS_PER_HOUR: u64 = 3_600_000_000;
+// Microsecond scaling ladder is sourced from `crate::constants` -- see
+// `xpath/src/constants.nr`. The local `MICROS_PER_*` aliases above
+// preserve the existing in-module names for the call sites below.
 
 // ============================================================================
 // Time Construction Functions
@@ -86,7 +86,7 @@ pub fn microseconds_from_time(time: XsdTime) -> u32 {
 
 /// fn:timezone-from-time - Extract timezone as a dayTimeDuration
 pub fn timezone_from_time(time: XsdTime) -> XsdDayTimeDuration {
-    let offset_micros: i64 = (time.tz_offset_minutes as i64) * 60_000_000;
+    let offset_micros: i64 = (time.tz_offset_minutes as i64) * (MICROS_PER_MINUTE as i64);
     XsdDayTimeDuration::from_signed_micros(offset_micros)
 }
 
@@ -134,7 +134,7 @@ pub fn subtract_times(a: XsdTime, b: XsdTime) -> XsdDayTimeDuration {
 pub fn time_add_duration(time: XsdTime, dur: XsdDayTimeDuration) -> XsdTime {
     let time_micros = time.microseconds_since_midnight as i64;
     let dur_micros = dur.to_signed_micros();
-    let day_micros: i64 = 86_400_000_000;
+    let day_micros: i64 = XSD_MICROS_PER_DAY as i64;
 
     // Add duration and normalize to 0-24 hour range
     let result = time_micros + dur_micros;
@@ -147,7 +147,7 @@ pub fn time_add_duration(time: XsdTime, dur: XsdDayTimeDuration) -> XsdTime {
 pub fn time_subtract_duration(time: XsdTime, dur: XsdDayTimeDuration) -> XsdTime {
     let time_micros = time.microseconds_since_midnight as i64;
     let dur_micros = dur.to_signed_micros();
-    let day_micros: i64 = 86_400_000_000;
+    let day_micros: i64 = XSD_MICROS_PER_DAY as i64;
 
     // Subtract duration and normalize to 0-24 hour range
     let result = time_micros - dur_micros;
@@ -167,9 +167,9 @@ pub fn adjust_time_to_timezone(time: XsdTime, new_tz_offset_minutes: i16) -> Xsd
     let utc_micros = time.utc_microseconds();
     // Create a new time with the new timezone, adjusting for the offset difference
     let offset_diff = new_tz_offset_minutes as i64 - time.tz_offset_minutes as i64;
-    let new_local_micros = utc_micros + offset_diff * 60_000_000;
+    let new_local_micros = utc_micros + offset_diff * (MICROS_PER_MINUTE as i64);
     // Normalize to 0-24 hour range
-    let day_micros: i64 = 86_400_000_000;
+    let day_micros: i64 = XSD_MICROS_PER_DAY as i64;
     let normalized = ((new_local_micros % day_micros) + day_micros) % day_micros;
     XsdTime::new_with_tz(normalized as u64, new_tz_offset_minutes)
 }
