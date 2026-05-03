@@ -54,6 +54,10 @@ mod ietf_date;
 mod cast;
 mod stubs;
 
+// Unconstrained-hint + verified-relation optimisations (gate-count reductions).
+// See docs at the top of `unconstrained_ops.nr`.
+pub mod unconstrained_ops;
+
 // XPath namespace modules for deterministic name mapping
 // Use `xpath_fn` for fn:* functions, `xpath_op` for op:* operators, `xpath_xs` for xs:* type casts
 pub mod xpath_fn;
