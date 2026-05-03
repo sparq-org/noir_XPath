@@ -26,7 +26,9 @@ use ieee754::float::{
     sub_float64,
 };
 use ieee754::types::{
-    ROUNDING_MODE_NEAREST_AWAY, ROUNDING_MODE_TOWARD_NEGATIVE, ROUNDING_MODE_TOWARD_POSITIVE,
+    FLOAT32_EXPONENT_MASK, FLOAT32_MANTISSA_MASK, FLOAT32_SIGN_MASK, FLOAT64_EXPONENT_MASK,
+    FLOAT64_MANTISSA_MASK, FLOAT64_SIGN_MASK, ROUNDING_MODE_NEAREST_AWAY,
+    ROUNDING_MODE_TOWARD_NEGATIVE, ROUNDING_MODE_TOWARD_POSITIVE,
 };
 
 // ============================================================================
@@ -926,17 +928,14 @@ pub fn cast_double_to_float(d: XsdDouble) -> XsdFloat {
 // Rounding Functions
 // ============================================================================
 
-// Float32 constants
-global FLOAT32_SIGN_MASK: u32 = 0x80000000;
-global FLOAT32_EXP_MASK: u32 = 0x7F800000;
-global FLOAT32_MANTISSA_MASK: u32 = 0x007FFFFF;
+// Float32 / Float64 layout constants.
+// `FLOAT{32,64}_SIGN_MASK`, `FLOAT{32,64}_EXPONENT_MASK` and
+// `FLOAT{32,64}_MANTISSA_MASK` are imported above from `ieee754::types`
+// (single source of truth -- see `noir_IEEE754/ieee754/src/types.nr`).
+// `EXP_BIAS` and `MANTISSA_BITS` are not yet exported by noir_IEEE754;
+// they remain local until the IEEE 754 crate publishes them.
 global FLOAT32_EXP_BIAS: u32 = 127;
 global FLOAT32_MANTISSA_BITS: u32 = 23;
-
-// Float64 constants
-global FLOAT64_SIGN_MASK: u64 = 0x8000000000000000;
-global FLOAT64_EXP_MASK: u64 = 0x7FF0000000000000;
-global FLOAT64_MANTISSA_MASK: u64 = 0x000FFFFFFFFFFFFF;
 global FLOAT64_EXP_BIAS: u64 = 1023;
 global FLOAT64_MANTISSA_BITS: u64 = 52;
 
@@ -950,7 +949,7 @@ pub fn round_float(a: XsdFloat) -> XsdFloat {
 
     let sign = bits & FLOAT32_SIGN_MASK;
     let is_negative = sign != 0;
-    let exp_bits = (bits & FLOAT32_EXP_MASK) >> FLOAT32_MANTISSA_BITS;
+    let exp_bits = (bits & FLOAT32_EXPONENT_MASK) >> FLOAT32_MANTISSA_BITS;
     let mantissa = bits & FLOAT32_MANTISSA_MASK;
     let exp = exp_bits as i32 - FLOAT32_EXP_BIAS as i32;
 
@@ -1045,7 +1044,7 @@ pub fn round_double(a: XsdDouble) -> XsdDouble {
 
     let sign = bits & FLOAT64_SIGN_MASK;
     let is_negative = sign != 0;
-    let exp_bits = (bits & FLOAT64_EXP_MASK) >> FLOAT64_MANTISSA_BITS;
+    let exp_bits = (bits & FLOAT64_EXPONENT_MASK) >> FLOAT64_MANTISSA_BITS;
     let mantissa = bits & FLOAT64_MANTISSA_MASK;
     let exp = exp_bits as i64 - FLOAT64_EXP_BIAS as i64;
 
@@ -1135,7 +1134,7 @@ pub fn ceil_float(a: XsdFloat) -> XsdFloat {
 
     let sign = bits & FLOAT32_SIGN_MASK;
     let is_negative = sign != 0;
-    let exp_bits = (bits & FLOAT32_EXP_MASK) >> FLOAT32_MANTISSA_BITS;
+    let exp_bits = (bits & FLOAT32_EXPONENT_MASK) >> FLOAT32_MANTISSA_BITS;
     let mantissa = bits & FLOAT32_MANTISSA_MASK;
     let exp = exp_bits as i32 - FLOAT32_EXP_BIAS as i32;
 
@@ -1203,7 +1202,7 @@ pub fn ceil_double(a: XsdDouble) -> XsdDouble {
 
     let sign = bits & FLOAT64_SIGN_MASK;
     let is_negative = sign != 0;
-    let exp_bits = (bits & FLOAT64_EXP_MASK) >> FLOAT64_MANTISSA_BITS;
+    let exp_bits = (bits & FLOAT64_EXPONENT_MASK) >> FLOAT64_MANTISSA_BITS;
     let mantissa = bits & FLOAT64_MANTISSA_MASK;
     let exp = exp_bits as i64 - FLOAT64_EXP_BIAS as i64;
 
@@ -1271,7 +1270,7 @@ pub fn floor_float(a: XsdFloat) -> XsdFloat {
 
     let sign = bits & FLOAT32_SIGN_MASK;
     let is_negative = sign != 0;
-    let exp_bits = (bits & FLOAT32_EXP_MASK) >> FLOAT32_MANTISSA_BITS;
+    let exp_bits = (bits & FLOAT32_EXPONENT_MASK) >> FLOAT32_MANTISSA_BITS;
     let mantissa = bits & FLOAT32_MANTISSA_MASK;
     let exp = exp_bits as i32 - FLOAT32_EXP_BIAS as i32;
 
@@ -1339,7 +1338,7 @@ pub fn floor_double(a: XsdDouble) -> XsdDouble {
 
     let sign = bits & FLOAT64_SIGN_MASK;
     let is_negative = sign != 0;
-    let exp_bits = (bits & FLOAT64_EXP_MASK) >> FLOAT64_MANTISSA_BITS;
+    let exp_bits = (bits & FLOAT64_EXPONENT_MASK) >> FLOAT64_MANTISSA_BITS;
     let mantissa = bits & FLOAT64_MANTISSA_MASK;
     let exp = exp_bits as i64 - FLOAT64_EXP_BIAS as i64;
 
