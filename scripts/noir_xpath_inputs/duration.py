@@ -26,7 +26,7 @@ from typing import Optional
 
 from elementpath.datatypes import DayTimeDuration, YearMonthDuration
 
-from .constants import XSD_MICROS_PER_SECOND, fits_in_i32
+from .constants import XSD_MICROS_PER_SECOND, fits_in_i32, fits_in_i64
 
 # Strip an optional ``xs:dayTimeDuration("...")`` / ``xs:yearMonthDuration("...")``
 # wrapper before handing the literal to elementpath.
@@ -69,6 +69,12 @@ def parse_day_time_duration_micros(value: str) -> Optional[int]:
     # XSD_MICROS_PER_SECOND keeps the conversion in Decimal arithmetic.
     seconds: Decimal = dur.seconds
     total_micros = int(seconds * Decimal(XSD_MICROS_PER_SECOND))
+    # Match ``parse_year_month_duration_months`` -- the Noir storage is
+    # i64, and downstream emitters can't represent values outside that
+    # range; return ``None`` so the caller skips the test rather than
+    # carry an arbitrary-precision Python int through to a packing site.
+    if not fits_in_i64(total_micros):
+        return None
     return total_micros
 
 
