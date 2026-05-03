@@ -13,6 +13,7 @@
 //! XPath functions implemented:
 //! - fn:years-from-duration, fn:months-from-duration (for yearMonthDuration)
 
+use crate::constants::XSD_MONTHS_PER_YEAR;
 use crate::date::{date_from_components_with_tz, day_from_date, month_from_date, year_from_date};
 use crate::datetime::{
     datetime_from_components_with_tz, day_from_datetime, hours_from_datetime,
@@ -40,7 +41,7 @@ impl XsdYearMonthDuration {
 
     /// Create from years and months components
     pub fn from_components(negative: bool, years: u32, months: u32) -> Self {
-        let total = (years as i32) * 12 + (months as i32);
+        let total = (years as i32) * (XSD_MONTHS_PER_YEAR as i32) + (months as i32);
         let signed_total = if negative { -total } else { total };
         XsdYearMonthDuration { total_months: signed_total }
     }
@@ -85,8 +86,8 @@ pub fn fn_string_from_ym_duration<let N: u32>(dur: XsdYearMonthDuration) -> ([u8
 
     let negative = dur.total_months < 0;
     let abs_months = dur.abs_months();
-    let years = abs_months / 12;
-    let months = abs_months % 12;
+    let years = abs_months / XSD_MONTHS_PER_YEAR;
+    let months = abs_months % XSD_MONTHS_PER_YEAR;
 
     // Add '-' if negative
     if negative & (pos < N) {
@@ -247,7 +248,7 @@ pub fn ym_duration_from_string<let N: u32>(
     }
 
     // Build the result
-    let total_months = (years * 12 + months) as i32;
+    let total_months = (years * XSD_MONTHS_PER_YEAR + months) as i32;
     let signed_total = if negative {
         -total_months
     } else {
@@ -264,13 +265,13 @@ pub fn ym_duration_from_string<let N: u32>(
 /// fn:years-from-duration (for yearMonthDuration)
 /// Returns the years component (signed)
 pub fn years_from_duration(dur: XsdYearMonthDuration) -> i32 {
-    dur.total_months / 12
+    dur.total_months / (XSD_MONTHS_PER_YEAR as i32)
 }
 
 /// fn:months-from-duration (for yearMonthDuration)
 /// Returns the months component (0-11, signed based on duration sign)
 pub fn months_from_duration(dur: XsdYearMonthDuration) -> i32 {
-    dur.total_months % 12
+    dur.total_months % (XSD_MONTHS_PER_YEAR as i32)
 }
 
 // ============================================================================
@@ -392,17 +393,19 @@ pub fn datetime_add_ym_duration(dt: XsdDateTime, dur: XsdYearMonthDuration) -> X
     let tz = dt.tz_offset_minutes; // Use raw field for tz offset
 
     // Calculate new year and month
-    let total_months = (year as i32) * 12 + ((month as i32) - 1) + dur.total_months;
+    let months_per_year_i32: i32 = XSD_MONTHS_PER_YEAR as i32;
+    let total_months =
+        (year as i32) * months_per_year_i32 + ((month as i32) - 1) + dur.total_months;
 
     // Handle negative month calculations
     let new_year: i32 = if total_months >= 0 {
-        total_months / 12
+        total_months / months_per_year_i32
     } else {
         // For negative, we need floor division
-        (total_months - 11) / 12
+        (total_months - (months_per_year_i32 - 1)) / months_per_year_i32
     };
 
-    let month_rem = total_months - (new_year * 12);
+    let month_rem = total_months - (new_year * months_per_year_i32);
     let new_month = (month_rem + 1) as u8;
 
     // Clamp day to valid range for new month
@@ -436,17 +439,19 @@ pub fn date_add_ym_duration(d: XsdDate, dur: XsdYearMonthDuration) -> XsdDate {
     let tz = d.tz_offset_minutes; // Use raw field for tz offset
 
     // Calculate new year and month
-    let total_months = (year as i32) * 12 + ((month as i32) - 1) + dur.total_months;
+    let months_per_year_i32: i32 = XSD_MONTHS_PER_YEAR as i32;
+    let total_months =
+        (year as i32) * months_per_year_i32 + ((month as i32) - 1) + dur.total_months;
 
     // Handle negative month calculations
     let new_year: i32 = if total_months >= 0 {
-        total_months / 12
+        total_months / months_per_year_i32
     } else {
         // For negative, we need floor division
-        (total_months - 11) / 12
+        (total_months - (months_per_year_i32 - 1)) / months_per_year_i32
     };
 
-    let month_rem = total_months - (new_year * 12);
+    let month_rem = total_months - (new_year * months_per_year_i32);
     let new_month = (month_rem + 1) as u8;
 
     // Clamp day to valid range for new month

@@ -8,6 +8,7 @@
 //! - fn:timezone-from-date
 //! - op:date-equal, op:date-less-than, op:date-greater-than
 
+use crate::constants::{XSD_MICROS_PER_DAY, XSD_MICROS_PER_MINUTE};
 use crate::types::{XsdDate, XsdDayTimeDuration};
 
 // ============================================================================
@@ -71,7 +72,7 @@ pub fn day_from_date(date: XsdDate) -> u8 {
 
 /// Extract timezone from date as a dayTimeDuration
 pub fn timezone_from_date(date: XsdDate) -> XsdDayTimeDuration {
-    let offset_micros: i64 = (date.tz_offset_minutes as i64) * 60_000_000; // 60 * 1_000_000
+    let offset_micros: i64 = (date.tz_offset_minutes as i64) * (XSD_MICROS_PER_MINUTE as i64);
     XsdDayTimeDuration::from_signed_micros(offset_micros)
 }
 
@@ -253,7 +254,7 @@ fn test_date_roundtrip_various_samples() {
 pub fn date_add_duration(date: XsdDate, dur: XsdDayTimeDuration) -> XsdDate {
     let dur_micros = dur.to_signed_micros();
     // Convert microseconds to days (integer division)
-    let dur_days: i32 = (dur_micros / 86_400_000_000) as i32;
+    let dur_days: i32 = (dur_micros / (XSD_MICROS_PER_DAY as i64)) as i32;
     let new_days = date.epoch_days + dur_days;
     XsdDate::new_with_tz(new_days, date.tz_offset_minutes)
 }
@@ -263,7 +264,7 @@ pub fn date_add_duration(date: XsdDate, dur: XsdDayTimeDuration) -> XsdDate {
 pub fn date_subtract_duration(date: XsdDate, dur: XsdDayTimeDuration) -> XsdDate {
     let dur_micros = dur.to_signed_micros();
     // Convert microseconds to days (integer division)
-    let dur_days: i32 = (dur_micros / 86_400_000_000) as i32;
+    let dur_days: i32 = (dur_micros / (XSD_MICROS_PER_DAY as i64)) as i32;
     let new_days = date.epoch_days - dur_days;
     XsdDate::new_with_tz(new_days, date.tz_offset_minutes)
 }
@@ -272,7 +273,7 @@ pub fn date_subtract_duration(date: XsdDate, dur: XsdDayTimeDuration) -> XsdDate
 /// Returns the dayTimeDuration between two dates (a - b)
 pub fn subtract_dates(a: XsdDate, b: XsdDate) -> XsdDayTimeDuration {
     let day_diff = a.epoch_days - b.epoch_days;
-    let micros: i64 = (day_diff as i64) * 86_400_000_000;
+    let micros: i64 = (day_diff as i64) * (XSD_MICROS_PER_DAY as i64);
     XsdDayTimeDuration::from_signed_micros(micros)
 }
 
@@ -303,7 +304,7 @@ pub fn adjust_date_to_timezone_none(date: XsdDate) -> XsdDate {
 /// Both must have the same timezone (or both have no timezone)
 pub fn fn_dateTime(date: XsdDate, time: crate::types::XsdTime) -> crate::types::XsdDateTime {
     // Convert date to epoch microseconds (at midnight)
-    let date_micros: i64 = (date.epoch_days as i64) * 86_400_000_000;
+    let date_micros: i64 = (date.epoch_days as i64) * (XSD_MICROS_PER_DAY as i64);
     // Add time microseconds
     let total_micros: i64 = date_micros + time.microseconds_since_midnight as i64;
     // Convert to unsigned for Field

@@ -13,7 +13,7 @@ pub struct XsdDateTime {
     pub epoch_microseconds: Field,
     /// Timezone offset in minutes from UTC (e.g., -300 for EST, 0 for UTC)
     /// Stored as signed value: positive = east of UTC, negative = west of UTC
-    /// Range: -840 to +840 minutes (-14:00 to +14:00)
+    /// Range: `XSD_TZ_MIN_MINUTES` (-14:00) to `XSD_TZ_MAX_MINUTES` (+14:00).
     pub tz_offset_minutes: i16,
 }
 
@@ -32,7 +32,7 @@ impl XsdDateTime {
 
     /// Get the local microseconds (adjusted by timezone offset)
     pub fn local_microseconds(self) -> Field {
-        let offset_micros: i64 = (self.tz_offset_minutes as i64) * 60_000_000;
+        let offset_micros: i64 = (self.tz_offset_minutes as i64) * (TIME_MICROS_PER_MINUTE as i64);
         let utc_micros: i64 = self.epoch_microseconds as i64;
         let local: i64 = utc_micros + offset_micros;
         // Safe cast: we ensure the result is non-negative in valid use cases
@@ -102,7 +102,7 @@ pub struct XsdDate {
     /// Days since Unix epoch (1970-01-01), can be negative for dates before 1970
     pub epoch_days: i32,
     /// Timezone offset in minutes from UTC (e.g., -300 for EST, 0 for UTC)
-    /// Range: -840 to +840 minutes (-14:00 to +14:00)
+    /// Range: `XSD_TZ_MIN_MINUTES` (-14:00) to `XSD_TZ_MAX_MINUTES` (+14:00).
     pub tz_offset_minutes: i16,
 }
 
@@ -135,15 +135,18 @@ pub struct XsdTime {
     /// Microseconds since midnight (0 to 86,399,999,999)
     pub microseconds_since_midnight: u64,
     /// Timezone offset in minutes from UTC
-    /// Range: -840 to +840 minutes (-14:00 to +14:00)
+    /// Range: `XSD_TZ_MIN_MINUTES` (-14:00) to `XSD_TZ_MAX_MINUTES` (+14:00).
     pub tz_offset_minutes: i16,
 }
 
-/// Microseconds in a day constant for time calculations
-global TIME_MICROS_PER_DAY: u64 = 86_400_000_000;
-global TIME_MICROS_PER_HOUR: u64 = 3_600_000_000;
-global TIME_MICROS_PER_MINUTE: u64 = 60_000_000;
-global TIME_MICROS_PER_SECOND: u64 = 1_000_000;
+// Microsecond scaling ladder is sourced from `crate::constants` -- see
+// `xpath/src/constants.nr`. The aliases below preserve the existing
+// `TIME_MICROS_PER_*` names used by the `XsdTime` constructors below.
+use crate::constants::{
+    XSD_MICROS_PER_DAY as TIME_MICROS_PER_DAY, XSD_MICROS_PER_HOUR as TIME_MICROS_PER_HOUR,
+    XSD_MICROS_PER_MINUTE as TIME_MICROS_PER_MINUTE,
+    XSD_MICROS_PER_SECOND as TIME_MICROS_PER_SECOND,
+};
 
 impl XsdTime {
     /// Create a new Time from microseconds since midnight (assumes UTC)

@@ -19,8 +19,6 @@ import re
 import shutil
 import struct
 import subprocess
-import xml.etree.ElementTree as ET
-from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -30,8 +28,36 @@ from typing import Optional
 from elementpath import XPath2Parser
 from elementpath.datatypes import DateTime10, Date10, Time, DayTimeDuration
 
-# XML namespace for qt3tests
-QT3_NS = "{http://www.w3.org/2010/09/qt-fots-catalog}"
+# qt3tests catalogue parser + XPath/XSD constants (extracted from this
+# script -- see `scripts/noir_xpath_inputs/`).
+from noir_xpath_inputs import (
+    QT3_NS,
+    TestCase,
+    XSD_INTEGER_I32_MAX,
+    XSD_INTEGER_I32_MIN,
+    XSD_INTEGER_I64_MAX,
+    XSD_INTEGER_I64_MIN,
+    XSD_MICROS_PER_DAY,
+    XSD_MICROS_PER_HOUR,
+    XSD_MICROS_PER_MINUTE,
+    XSD_MICROS_PER_SECOND,
+    XSD_MONTHS_PER_YEAR,
+    clone_or_update_qt3tests,
+    discover_all_test_files,
+    discover_available_functions,
+    fits_in_i32 as _fits_in_i32,
+    fits_in_i64 as _fits_in_i64,
+    parse_day_time_duration_micros,
+    parse_test_file,
+    parse_year_month_duration_months,
+    time_components_to_micros,
+    tz_offset_to_micros,
+)
+
+# i64 / i32 bounds (kept as module-level aliases for the call sites that
+# reference them by name; sourced from `noir_xpath_inputs.constants`).
+I64_MIN = XSD_INTEGER_I64_MIN
+I64_MAX = XSD_INTEGER_I64_MAX
 
 
 # Cached set of crate-root exports from xpath/src/lib.nr.
@@ -316,52 +342,6 @@ CAST_FUNCTION_PATTERNS = {
 }
 
 
-def discover_available_functions(qt3_dir: Path) -> set[str]:
-    """Discover available function/operator names from qt3tests XML files."""
-    if not qt3_dir.exists():
-        return set()
-    return set(discover_all_test_files(qt3_dir).keys())
-
-
-def discover_all_test_files(
-    qt3_dir: Path, *, include_prod: bool = False
-) -> dict[str, str]:
-    """Discover test files in qt3tests.
-
-    Returns a dict mapping function names (e.g., 'fn:abs', 'op:numeric-add')
-    to their test file paths relative to qt3_dir.
-    """
-    all_functions = {}
-
-    # Discover fn/ test files
-    fn_dir = qt3_dir / "fn"
-    if fn_dir.exists():
-        for xml_file in fn_dir.glob("*.xml"):
-            # Extract function name from filename
-            # e.g., abs.xml -> fn:abs, string-length.xml -> fn:string-length
-            func_name = xml_file.stem
-            all_functions[f"fn:{func_name}"] = f"fn/{xml_file.name}"
-
-    # Discover op/ test files
-    op_dir = qt3_dir / "op"
-    if op_dir.exists():
-        for xml_file in op_dir.glob("*.xml"):
-            # e.g., numeric-add.xml -> op:numeric-add
-            func_name = xml_file.stem
-            all_functions[f"op:{func_name}"] = f"op/{xml_file.name}"
-
-    # Optionally discover prod/ XML files (XQuery/XPath productions).
-    # These are not function/operator tests, but they can be useful for inspection.
-    if include_prod:
-        prod_dir = qt3_dir / "prod"
-        if prod_dir.exists():
-            for xml_file in prod_dir.glob("*.xml"):
-                func_name = xml_file.stem
-                all_functions[f"prod:{func_name}"] = f"prod/{xml_file.name}"
-
-    return all_functions
-
-
 def is_function_implemented(function_name: str) -> bool:
     """Check if a function is implemented by verifying Noir exports.
 
@@ -369,117 +349,6 @@ def is_function_implemented(function_name: str) -> bool:
     exported Noir symbol from the xpath crate root (xpath/src/lib.nr).
     """
     return resolve_noir_symbol(function_name) is not None
-
-
-@dataclass
-class TestCase:
-    """Represents a single test case from qt3tests."""
-
-    name: str
-    description: str
-    test_expr: str
-    expected_result: str
-    result_type: str  # 'assert-eq', 'assert-true', 'assert-false', 'error', etc.
-    dependencies: list = field(default_factory=list)
-
-
-def clone_or_update_qt3tests(qt3_dir: Path) -> None:
-    """Clone or update the qt3tests repository."""
-    if qt3_dir.exists():
-        print(f"qt3tests exists at {qt3_dir}, pulling latest...")
-        subprocess.run(["git", "pull"], cwd=qt3_dir, check=True)
-    else:
-        print(f"Cloning qt3tests to {qt3_dir}...")
-        subprocess.run(
-            [
-                "git",
-                "clone",
-                "--depth",
-                "1",
-                "https://github.com/w3c/qt3tests.git",
-                str(qt3_dir),
-            ],
-            check=True,
-        )
-
-
-def parse_test_file(xml_path: Path) -> list[TestCase]:
-    """Parse a qt3tests XML file and extract test cases."""
-    if not xml_path.exists():
-        print(f"Warning: Test file not found: {xml_path}")
-        return []
-
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
-
-    tests = []
-    for test_case in root.findall(f".//{QT3_NS}test-case"):
-        name = test_case.get("name", "unknown")
-
-        # Get dependencies (skip tests with unsupported features)
-        deps = []
-        for dep in test_case.findall(f".//{QT3_NS}dependency"):
-            dep_type = dep.get("type", "")
-            dep_value = dep.get("value", "")
-            deps.append(f"{dep_type}:{dep_value}")
-
-        # Get description
-        desc_elem = test_case.find(f"{QT3_NS}description")
-        description = desc_elem.text if desc_elem is not None and desc_elem.text else ""
-        # Clean up asterisk decorations from qt3tests descriptions
-        import re
-
-        description = re.sub(r"\*+", "", description).strip()
-
-        # Get test expression
-        test_elem = test_case.find(f"{QT3_NS}test")
-        if test_elem is None or test_elem.text is None:
-            continue
-        test_expr = test_elem.text.strip()
-
-        # Get expected result
-        result_elem = test_case.find(f"{QT3_NS}result")
-        if result_elem is None:
-            continue
-
-        # Handle different result types
-        result_type = "unknown"
-        expected_result = ""
-
-        for child in result_elem:
-            tag = child.tag.replace(QT3_NS, "")
-            if tag == "assert-eq":
-                result_type = "assert-eq"
-                expected_result = child.text.strip() if child.text else ""
-            elif tag == "assert-string-value":
-                result_type = "assert-eq"  # Treat same as assert-eq
-                expected_result = child.text.strip() if child.text else ""
-            elif tag == "assert-true":
-                result_type = "assert-true"
-                expected_result = "true"
-            elif tag == "assert-false":
-                result_type = "assert-false"
-                expected_result = "false"
-            elif tag == "error":
-                result_type = "error"
-                expected_result = child.get("code", "")
-            elif tag in ("all-of", "any-of"):
-                result_type = "complex"
-            break
-
-        if result_type not in ("unknown", "complex", "error"):
-            tests.append(
-                TestCase(
-                    name=name,
-                    description=description,
-                    test_expr=test_expr,
-                    expected_result=expected_result,
-                    result_type=result_type,
-                    dependencies=deps,
-                )
-            )
-
-    return tests
 
 
 def sanitize_test_name(name: str) -> str:
@@ -899,7 +768,7 @@ def parse_datetime(value: str) -> Optional[tuple[int, int]]:
         epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
         utc_dt = py_dt.astimezone(timezone.utc)
         delta = utc_dt - epoch
-        utc_micros = int(delta.total_seconds() * 1_000_000)
+        utc_micros = int(delta.total_seconds() * XSD_MICROS_PER_SECOND)
 
         return (utc_micros, tz_offset_minutes)
     except Exception:
@@ -912,77 +781,15 @@ def parse_duration(value: str) -> Optional[int]:
     Returns duration in microseconds (signed integer) or None if parsing fails.
     Format: P[nD][T[nH][nM][n.nS]]
     Examples: "P3DT10H30M", "PT2H30M", "-P2DT4H"
+
+    Independent-extraction note. Per Concern 4 of the input-prep
+    redesign (sec 5), this routes through
+    ``elementpath.datatypes.DayTimeDuration`` (an unrelated XPath
+    library, already a transitive dependency) rather than a hand-
+    rolled regex ladder, so a parser bug shared with the Noir
+    library cannot become invisible.
     """
-    value = value.strip()
-
-    # Handle xs:dayTimeDuration() wrapper
-    match = re.match(r"xs:dayTimeDuration\s*\(['\"]([^'\"]+)['\"]\)", value)
-    if match:
-        value = match.group(1)
-
-    # Check for negative sign
-    negative = value.startswith("-")
-    if negative:
-        value = value[1:]
-
-    # Duration must start with P
-    if not value.startswith("P"):
-        return None
-
-    value = value[1:]  # Remove 'P'
-
-    # Split on 'T' to get date and time parts
-    if "T" in value:
-        date_part, time_part = value.split("T", 1)
-    else:
-        date_part = value
-        time_part = ""
-
-    total_micros = 0
-
-    # Parse date part (days)
-    if date_part:
-        day_match = re.search(r"(\d+(?:\.\d+)?)D", date_part)
-        if day_match:
-            days = float(day_match.group(1))
-            total_micros += int(days * 86_400_000_000)  # 24*60*60*1_000_000
-
-    # Parse time part (hours, minutes, seconds)
-    if time_part:
-        hour_match = re.search(r"(\d+(?:\.\d+)?)H", time_part)
-        if hour_match:
-            hours = float(hour_match.group(1))
-            total_micros += int(hours * 3_600_000_000)  # 60*60*1_000_000
-
-        min_match = re.search(r"(\d+(?:\.\d+)?)M", time_part)
-        if min_match:
-            minutes = float(min_match.group(1))
-            total_micros += int(minutes * 60_000_000)  # 60*1_000_000
-
-        sec_match = re.search(r"(\d+(?:\.\d+)?)S", time_part)
-        if sec_match:
-            seconds = float(sec_match.group(1))
-            total_micros += int(seconds * 1_000_000)
-
-    if negative:
-        total_micros = -total_micros
-
-    return total_micros
-
-
-# i64 bounds
-I64_MIN = -9223372036854775808
-I64_MAX = 9223372036854775807
-
-
-def _fits_in_i64(val: int) -> bool:
-    """Check if an integer fits in Noir's i64 range."""
-    return I64_MIN <= val <= I64_MAX
-
-
-def _fits_in_i32(val: int) -> bool:
-    """Check if an integer fits in Noir's i32 range."""
-    return -2147483648 <= val <= 2147483647
+    return parse_day_time_duration_micros(value)
 
 
 def parse_year_month_duration(value: str) -> Optional[int]:
@@ -994,24 +801,12 @@ def parse_year_month_duration(value: str) -> Optional[int]:
     - -P1Y1M
     - P0Y
     - P10M
+
+    Independent-extraction note. Routes through
+    ``elementpath.datatypes.YearMonthDuration`` for the same
+    shared-bug-invisibility reason as ``parse_duration``.
     """
-    s = value.strip()
-    if not s:
-        return None
-    m = re.match(r"^(-)?P(?:(\d+)Y)?(?:(\d+)M)?$", s)
-    if m is None:
-        return None
-    neg = m.group(1) is not None
-    years_s = m.group(2)
-    months_s = m.group(3)
-    years = int(years_s) if years_s is not None else 0
-    months = int(months_s) if months_s is not None else 0
-    total = years * 12 + months
-    if neg:
-        total = -total
-    if not _fits_in_i32(total):
-        return None
-    return total
+    return parse_year_month_duration_months(value)
 
 
 def _get_function_name(token) -> Optional[str]:
@@ -2731,7 +2526,7 @@ def _datetime_to_epoch(dt: DateTime10) -> Optional[tuple[int, int]]:
         epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
         utc_dt = py_dt.astimezone(timezone.utc)
         delta = utc_dt - epoch
-        utc_micros = int(delta.total_seconds() * 1_000_000)
+        utc_micros = int(delta.total_seconds() * XSD_MICROS_PER_SECOND)
 
         return (utc_micros, tz_offset_minutes)
     except Exception:
@@ -2875,12 +2670,10 @@ def _time_to_microseconds(t: Time) -> Optional[tuple[int, int]]:
             offset = t.tzinfo.offset
             tz_offset_minutes = int(offset.total_seconds() / 60)
 
-        # Calculate microseconds since midnight
-        microseconds = (
-            t.hour * 3600 * 1_000_000
-            + t.minute * 60 * 1_000_000
-            + int(t.second) * 1_000_000
-            + t.microsecond
+        # Calculate microseconds since midnight via the canonical
+        # XSD scaling ladder (see noir_xpath_inputs.constants).
+        microseconds = time_components_to_micros(
+            t.hour, t.minute, int(t.second), t.microsecond
         )
 
         return (microseconds, tz_offset_minutes)
@@ -3175,10 +2968,8 @@ def generate_noir_test(test: TestCase, function_name: str) -> Optional[str]:
                         )
                         assertions.append(f"assert(day_from_date(result) == {day});")
                         if tz_mins is not None:
-                            # timezone_from_date returns XsdDayTimeDuration, compare using duration_equal
-                            tz_micros = (
-                                tz_mins * 60_000_000
-                            )  # Convert minutes to microseconds
+                            # timezone_from_date returns XsdDayTimeDuration; compare using duration_equal
+                            tz_micros = tz_offset_to_micros(tz_mins)
                             assertions.append(
                                 f"assert(duration_equal(timezone_from_date(result), duration_from_microseconds({tz_micros})));"
                             )
@@ -3204,7 +2995,7 @@ def generate_noir_test(test: TestCase, function_name: str) -> Optional[str]:
                         )
                         if tz_mins is not None:
                             # timezone_from_time returns XsdDayTimeDuration
-                            tz_micros = tz_mins * 60_000_000
+                            tz_micros = tz_offset_to_micros(tz_mins)
                             assertions.append(
                                 f"assert(duration_equal(timezone_from_time(result), duration_from_microseconds({tz_micros})));"
                             )
@@ -3243,7 +3034,7 @@ def generate_noir_test(test: TestCase, function_name: str) -> Optional[str]:
                         )
                         if tz_mins is not None:
                             # timezone_from_datetime returns XsdDayTimeDuration
-                            tz_micros = tz_mins * 60_000_000
+                            tz_micros = tz_offset_to_micros(tz_mins)
                             assertions.append(
                                 f"assert(duration_equal(timezone_from_datetime(result), duration_from_microseconds({tz_micros})));"
                             )

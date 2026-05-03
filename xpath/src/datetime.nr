@@ -10,24 +10,17 @@
 //! - fn:hours-from-dateTime, fn:minutes-from-dateTime, fn:seconds-from-dateTime
 //! - op:dateTime-equal, op:dateTime-less-than, op:dateTime-greater-than
 
+use crate::constants::{
+    XSD_MICROS_PER_DAY as MICROSECONDS_PER_DAY, XSD_MICROS_PER_HOUR as MICROSECONDS_PER_HOUR,
+    XSD_MICROS_PER_MINUTE as MICROSECONDS_PER_MINUTE,
+    XSD_MICROS_PER_SECOND as MICROSECONDS_PER_SECOND,
+};
 use crate::duration::duration_from_microseconds;
 use crate::types::XsdDateTime;
 
-// ============================================================================
-// Time Constants (as u64 for arithmetic)
-// ============================================================================
-
-/// Microseconds per second
-global MICROSECONDS_PER_SECOND: u64 = 1_000_000;
-
-/// Microseconds per minute
-global MICROSECONDS_PER_MINUTE: u64 = 60_000_000;
-
-/// Microseconds per hour
-global MICROSECONDS_PER_HOUR: u64 = 3_600_000_000;
-
-/// Microseconds per day
-global MICROSECONDS_PER_DAY: u64 = 86_400_000_000;
+// Microsecond scaling ladder is sourced from `crate::constants` -- see
+// `xpath/src/constants.nr`. The local `MICROSECONDS_PER_*` aliases above
+// preserve the existing in-module names for the call sites below.
 
 // ============================================================================
 // Construction Functions
@@ -100,7 +93,7 @@ pub fn datetime_from_components_with_tz(
     let local_micros: u64 = (days as u64) * MICROSECONDS_PER_DAY + time_micros;
 
     // Convert to UTC by subtracting the timezone offset
-    let offset_micros: i64 = (tz_offset_minutes as i64) * 60_000_000;
+    let offset_micros: i64 = (tz_offset_minutes as i64) * (MICROSECONDS_PER_MINUTE as i64);
     let utc_micros: i64 = (local_micros as i64) - offset_micros;
     let utc_u64: u64 = utc_micros as u64;
 
@@ -122,7 +115,7 @@ pub fn datetime_timezone_offset(dt: XsdDateTime) -> i16 {
 /// Returns the timezone offset as a duration (e.g., -PT5H for -05:00)
 pub fn timezone_from_datetime(dt: XsdDateTime) -> crate::types::XsdDayTimeDuration {
     let offset_minutes = dt.tz_offset_minutes as i64;
-    let offset_micros = offset_minutes * 60_000_000; // Convert minutes to microseconds
+    let offset_micros = offset_minutes * (MICROSECONDS_PER_MINUTE as i64);
     duration_from_microseconds(offset_micros)
 }
 

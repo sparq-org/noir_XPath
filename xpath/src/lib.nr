@@ -34,6 +34,7 @@
 //! ```
 
 // Internal implementation modules
+mod constants;
 mod types;
 mod boolean;
 mod numeric;
@@ -63,6 +64,16 @@ pub mod unconstrained_ops;
 pub mod xpath_fn;
 pub mod xpath_op;
 pub mod xpath_xs;
+
+// Re-export XSD type / arithmetic constants (single source of truth -- see
+// `xpath/src/constants.nr`). Test generators and downstream consumers
+// reference these by name instead of reconstructing the magic numbers.
+pub use constants::{
+    XSD_INTEGER_I32_MAX, XSD_INTEGER_I32_MIN, XSD_INTEGER_I64_MAX, XSD_INTEGER_I64_MIN,
+    XSD_MICROS_PER_DAY, XSD_MICROS_PER_HOUR, XSD_MICROS_PER_MINUTE, XSD_MICROS_PER_SECOND,
+    XSD_MONTHS_PER_YEAR, XSD_QNAME_MAX_LOCAL_LEN, XSD_QNAME_MAX_NS_LEN, XSD_TZ_MAX_MINUTES,
+    XSD_TZ_MIN_MINUTES,
+};
 
 // Re-export types
 pub use types::{XsdDate, XsdDateTime, XsdDayTimeDuration, XsdTime};
