@@ -32,7 +32,7 @@ impl XsdDateTime {
 
     /// Get the local microseconds (adjusted by timezone offset)
     pub fn local_microseconds(self) -> Field {
-        let offset_micros: i64 = (self.tz_offset_minutes as i64) * (TIME_MICROS_PER_MINUTE as i64);
+        let offset_micros: i64 = (self.tz_offset_minutes as i64) * (XSD_MICROS_PER_MINUTE as i64);
         let utc_micros: i64 = self.epoch_microseconds as i64;
         let local: i64 = utc_micros + offset_micros;
         // Safe cast: we ensure the result is non-negative in valid use cases
@@ -139,14 +139,9 @@ pub struct XsdTime {
     pub tz_offset_minutes: i16,
 }
 
-// Microsecond scaling ladder is sourced from `crate::constants` -- see
-// `xpath/src/constants.nr`. The aliases below preserve the existing
-// `TIME_MICROS_PER_*` names used by the `XsdTime` constructors below.
-use crate::constants::{
-    XSD_MICROS_PER_DAY as TIME_MICROS_PER_DAY, XSD_MICROS_PER_HOUR as TIME_MICROS_PER_HOUR,
-    XSD_MICROS_PER_MINUTE as TIME_MICROS_PER_MINUTE,
-    XSD_MICROS_PER_SECOND as TIME_MICROS_PER_SECOND,
-};
+// Microsecond scaling ladder is sourced from `crate::constants` (single
+// source of truth -- see `xpath/src/constants.nr`).
+use crate::constants::{XSD_MICROS_PER_HOUR, XSD_MICROS_PER_MINUTE, XSD_MICROS_PER_SECOND};
 
 impl XsdTime {
     /// Create a new Time from microseconds since midnight (assumes UTC)
@@ -161,9 +156,9 @@ impl XsdTime {
 
     /// Create a Time from components
     pub fn from_components(hours: u8, minutes: u8, seconds: u8, microseconds: u32) -> Self {
-        let micros = (hours as u64) * TIME_MICROS_PER_HOUR
-            + (minutes as u64) * TIME_MICROS_PER_MINUTE
-            + (seconds as u64) * TIME_MICROS_PER_SECOND
+        let micros = (hours as u64) * XSD_MICROS_PER_HOUR
+            + (minutes as u64) * XSD_MICROS_PER_MINUTE
+            + (seconds as u64) * XSD_MICROS_PER_SECOND
             + microseconds as u64;
         XsdTime::new(micros)
     }
@@ -176,9 +171,9 @@ impl XsdTime {
         microseconds: u32,
         tz_offset_minutes: i16,
     ) -> Self {
-        let micros = (hours as u64) * TIME_MICROS_PER_HOUR
-            + (minutes as u64) * TIME_MICROS_PER_MINUTE
-            + (seconds as u64) * TIME_MICROS_PER_SECOND
+        let micros = (hours as u64) * XSD_MICROS_PER_HOUR
+            + (minutes as u64) * XSD_MICROS_PER_MINUTE
+            + (seconds as u64) * XSD_MICROS_PER_SECOND
             + microseconds as u64;
         XsdTime::new_with_tz(micros, tz_offset_minutes)
     }
@@ -187,7 +182,7 @@ impl XsdTime {
     /// Normalizes to UTC by subtracting the timezone offset
     pub fn utc_microseconds(self) -> i64 {
         let local_micros = self.microseconds_since_midnight as i64;
-        let offset_micros = (self.tz_offset_minutes as i64) * 60_000_000;
+        let offset_micros = (self.tz_offset_minutes as i64) * (XSD_MICROS_PER_MINUTE as i64);
         local_micros - offset_micros
     }
 }

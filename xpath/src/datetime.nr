@@ -11,16 +11,13 @@
 //! - op:dateTime-equal, op:dateTime-less-than, op:dateTime-greater-than
 
 use crate::constants::{
-    XSD_MICROS_PER_DAY as MICROSECONDS_PER_DAY, XSD_MICROS_PER_HOUR as MICROSECONDS_PER_HOUR,
-    XSD_MICROS_PER_MINUTE as MICROSECONDS_PER_MINUTE,
-    XSD_MICROS_PER_SECOND as MICROSECONDS_PER_SECOND,
+    XSD_MICROS_PER_DAY, XSD_MICROS_PER_HOUR, XSD_MICROS_PER_MINUTE, XSD_MICROS_PER_SECOND,
 };
 use crate::duration::duration_from_microseconds;
 use crate::types::XsdDateTime;
 
-// Microsecond scaling ladder is sourced from `crate::constants` -- see
-// `xpath/src/constants.nr`. The local `MICROSECONDS_PER_*` aliases above
-// preserve the existing in-module names for the call sites below.
+// Microsecond scaling ladder is sourced from `crate::constants` (single
+// source of truth -- see `xpath/src/constants.nr`).
 
 // ============================================================================
 // Construction Functions
@@ -84,16 +81,16 @@ pub fn datetime_from_components_with_tz(
     let days = civil_to_days(year, month, day);
 
     // Convert time components to microseconds (local time)
-    let time_micros: u64 = (hour as u64) * MICROSECONDS_PER_HOUR
-        + (minute as u64) * MICROSECONDS_PER_MINUTE
-        + (second as u64) * MICROSECONDS_PER_SECOND
+    let time_micros: u64 = (hour as u64) * XSD_MICROS_PER_HOUR
+        + (minute as u64) * XSD_MICROS_PER_MINUTE
+        + (second as u64) * XSD_MICROS_PER_SECOND
         + microsecond as u64;
 
     // Total microseconds since epoch (in local time)
-    let local_micros: u64 = (days as u64) * MICROSECONDS_PER_DAY + time_micros;
+    let local_micros: u64 = (days as u64) * XSD_MICROS_PER_DAY + time_micros;
 
     // Convert to UTC by subtracting the timezone offset
-    let offset_micros: i64 = (tz_offset_minutes as i64) * (MICROSECONDS_PER_MINUTE as i64);
+    let offset_micros: i64 = (tz_offset_minutes as i64) * (XSD_MICROS_PER_MINUTE as i64);
     let utc_micros: i64 = (local_micros as i64) - offset_micros;
     let utc_u64: u64 = utc_micros as u64;
 
@@ -115,7 +112,7 @@ pub fn datetime_timezone_offset(dt: XsdDateTime) -> i16 {
 /// Returns the timezone offset as a duration (e.g., -PT5H for -05:00)
 pub fn timezone_from_datetime(dt: XsdDateTime) -> crate::types::XsdDayTimeDuration {
     let offset_minutes = dt.tz_offset_minutes as i64;
-    let offset_micros = offset_minutes * (MICROSECONDS_PER_MINUTE as i64);
+    let offset_micros = offset_minutes * (XSD_MICROS_PER_MINUTE as i64);
     duration_from_microseconds(offset_micros)
 }
 
@@ -152,17 +149,17 @@ pub fn day_from_datetime(dt: XsdDateTime) -> u8 {
 /// Extracts the hours component (0-23) from a dateTime value (in local time).
 pub fn hours_from_datetime(dt: XsdDateTime) -> u8 {
     let micros: u64 = dt.local_microseconds() as u64;
-    let day_micros = micros % MICROSECONDS_PER_DAY;
-    (day_micros / MICROSECONDS_PER_HOUR) as u8
+    let day_micros = micros % XSD_MICROS_PER_DAY;
+    (day_micros / XSD_MICROS_PER_HOUR) as u8
 }
 
 /// fn:minutes-from-dateTime
 /// Extracts the minutes component (0-59) from a dateTime value (in local time).
 pub fn minutes_from_datetime(dt: XsdDateTime) -> u8 {
     let micros: u64 = dt.local_microseconds() as u64;
-    let day_micros = micros % MICROSECONDS_PER_DAY;
-    let hour_micros = day_micros % MICROSECONDS_PER_HOUR;
-    (hour_micros / MICROSECONDS_PER_MINUTE) as u8
+    let day_micros = micros % XSD_MICROS_PER_DAY;
+    let hour_micros = day_micros % XSD_MICROS_PER_HOUR;
+    (hour_micros / XSD_MICROS_PER_MINUTE) as u8
 }
 
 /// fn:seconds-from-dateTime (integer part only)
@@ -171,16 +168,16 @@ pub fn minutes_from_datetime(dt: XsdDateTime) -> u8 {
 /// use microseconds_from_datetime for the fractional part.
 pub fn seconds_from_datetime(dt: XsdDateTime) -> u8 {
     let micros: u64 = dt.local_microseconds() as u64;
-    let day_micros = micros % MICROSECONDS_PER_DAY;
-    let hour_micros = day_micros % MICROSECONDS_PER_HOUR;
-    let minute_micros = hour_micros % MICROSECONDS_PER_MINUTE;
-    (minute_micros / MICROSECONDS_PER_SECOND) as u8
+    let day_micros = micros % XSD_MICROS_PER_DAY;
+    let hour_micros = day_micros % XSD_MICROS_PER_HOUR;
+    let minute_micros = hour_micros % XSD_MICROS_PER_MINUTE;
+    (minute_micros / XSD_MICROS_PER_SECOND) as u8
 }
 
 /// Extract microseconds within the current second (0-999999)
 pub fn microseconds_from_datetime(dt: XsdDateTime) -> u32 {
     let micros: u64 = dt.local_microseconds() as u64;
-    (micros % MICROSECONDS_PER_SECOND) as u32
+    (micros % XSD_MICROS_PER_SECOND) as u32
 }
 
 // ============================================================================
@@ -263,7 +260,7 @@ fn civil_to_days(year: i32, month: u8, day: u8) -> i64 {
 fn epoch_to_civil(epoch_micros: Field) -> (i32, u8, u8) {
     // Convert to days since epoch
     let micros: u64 = epoch_micros as u64;
-    let days: i64 = (micros / MICROSECONDS_PER_DAY) as i64;
+    let days: i64 = (micros / XSD_MICROS_PER_DAY) as i64;
 
     // Shift epoch from 1970-01-01 to 0000-03-01 for easier leap year handling
     // days from 1970-01-01 to 0000-03-01 is -719468

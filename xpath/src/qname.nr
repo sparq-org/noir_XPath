@@ -10,12 +10,9 @@
 // QName Type
 // ============================================================================
 
-// QName component buffer sizes are sourced from `crate::constants` --
-// see `xpath/src/constants.nr`. The aliases below preserve the existing
-// in-module names for the call sites below.
-use crate::constants::{
-    XSD_QNAME_MAX_LOCAL_LEN as MAX_LOCALNAME_LEN, XSD_QNAME_MAX_NS_LEN as MAX_NAMESPACE_LEN,
-};
+// QName component buffer sizes are sourced from `crate::constants` (single
+// source of truth -- see `xpath/src/constants.nr`). They are referenced by
+// the test generator and downstream consumers via `xpath::XSD_QNAME_MAX_*`.
 
 /// XSD QName representation
 /// A qualified name consists of a namespace URI and a local name

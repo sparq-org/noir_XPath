@@ -14,24 +14,9 @@ use crate::constants::{
 };
 use crate::types::{XsdDateTime, XsdDayTimeDuration};
 
-// ============================================================================
-// Time Constants (signed-i64 aliases of the canonical u64 constants in
-// `crate::constants`. Sign-extending the u64 globals at compile time
-// keeps the duration arithmetic below in i64 without re-declaring the
-// magic numbers.)
-// ============================================================================
-
-/// Microseconds per second.
-global MICROS_PER_SECOND: i64 = XSD_MICROS_PER_SECOND as i64;
-
-/// Microseconds per minute.
-global MICROS_PER_MINUTE: i64 = XSD_MICROS_PER_MINUTE as i64;
-
-/// Microseconds per hour.
-global MICROS_PER_HOUR: i64 = XSD_MICROS_PER_HOUR as i64;
-
-/// Microseconds per day.
-global MICROS_PER_DAY: i64 = XSD_MICROS_PER_DAY as i64;
+// Microsecond scaling ladder is sourced from `crate::constants` (single
+// source of truth -- see `xpath/src/constants.nr`). Call sites cast the
+// canonical u64 globals to i64 inline to keep duration arithmetic signed.
 
 // ============================================================================
 // Duration Construction Functions
@@ -52,10 +37,10 @@ pub fn duration_from_components(
     seconds: u32,
     microseconds: u32,
 ) -> XsdDayTimeDuration {
-    let total: i64 = (days as i64) * MICROS_PER_DAY
-        + (hours as i64) * MICROS_PER_HOUR
-        + (minutes as i64) * MICROS_PER_MINUTE
-        + (seconds as i64) * MICROS_PER_SECOND
+    let total: i64 = (days as i64) * (XSD_MICROS_PER_DAY as i64)
+        + (hours as i64) * (XSD_MICROS_PER_HOUR as i64)
+        + (minutes as i64) * (XSD_MICROS_PER_MINUTE as i64)
+        + (seconds as i64) * (XSD_MICROS_PER_SECOND as i64)
         + microseconds as i64;
 
     let signed_total = if negative { -total } else { total };
@@ -85,31 +70,31 @@ pub fn duration_is_negative(dur: XsdDayTimeDuration) -> bool {
 pub fn days_from_duration(dur: XsdDayTimeDuration) -> u32 {
     let micros = dur.to_signed_micros();
     let abs_micros: i64 = if micros < 0 { -micros } else { micros };
-    (abs_micros / MICROS_PER_DAY) as u32
+    (abs_micros / (XSD_MICROS_PER_DAY as i64)) as u32
 }
 
 /// Extract hours component (0-23, absolute value)
 pub fn hours_from_duration(dur: XsdDayTimeDuration) -> u8 {
     let micros = dur.to_signed_micros();
     let abs_micros: i64 = if micros < 0 { -micros } else { micros };
-    let day_remainder = abs_micros % MICROS_PER_DAY;
-    (day_remainder / MICROS_PER_HOUR) as u8
+    let day_remainder = abs_micros % (XSD_MICROS_PER_DAY as i64);
+    (day_remainder / (XSD_MICROS_PER_HOUR as i64)) as u8
 }
 
 /// Extract minutes component (0-59, absolute value)
 pub fn minutes_from_duration(dur: XsdDayTimeDuration) -> u8 {
     let micros = dur.to_signed_micros();
     let abs_micros: i64 = if micros < 0 { -micros } else { micros };
-    let hour_remainder = abs_micros % MICROS_PER_HOUR;
-    (hour_remainder / MICROS_PER_MINUTE) as u8
+    let hour_remainder = abs_micros % (XSD_MICROS_PER_HOUR as i64);
+    (hour_remainder / (XSD_MICROS_PER_MINUTE as i64)) as u8
 }
 
 /// Extract seconds component (0-59, absolute value)
 pub fn seconds_from_duration(dur: XsdDayTimeDuration) -> u8 {
     let micros = dur.to_signed_micros();
     let abs_micros: i64 = if micros < 0 { -micros } else { micros };
-    let minute_remainder = abs_micros % MICROS_PER_MINUTE;
-    (minute_remainder / MICROS_PER_SECOND) as u8
+    let minute_remainder = abs_micros % (XSD_MICROS_PER_MINUTE as i64);
+    (minute_remainder / (XSD_MICROS_PER_SECOND as i64)) as u8
 }
 
 // ============================================================================
@@ -288,7 +273,7 @@ fn test_datetime_duration_arithmetic() {
 #[test]
 fn test_datetime_difference() {
     let dt1 = XsdDateTime::new(0);
-    let dt2_micros: Field = 86_400_000_000; // 1 day in microseconds
+    let dt2_micros: Field = XSD_MICROS_PER_DAY as Field; // 1 day in microseconds
     let dt2 = XsdDateTime::new(dt2_micros);
 
     let diff = datetime_difference(dt2, dt1);

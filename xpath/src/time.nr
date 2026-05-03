@@ -9,14 +9,12 @@
 //! - op:time-equal, op:time-less-than, op:time-greater-than
 
 use crate::constants::{
-    XSD_MICROS_PER_DAY, XSD_MICROS_PER_HOUR as MICROS_PER_HOUR,
-    XSD_MICROS_PER_MINUTE as MICROS_PER_MINUTE, XSD_MICROS_PER_SECOND as MICROS_PER_SECOND,
+    XSD_MICROS_PER_DAY, XSD_MICROS_PER_HOUR, XSD_MICROS_PER_MINUTE, XSD_MICROS_PER_SECOND,
 };
 use crate::types::{XsdDayTimeDuration, XsdTime};
 
-// Microsecond scaling ladder is sourced from `crate::constants` -- see
-// `xpath/src/constants.nr`. The local `MICROS_PER_*` aliases above
-// preserve the existing in-module names for the call sites below.
+// Microsecond scaling ladder is sourced from `crate::constants` (single
+// source of truth -- see `xpath/src/constants.nr`).
 
 // ============================================================================
 // Time Construction Functions
@@ -64,29 +62,29 @@ pub fn time_from_microseconds_with_tz(micros: u64, tz_offset_minutes: i16) -> Xs
 
 /// fn:hours-from-time - Extract hours component (0-23)
 pub fn hours_from_time(time: XsdTime) -> u8 {
-    (time.microseconds_since_midnight / MICROS_PER_HOUR) as u8
+    (time.microseconds_since_midnight / XSD_MICROS_PER_HOUR) as u8
 }
 
 /// fn:minutes-from-time - Extract minutes component (0-59)
 pub fn minutes_from_time(time: XsdTime) -> u8 {
-    let hour_remainder = time.microseconds_since_midnight % MICROS_PER_HOUR;
-    (hour_remainder / MICROS_PER_MINUTE) as u8
+    let hour_remainder = time.microseconds_since_midnight % XSD_MICROS_PER_HOUR;
+    (hour_remainder / XSD_MICROS_PER_MINUTE) as u8
 }
 
 /// fn:seconds-from-time - Extract seconds component (0-59)
 pub fn seconds_from_time(time: XsdTime) -> u8 {
-    let minute_remainder = time.microseconds_since_midnight % MICROS_PER_MINUTE;
-    (minute_remainder / MICROS_PER_SECOND) as u8
+    let minute_remainder = time.microseconds_since_midnight % XSD_MICROS_PER_MINUTE;
+    (minute_remainder / XSD_MICROS_PER_SECOND) as u8
 }
 
 /// Extract microseconds within the current second (0-999999)
 pub fn microseconds_from_time(time: XsdTime) -> u32 {
-    (time.microseconds_since_midnight % MICROS_PER_SECOND) as u32
+    (time.microseconds_since_midnight % XSD_MICROS_PER_SECOND) as u32
 }
 
 /// fn:timezone-from-time - Extract timezone as a dayTimeDuration
 pub fn timezone_from_time(time: XsdTime) -> XsdDayTimeDuration {
-    let offset_micros: i64 = (time.tz_offset_minutes as i64) * (MICROS_PER_MINUTE as i64);
+    let offset_micros: i64 = (time.tz_offset_minutes as i64) * (XSD_MICROS_PER_MINUTE as i64);
     XsdDayTimeDuration::from_signed_micros(offset_micros)
 }
 
@@ -167,7 +165,7 @@ pub fn adjust_time_to_timezone(time: XsdTime, new_tz_offset_minutes: i16) -> Xsd
     let utc_micros = time.utc_microseconds();
     // Create a new time with the new timezone, adjusting for the offset difference
     let offset_diff = new_tz_offset_minutes as i64 - time.tz_offset_minutes as i64;
-    let new_local_micros = utc_micros + offset_diff * (MICROS_PER_MINUTE as i64);
+    let new_local_micros = utc_micros + offset_diff * (XSD_MICROS_PER_MINUTE as i64);
     // Normalize to 0-24 hour range
     let day_micros: i64 = XSD_MICROS_PER_DAY as i64;
     let normalized = ((new_local_micros % day_micros) + day_micros) % day_micros;
