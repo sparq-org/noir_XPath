@@ -28,16 +28,35 @@ from typing import Optional
 from elementpath import XPath2Parser
 from elementpath.datatypes import DateTime10, Date10, Time, DayTimeDuration
 
-# qt3tests catalogue parser (extracted from this script -- see
-# `scripts/noir_xpath_inputs/qt3tests.py`).
-from noir_xpath_inputs.qt3tests import (
+# qt3tests catalogue parser + XPath/XSD constants (extracted from this
+# script -- see `scripts/noir_xpath_inputs/`).
+from noir_xpath_inputs import (
     QT3_NS,
     TestCase,
+    XSD_INTEGER_I32_MAX,
+    XSD_INTEGER_I32_MIN,
+    XSD_INTEGER_I64_MAX,
+    XSD_INTEGER_I64_MIN,
+    XSD_MICROS_PER_DAY,
+    XSD_MICROS_PER_HOUR,
+    XSD_MICROS_PER_MINUTE,
+    XSD_MICROS_PER_SECOND,
+    XSD_MONTHS_PER_YEAR,
     clone_or_update_qt3tests,
     discover_all_test_files,
     discover_available_functions,
+    fits_in_i32 as _fits_in_i32,
+    fits_in_i64 as _fits_in_i64,
     parse_test_file,
+    time_components_to_micros,
+    tz_offset_to_micros,
+    years_months_to_total_months,
 )
+
+# i64 / i32 bounds (kept as module-level aliases for the call sites that
+# reference them by name; sourced from `noir_xpath_inputs.constants`).
+I64_MIN = XSD_INTEGER_I64_MIN
+I64_MAX = XSD_INTEGER_I64_MAX
 
 
 # Cached set of crate-root exports from xpath/src/lib.nr.
@@ -748,7 +767,7 @@ def parse_datetime(value: str) -> Optional[tuple[int, int]]:
         epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
         utc_dt = py_dt.astimezone(timezone.utc)
         delta = utc_dt - epoch
-        utc_micros = int(delta.total_seconds() * 1_000_000)
+        utc_micros = int(delta.total_seconds() * XSD_MICROS_PER_SECOND)
 
         return (utc_micros, tz_offset_minutes)
     except Exception:
@@ -794,44 +813,29 @@ def parse_duration(value: str) -> Optional[int]:
         day_match = re.search(r"(\d+(?:\.\d+)?)D", date_part)
         if day_match:
             days = float(day_match.group(1))
-            total_micros += int(days * 86_400_000_000)  # 24*60*60*1_000_000
+            total_micros += int(days * XSD_MICROS_PER_DAY)
 
     # Parse time part (hours, minutes, seconds)
     if time_part:
         hour_match = re.search(r"(\d+(?:\.\d+)?)H", time_part)
         if hour_match:
             hours = float(hour_match.group(1))
-            total_micros += int(hours * 3_600_000_000)  # 60*60*1_000_000
+            total_micros += int(hours * XSD_MICROS_PER_HOUR)
 
         min_match = re.search(r"(\d+(?:\.\d+)?)M", time_part)
         if min_match:
             minutes = float(min_match.group(1))
-            total_micros += int(minutes * 60_000_000)  # 60*1_000_000
+            total_micros += int(minutes * XSD_MICROS_PER_MINUTE)
 
         sec_match = re.search(r"(\d+(?:\.\d+)?)S", time_part)
         if sec_match:
             seconds = float(sec_match.group(1))
-            total_micros += int(seconds * 1_000_000)
+            total_micros += int(seconds * XSD_MICROS_PER_SECOND)
 
     if negative:
         total_micros = -total_micros
 
     return total_micros
-
-
-# i64 bounds
-I64_MIN = -9223372036854775808
-I64_MAX = 9223372036854775807
-
-
-def _fits_in_i64(val: int) -> bool:
-    """Check if an integer fits in Noir's i64 range."""
-    return I64_MIN <= val <= I64_MAX
-
-
-def _fits_in_i32(val: int) -> bool:
-    """Check if an integer fits in Noir's i32 range."""
-    return -2147483648 <= val <= 2147483647
 
 
 def parse_year_month_duration(value: str) -> Optional[int]:
@@ -855,7 +859,7 @@ def parse_year_month_duration(value: str) -> Optional[int]:
     months_s = m.group(3)
     years = int(years_s) if years_s is not None else 0
     months = int(months_s) if months_s is not None else 0
-    total = years * 12 + months
+    total = years_months_to_total_months(years, months)
     if neg:
         total = -total
     if not _fits_in_i32(total):
@@ -2580,7 +2584,7 @@ def _datetime_to_epoch(dt: DateTime10) -> Optional[tuple[int, int]]:
         epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
         utc_dt = py_dt.astimezone(timezone.utc)
         delta = utc_dt - epoch
-        utc_micros = int(delta.total_seconds() * 1_000_000)
+        utc_micros = int(delta.total_seconds() * XSD_MICROS_PER_SECOND)
 
         return (utc_micros, tz_offset_minutes)
     except Exception:
@@ -2724,12 +2728,10 @@ def _time_to_microseconds(t: Time) -> Optional[tuple[int, int]]:
             offset = t.tzinfo.offset
             tz_offset_minutes = int(offset.total_seconds() / 60)
 
-        # Calculate microseconds since midnight
-        microseconds = (
-            t.hour * 3600 * 1_000_000
-            + t.minute * 60 * 1_000_000
-            + int(t.second) * 1_000_000
-            + t.microsecond
+        # Calculate microseconds since midnight via the canonical
+        # XSD scaling ladder (see noir_xpath_inputs.constants).
+        microseconds = time_components_to_micros(
+            t.hour, t.minute, int(t.second), t.microsecond
         )
 
         return (microseconds, tz_offset_minutes)
@@ -3024,10 +3026,8 @@ def generate_noir_test(test: TestCase, function_name: str) -> Optional[str]:
                         )
                         assertions.append(f"assert(day_from_date(result) == {day});")
                         if tz_mins is not None:
-                            # timezone_from_date returns XsdDayTimeDuration, compare using duration_equal
-                            tz_micros = (
-                                tz_mins * 60_000_000
-                            )  # Convert minutes to microseconds
+                            # timezone_from_date returns XsdDayTimeDuration; compare using duration_equal
+                            tz_micros = tz_offset_to_micros(tz_mins)
                             assertions.append(
                                 f"assert(duration_equal(timezone_from_date(result), duration_from_microseconds({tz_micros})));"
                             )
@@ -3053,7 +3053,7 @@ def generate_noir_test(test: TestCase, function_name: str) -> Optional[str]:
                         )
                         if tz_mins is not None:
                             # timezone_from_time returns XsdDayTimeDuration
-                            tz_micros = tz_mins * 60_000_000
+                            tz_micros = tz_offset_to_micros(tz_mins)
                             assertions.append(
                                 f"assert(duration_equal(timezone_from_time(result), duration_from_microseconds({tz_micros})));"
                             )
@@ -3092,7 +3092,7 @@ def generate_noir_test(test: TestCase, function_name: str) -> Optional[str]:
                         )
                         if tz_mins is not None:
                             # timezone_from_datetime returns XsdDayTimeDuration
-                            tz_micros = tz_mins * 60_000_000
+                            tz_micros = tz_offset_to_micros(tz_mins)
                             assertions.append(
                                 f"assert(duration_equal(timezone_from_datetime(result), duration_from_microseconds({tz_micros})));"
                             )
