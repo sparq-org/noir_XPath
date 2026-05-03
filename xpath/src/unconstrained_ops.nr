@@ -136,12 +136,22 @@ pub unconstrained fn unsigned_to_string_unconstrained<let N: u32>(
 /// This sketch is a reading aid; the soundness has not been mechanised
 /// (no Lean / Lampe proof is in scope this round).
 pub fn unsigned_to_string_verified<let N: u32>(value: u64) -> ([u8; N], u32) {
+    // Safety: the relation enforced by `verify_relation` uniquely determines
+    // `(bytes, len)` given `value`; see the SAFETY PROOF block above.
+    let (bytes, len) = unsafe { unsigned_to_string_unconstrained::<N>(value) };
+    verify_relation::<N>(value, bytes, len)
+}
+
+/// Constrained relation check shared by `unsigned_to_string_verified` and
+/// the adversarial tests. Asserts clauses (1)-(4) of the SAFETY PROOF and
+/// returns `(bytes, len)` unchanged on success.
+///
+/// Private to this module so the assertion error strings remain implementation
+/// details. The fact that production and tests share this function means an
+/// adversarial test failure also flags a regression in the production path.
+fn verify_relation<let N: u32>(value: u64, bytes: [u8; N], len: u32) -> ([u8; N], u32) {
     // We need at least 20 bytes to hold any u64.
     assert(N >= 20, "unsigned_to_string_verified: N must be >= 20");
-
-    // Safety: the relation below uniquely determines (bytes, len) given value;
-    // see the SAFETY PROOF block above.
-    let (bytes, len) = unsafe { unsigned_to_string_unconstrained::<N>(value) };
 
     // Clause (1): 1 <= len <= 20.
     assert(len >= 1, "unsigned_to_string_verified: len must be >= 1");
@@ -252,56 +262,15 @@ fn test_unsigned_to_string_verified_powers_of_ten() {
 
 // --- Adversarial harness ---
 //
-// To exercise every assertion path in the verifier we run the verifier body
-// against a deliberately-corrupt `(bytes, len)` tuple. Each tampered helper
-// is private to this module so it cannot leak into the library API.
+// The adversarial tests call the same private `verify_relation` helper that
+// `unsigned_to_string_verified` uses, after substituting a deliberately-
+// corrupt unconstrained hint for each tampering mode. Sharing the helper
+// means a regression in the production verifier path is detected by the
+// tests too.
 //
-// The body is duplicated rather than abstracted because Noir does not yet
-// support passing unconstrained function pointers to constrained code in
-// beta.17; the duplication is small and the tests remain explicit about
-// which clause they exercise.
-
-/// Run the full verifier on a caller-supplied `(bytes, len)`. Private to
-/// this module; used only by the adversarial tests below.
-///
-/// All assertion messages are kept identical to those in
-/// `unsigned_to_string_verified` so `should_fail_with` can target each
-/// soundness clause individually.
-fn verify_relation<let N: u32>(value: u64, bytes: [u8; N], len: u32) -> ([u8; N], u32) {
-    assert(N >= 20, "unsigned_to_string_verified: N must be >= 20");
-    assert(len >= 1, "unsigned_to_string_verified: len must be >= 1");
-    assert(len <= 20, "unsigned_to_string_verified: len must be <= 20");
-
-    let mut reconstructed: u64 = 0;
-    for i in 0..N {
-        let i_u32: u32 = i as u32;
-        let b: u8 = bytes[i];
-        let in_digits: bool = i_u32 < len;
-
-        if in_digits {
-            assert(b >= 48, "unsigned_to_string_verified: byte below '0'");
-            assert(b <= 57, "unsigned_to_string_verified: byte above '9'");
-            let exponent: u32 = len - 1 - i_u32;
-            let weight: u64 = pow10_u64(exponent);
-            let digit: u64 = (b - 48) as u64;
-            reconstructed = reconstructed + digit * weight;
-        } else {
-            assert(b == 0, "unsigned_to_string_verified: trailing byte not zero");
-        }
-    }
-
-    let leading_byte: u8 = bytes[0];
-    let leading_is_zero: bool = leading_byte == 48;
-    let single_digit: bool = len == 1;
-    assert(
-        !leading_is_zero | single_digit,
-        "unsigned_to_string_verified: leading zero in multi-digit form",
-    );
-
-    assert(reconstructed == value, "unsigned_to_string_verified: digits do not match value");
-
-    (bytes, len)
-}
+// Each `hint_*` generator below isolates one tampering mode so an
+// adversarial test can target a single assertion clause via
+// `#[test(should_fail_with = "...")]`.
 
 // --- Wrong-hint generators (each isolates one tampering mode). ---
 
@@ -326,11 +295,21 @@ unconstrained fn hint_leading_zero<let N: u32>(_value: u64) -> ([u8; N], u32) {
     (result, 3)
 }
 
-/// Non-digit hint: places ASCII 'A' (65) at position 0 with len=1.
-unconstrained fn hint_non_digit<let N: u32>(_value: u64) -> ([u8; N], u32) {
+/// Non-digit hint (above '9'): places ASCII 'A' (65) at position 0 with len=1.
+unconstrained fn hint_non_digit_above<let N: u32>(_value: u64) -> ([u8; N], u32) {
     let mut result: [u8; N] = [0; N];
     if N > 0 {
         result[0] = 65; // 'A'
+    }
+    (result, 1)
+}
+
+/// Non-digit hint (below '0'): places byte 47 (just below '0' = 48) at
+/// position 0 with len=1, exercising the lower digit-range assertion.
+unconstrained fn hint_non_digit_below<let N: u32>(_value: u64) -> ([u8; N], u32) {
+    let mut result: [u8; N] = [0; N];
+    if N > 0 {
+        result[0] = 47;
     }
     (result, 1)
 }
@@ -403,10 +382,18 @@ fn test_wrong_hint_fails_on_leading_zero() {
 }
 
 #[test(should_fail_with = "byte above '9'")]
-fn test_wrong_hint_fails_on_non_digit() {
+fn test_wrong_hint_fails_on_non_digit_above() {
     // 'A' (65) is above '9' (57); the digit-range upper-bound clause fires.
     // Safety: adversarial path.
-    let (bytes, len) = unsafe { hint_non_digit::<20>(7) };
+    let (bytes, len) = unsafe { hint_non_digit_above::<20>(7) };
+    let _ = verify_relation::<20>(7, bytes, len);
+}
+
+#[test(should_fail_with = "byte below '0'")]
+fn test_wrong_hint_fails_on_non_digit_below() {
+    // 47 is below '0' (48); the digit-range lower-bound clause fires.
+    // Safety: adversarial path.
+    let (bytes, len) = unsafe { hint_non_digit_below::<20>(7) };
     let _ = verify_relation::<20>(7, bytes, len);
 }
 
