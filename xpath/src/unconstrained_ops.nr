@@ -56,9 +56,7 @@ fn pow10_u64(k: u32) -> u64 {
 ///
 /// This function is `unconstrained` and contributes no ACIR gates. Its output
 /// MUST be validated by `unsigned_to_string_verified` before being trusted.
-pub unconstrained fn unsigned_to_string_unconstrained<let N: u32>(
-    value: u64,
-) -> ([u8; N], u32) {
+pub unconstrained fn unsigned_to_string_unconstrained<let N: u32>(value: u64) -> ([u8; N], u32) {
     let mut result: [u8; N] = [0; N];
 
     if value == 0 {
