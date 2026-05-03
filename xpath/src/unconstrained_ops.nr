@@ -250,76 +250,185 @@ fn test_unsigned_to_string_verified_powers_of_ten() {
     }
 }
 
-// --- Adversarial: a hand-rolled wrong hint must fail the verifier. ---
+// --- Adversarial harness ---
+//
+// To exercise every assertion path in the verifier we run the verifier body
+// against a deliberately-corrupt `(bytes, len)` tuple. Each tampered helper
+// is private to this module so it cannot leak into the library API.
+//
+// The body is duplicated rather than abstracted because Noir does not yet
+// support passing unconstrained function pointers to constrained code in
+// beta.17; the duplication is small and the tests remain explicit about
+// which clause they exercise.
 
-/// A deliberately-wrong unconstrained hint that returns "0" for any input.
-unconstrained fn wrong_hint<let N: u32>(_value: u64) -> ([u8; N], u32) {
-    let mut result: [u8; N] = [0; N];
-    if N > 0 {
-        result[0] = 48; // '0'
-    }
-    (result, 1)
-}
-
-/// A "tampered" verifier identical to `unsigned_to_string_verified` but with
-/// the unconstrained hint replaced by `wrong_hint`. Used to exercise the
-/// adversarial path: the constrained checks must reject the bad hint.
-pub fn unsigned_to_string_verified_with_wrong_hint<let N: u32>(
-    value: u64,
-) -> ([u8; N], u32) {
-    assert(N >= 20, "N must be >= 20");
-
-    // Safety: this is the adversarial test path -- we expect the verifier
-    // below to reject the result whenever the hint is wrong.
-    let (bytes, len) = unsafe { wrong_hint::<N>(value) };
-
-    assert(len >= 1, "len must be >= 1");
-    assert(len <= 20, "len must be <= 20");
+/// Run the full verifier on a caller-supplied `(bytes, len)`. Private to
+/// this module; used only by the adversarial tests below.
+///
+/// All assertion messages are kept identical to those in
+/// `unsigned_to_string_verified` so `should_fail_with` can target each
+/// soundness clause individually.
+fn verify_relation<let N: u32>(value: u64, bytes: [u8; N], len: u32) -> ([u8; N], u32) {
+    assert(N >= 20, "unsigned_to_string_verified: N must be >= 20");
+    assert(len >= 1, "unsigned_to_string_verified: len must be >= 1");
+    assert(len <= 20, "unsigned_to_string_verified: len must be <= 20");
 
     let mut reconstructed: u64 = 0;
     for i in 0..N {
         let i_u32: u32 = i as u32;
         let b: u8 = bytes[i];
         let in_digits: bool = i_u32 < len;
+
         if in_digits {
-            assert(b >= 48);
-            assert(b <= 57);
+            assert(b >= 48, "unsigned_to_string_verified: byte below '0'");
+            assert(b <= 57, "unsigned_to_string_verified: byte above '9'");
             let exponent: u32 = len - 1 - i_u32;
             let weight: u64 = pow10_u64(exponent);
             let digit: u64 = (b - 48) as u64;
             reconstructed = reconstructed + digit * weight;
         } else {
-            assert(b == 0);
+            assert(b == 0, "unsigned_to_string_verified: trailing byte not zero");
         }
     }
 
     let leading_byte: u8 = bytes[0];
     let leading_is_zero: bool = leading_byte == 48;
     let single_digit: bool = len == 1;
-    assert(!leading_is_zero | single_digit);
+    assert(
+        !leading_is_zero | single_digit,
+        "unsigned_to_string_verified: leading zero in multi-digit form",
+    );
 
-    assert(reconstructed == value, "digits do not match value");
+    assert(reconstructed == value, "unsigned_to_string_verified: digits do not match value");
 
     (bytes, len)
 }
 
+// --- Wrong-hint generators (each isolates one tampering mode). ---
+
+/// All-"0" hint: returns `("0", 1)` regardless of input.
+unconstrained fn hint_always_zero<let N: u32>(_value: u64) -> ([u8; N], u32) {
+    let mut result: [u8; N] = [0; N];
+    if N > 0 {
+        result[0] = 48;
+    }
+    (result, 1)
+}
+
+/// Leading-zero hint: returns `"042"` for any non-zero input. Always 3 digits,
+/// reconstructs to 42, has a leading zero, length 3.
+unconstrained fn hint_leading_zero<let N: u32>(_value: u64) -> ([u8; N], u32) {
+    let mut result: [u8; N] = [0; N];
+    if N > 2 {
+        result[0] = 48; // '0'
+        result[1] = 52; // '4'
+        result[2] = 50; // '2'
+    }
+    (result, 3)
+}
+
+/// Non-digit hint: places ASCII 'A' (65) at position 0 with len=1.
+unconstrained fn hint_non_digit<let N: u32>(_value: u64) -> ([u8; N], u32) {
+    let mut result: [u8; N] = [0; N];
+    if N > 0 {
+        result[0] = 65; // 'A'
+    }
+    (result, 1)
+}
+
+/// Trailing-non-zero hint: returns valid digits but pollutes a position
+/// beyond `len` with a non-zero byte. For input 42, returns `bytes = "42<X>..."`,
+/// `len = 2`, and `bytes[3] = 9` (a non-zero trailing byte that the verifier
+/// must catch).
+unconstrained fn hint_trailing_non_zero<let N: u32>(_value: u64) -> ([u8; N], u32) {
+    let mut result: [u8; N] = [0; N];
+    if N > 3 {
+        result[0] = 52; // '4'
+        result[1] = 50; // '2'
+        result[2] = 0;
+        result[3] = 9; // garbage in trailing region
+    }
+    (result, 2)
+}
+
+/// Zero-length hint.
+unconstrained fn hint_len_zero<let N: u32>(_value: u64) -> ([u8; N], u32) {
+    let result: [u8; N] = [0; N];
+    (result, 0)
+}
+
+/// Over-length hint: claims `len = 21` (above the 20-digit u64 ceiling).
+unconstrained fn hint_len_too_big<let N: u32>(_value: u64) -> ([u8; N], u32) {
+    let mut result: [u8; N] = [0; N];
+    for i in 0..N {
+        result[i] = 49; // '1' everywhere so digit-range check passes
+    }
+    (result, 21)
+}
+
+// --- Adversarial tests: each exercises one verifier clause. ---
+
 #[test]
 fn test_wrong_hint_passes_for_zero() {
-    // The wrong hint *happens* to be correct when value == 0, so the
-    // verifier should accept it: a sanity check that the test harness works.
-    let (bytes, len): ([u8; 20], u32) = unsigned_to_string_verified_with_wrong_hint(0);
-    assert(len == 1);
-    assert(bytes[0] == 48);
+    // hint_always_zero *happens* to be correct when value == 0, so the
+    // verifier should accept it: a sanity check that the harness works.
+    // Safety: adversarial test path; we accept this only because value == 0
+    // is the canonical zero case and the verifier confirms it.
+    let (bytes, len) = unsafe { hint_always_zero::<20>(0) };
+    let (out_bytes, out_len) = verify_relation::<20>(0, bytes, len);
+    assert(out_len == 1);
+    assert(out_bytes[0] == 48);
 }
 
 #[test(should_fail_with = "digits do not match value")]
 fn test_wrong_hint_fails_for_nonzero() {
-    // For any non-zero input the wrong hint returns "0", so reconstruction
-    // gives 0 != value and the verifier must reject.
-    let _ = unsigned_to_string_verified_with_wrong_hint::<20>(42);
+    // Safety: adversarial path; the verifier is expected to reject.
+    let (bytes, len) = unsafe { hint_always_zero::<20>(42) };
+    let _ = verify_relation::<20>(42, bytes, len);
 }
 
 #[test(should_fail_with = "digits do not match value")]
 fn test_wrong_hint_fails_for_large() {
-    let _ = unsigned_to_string_verified_with_wrong_hint::<20>(1_000_000);
+    // Safety: adversarial path.
+    let (bytes, len) = unsafe { hint_always_zero::<20>(1_000_000) };
+    let _ = verify_relation::<20>(1_000_000, bytes, len);
+}
+
+#[test(should_fail_with = "leading zero in multi-digit form")]
+fn test_wrong_hint_fails_on_leading_zero() {
+    // hint_leading_zero returns "042" of length 3. Reconstruction gives 42
+    // so for value == 42 only the leading-zero clause should fire.
+    // Safety: adversarial path.
+    let (bytes, len) = unsafe { hint_leading_zero::<20>(42) };
+    let _ = verify_relation::<20>(42, bytes, len);
+}
+
+#[test(should_fail_with = "byte above '9'")]
+fn test_wrong_hint_fails_on_non_digit() {
+    // 'A' (65) is above '9' (57); the digit-range upper-bound clause fires.
+    // Safety: adversarial path.
+    let (bytes, len) = unsafe { hint_non_digit::<20>(7) };
+    let _ = verify_relation::<20>(7, bytes, len);
+}
+
+#[test(should_fail_with = "trailing byte not zero")]
+fn test_wrong_hint_fails_on_trailing_non_zero() {
+    // bytes[3] is non-zero but len == 2, so the trailing-zero clause fires
+    // before reconstruction can fail.
+    // Safety: adversarial path.
+    let (bytes, len) = unsafe { hint_trailing_non_zero::<20>(42) };
+    let _ = verify_relation::<20>(42, bytes, len);
+}
+
+#[test(should_fail_with = "len must be >= 1")]
+fn test_wrong_hint_fails_on_len_zero() {
+    // Safety: adversarial path.
+    let (bytes, len) = unsafe { hint_len_zero::<20>(42) };
+    let _ = verify_relation::<20>(42, bytes, len);
+}
+
+#[test(should_fail_with = "len must be <= 20")]
+fn test_wrong_hint_fails_on_len_too_big() {
+    // Safety: adversarial path.
+    let (bytes, len) = unsafe { hint_len_too_big::<20>(42) };
+    let _ = verify_relation::<20>(42, bytes, len);
 }
