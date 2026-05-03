@@ -297,25 +297,27 @@ def append_to_ledger(record: dict, output_file: Path) -> None:
             raise LedgerError(
                 f"could not read existing ledger {output_file}: {err}"
             ) from err
-        if raw.strip():
-            try:
-                existing = json.loads(raw)
-            except json.JSONDecodeError as err:
-                raise LedgerError(
-                    f"existing ledger {output_file} contains invalid JSON: "
-                    f"{err}. Move it aside or pass --output to a fresh path."
-                ) from err
-            if isinstance(existing, list):
-                history = existing
-            elif isinstance(existing, dict):
-                # Wrap a legacy single-record ledger so the schema stays
-                # uniform after the next append.
-                history = [existing]
-            else:
-                raise LedgerError(
-                    f"existing ledger {output_file} has unexpected shape "
-                    f"({type(existing).__name__}); expected list or dict."
-                )
+        # An existing empty / whitespace-only file is treated as corruption,
+        # not as "no history": empty is invalid JSON and is the typical
+        # symptom of a truncated or interrupted write.
+        try:
+            existing = json.loads(raw)
+        except json.JSONDecodeError as err:
+            raise LedgerError(
+                f"existing ledger {output_file} contains invalid JSON: "
+                f"{err}. Move it aside or pass --output to a fresh path."
+            ) from err
+        if isinstance(existing, list):
+            history = existing
+        elif isinstance(existing, dict):
+            # Wrap a legacy single-record ledger so the schema stays
+            # uniform after the next append.
+            history = [existing]
+        else:
+            raise LedgerError(
+                f"existing ledger {output_file} has unexpected shape "
+                f"({type(existing).__name__}); expected list or dict."
+            )
     history.append(record)
     output_file.write_text(json.dumps(history, indent=2) + "\n")
 
