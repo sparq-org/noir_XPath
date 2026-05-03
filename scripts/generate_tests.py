@@ -19,8 +19,6 @@ import re
 import shutil
 import struct
 import subprocess
-import xml.etree.ElementTree as ET
-from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -30,8 +28,16 @@ from typing import Optional
 from elementpath import XPath2Parser
 from elementpath.datatypes import DateTime10, Date10, Time, DayTimeDuration
 
-# XML namespace for qt3tests
-QT3_NS = "{http://www.w3.org/2010/09/qt-fots-catalog}"
+# qt3tests catalogue parser (extracted from this script -- see
+# `scripts/noir_xpath_inputs/qt3tests.py`).
+from noir_xpath_inputs.qt3tests import (
+    QT3_NS,
+    TestCase,
+    clone_or_update_qt3tests,
+    discover_all_test_files,
+    discover_available_functions,
+    parse_test_file,
+)
 
 
 # Cached set of crate-root exports from xpath/src/lib.nr.
@@ -316,52 +322,6 @@ CAST_FUNCTION_PATTERNS = {
 }
 
 
-def discover_available_functions(qt3_dir: Path) -> set[str]:
-    """Discover available function/operator names from qt3tests XML files."""
-    if not qt3_dir.exists():
-        return set()
-    return set(discover_all_test_files(qt3_dir).keys())
-
-
-def discover_all_test_files(
-    qt3_dir: Path, *, include_prod: bool = False
-) -> dict[str, str]:
-    """Discover test files in qt3tests.
-
-    Returns a dict mapping function names (e.g., 'fn:abs', 'op:numeric-add')
-    to their test file paths relative to qt3_dir.
-    """
-    all_functions = {}
-
-    # Discover fn/ test files
-    fn_dir = qt3_dir / "fn"
-    if fn_dir.exists():
-        for xml_file in fn_dir.glob("*.xml"):
-            # Extract function name from filename
-            # e.g., abs.xml -> fn:abs, string-length.xml -> fn:string-length
-            func_name = xml_file.stem
-            all_functions[f"fn:{func_name}"] = f"fn/{xml_file.name}"
-
-    # Discover op/ test files
-    op_dir = qt3_dir / "op"
-    if op_dir.exists():
-        for xml_file in op_dir.glob("*.xml"):
-            # e.g., numeric-add.xml -> op:numeric-add
-            func_name = xml_file.stem
-            all_functions[f"op:{func_name}"] = f"op/{xml_file.name}"
-
-    # Optionally discover prod/ XML files (XQuery/XPath productions).
-    # These are not function/operator tests, but they can be useful for inspection.
-    if include_prod:
-        prod_dir = qt3_dir / "prod"
-        if prod_dir.exists():
-            for xml_file in prod_dir.glob("*.xml"):
-                func_name = xml_file.stem
-                all_functions[f"prod:{func_name}"] = f"prod/{xml_file.name}"
-
-    return all_functions
-
-
 def is_function_implemented(function_name: str) -> bool:
     """Check if a function is implemented by verifying Noir exports.
 
@@ -369,117 +329,6 @@ def is_function_implemented(function_name: str) -> bool:
     exported Noir symbol from the xpath crate root (xpath/src/lib.nr).
     """
     return resolve_noir_symbol(function_name) is not None
-
-
-@dataclass
-class TestCase:
-    """Represents a single test case from qt3tests."""
-
-    name: str
-    description: str
-    test_expr: str
-    expected_result: str
-    result_type: str  # 'assert-eq', 'assert-true', 'assert-false', 'error', etc.
-    dependencies: list = field(default_factory=list)
-
-
-def clone_or_update_qt3tests(qt3_dir: Path) -> None:
-    """Clone or update the qt3tests repository."""
-    if qt3_dir.exists():
-        print(f"qt3tests exists at {qt3_dir}, pulling latest...")
-        subprocess.run(["git", "pull"], cwd=qt3_dir, check=True)
-    else:
-        print(f"Cloning qt3tests to {qt3_dir}...")
-        subprocess.run(
-            [
-                "git",
-                "clone",
-                "--depth",
-                "1",
-                "https://github.com/w3c/qt3tests.git",
-                str(qt3_dir),
-            ],
-            check=True,
-        )
-
-
-def parse_test_file(xml_path: Path) -> list[TestCase]:
-    """Parse a qt3tests XML file and extract test cases."""
-    if not xml_path.exists():
-        print(f"Warning: Test file not found: {xml_path}")
-        return []
-
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
-
-    tests = []
-    for test_case in root.findall(f".//{QT3_NS}test-case"):
-        name = test_case.get("name", "unknown")
-
-        # Get dependencies (skip tests with unsupported features)
-        deps = []
-        for dep in test_case.findall(f".//{QT3_NS}dependency"):
-            dep_type = dep.get("type", "")
-            dep_value = dep.get("value", "")
-            deps.append(f"{dep_type}:{dep_value}")
-
-        # Get description
-        desc_elem = test_case.find(f"{QT3_NS}description")
-        description = desc_elem.text if desc_elem is not None and desc_elem.text else ""
-        # Clean up asterisk decorations from qt3tests descriptions
-        import re
-
-        description = re.sub(r"\*+", "", description).strip()
-
-        # Get test expression
-        test_elem = test_case.find(f"{QT3_NS}test")
-        if test_elem is None or test_elem.text is None:
-            continue
-        test_expr = test_elem.text.strip()
-
-        # Get expected result
-        result_elem = test_case.find(f"{QT3_NS}result")
-        if result_elem is None:
-            continue
-
-        # Handle different result types
-        result_type = "unknown"
-        expected_result = ""
-
-        for child in result_elem:
-            tag = child.tag.replace(QT3_NS, "")
-            if tag == "assert-eq":
-                result_type = "assert-eq"
-                expected_result = child.text.strip() if child.text else ""
-            elif tag == "assert-string-value":
-                result_type = "assert-eq"  # Treat same as assert-eq
-                expected_result = child.text.strip() if child.text else ""
-            elif tag == "assert-true":
-                result_type = "assert-true"
-                expected_result = "true"
-            elif tag == "assert-false":
-                result_type = "assert-false"
-                expected_result = "false"
-            elif tag == "error":
-                result_type = "error"
-                expected_result = child.get("code", "")
-            elif tag in ("all-of", "any-of"):
-                result_type = "complex"
-            break
-
-        if result_type not in ("unknown", "complex", "error"):
-            tests.append(
-                TestCase(
-                    name=name,
-                    description=description,
-                    test_expr=test_expr,
-                    expected_result=expected_result,
-                    result_type=result_type,
-                    dependencies=deps,
-                )
-            )
-
-    return tests
 
 
 def sanitize_test_name(name: str) -> str:
