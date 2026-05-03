@@ -47,10 +47,11 @@ from noir_xpath_inputs import (
     discover_available_functions,
     fits_in_i32 as _fits_in_i32,
     fits_in_i64 as _fits_in_i64,
+    parse_day_time_duration_micros,
     parse_test_file,
+    parse_year_month_duration_months,
     time_components_to_micros,
     tz_offset_to_micros,
-    years_months_to_total_months,
 )
 
 # i64 / i32 bounds (kept as module-level aliases for the call sites that
@@ -780,62 +781,15 @@ def parse_duration(value: str) -> Optional[int]:
     Returns duration in microseconds (signed integer) or None if parsing fails.
     Format: P[nD][T[nH][nM][n.nS]]
     Examples: "P3DT10H30M", "PT2H30M", "-P2DT4H"
+
+    Independent-extraction note. Per Concern 4 of the input-prep
+    redesign (sec 5), this routes through
+    ``elementpath.datatypes.DayTimeDuration`` (an unrelated XPath
+    library, already a transitive dependency) rather than a hand-
+    rolled regex ladder, so a parser bug shared with the Noir
+    library cannot become invisible.
     """
-    value = value.strip()
-
-    # Handle xs:dayTimeDuration() wrapper
-    match = re.match(r"xs:dayTimeDuration\s*\(['\"]([^'\"]+)['\"]\)", value)
-    if match:
-        value = match.group(1)
-
-    # Check for negative sign
-    negative = value.startswith("-")
-    if negative:
-        value = value[1:]
-
-    # Duration must start with P
-    if not value.startswith("P"):
-        return None
-
-    value = value[1:]  # Remove 'P'
-
-    # Split on 'T' to get date and time parts
-    if "T" in value:
-        date_part, time_part = value.split("T", 1)
-    else:
-        date_part = value
-        time_part = ""
-
-    total_micros = 0
-
-    # Parse date part (days)
-    if date_part:
-        day_match = re.search(r"(\d+(?:\.\d+)?)D", date_part)
-        if day_match:
-            days = float(day_match.group(1))
-            total_micros += int(days * XSD_MICROS_PER_DAY)
-
-    # Parse time part (hours, minutes, seconds)
-    if time_part:
-        hour_match = re.search(r"(\d+(?:\.\d+)?)H", time_part)
-        if hour_match:
-            hours = float(hour_match.group(1))
-            total_micros += int(hours * XSD_MICROS_PER_HOUR)
-
-        min_match = re.search(r"(\d+(?:\.\d+)?)M", time_part)
-        if min_match:
-            minutes = float(min_match.group(1))
-            total_micros += int(minutes * XSD_MICROS_PER_MINUTE)
-
-        sec_match = re.search(r"(\d+(?:\.\d+)?)S", time_part)
-        if sec_match:
-            seconds = float(sec_match.group(1))
-            total_micros += int(seconds * XSD_MICROS_PER_SECOND)
-
-    if negative:
-        total_micros = -total_micros
-
-    return total_micros
+    return parse_day_time_duration_micros(value)
 
 
 def parse_year_month_duration(value: str) -> Optional[int]:
@@ -847,24 +801,12 @@ def parse_year_month_duration(value: str) -> Optional[int]:
     - -P1Y1M
     - P0Y
     - P10M
+
+    Independent-extraction note. Routes through
+    ``elementpath.datatypes.YearMonthDuration`` for the same
+    shared-bug-invisibility reason as ``parse_duration``.
     """
-    s = value.strip()
-    if not s:
-        return None
-    m = re.match(r"^(-)?P(?:(\d+)Y)?(?:(\d+)M)?$", s)
-    if m is None:
-        return None
-    neg = m.group(1) is not None
-    years_s = m.group(2)
-    months_s = m.group(3)
-    years = int(years_s) if years_s is not None else 0
-    months = int(months_s) if months_s is not None else 0
-    total = years_months_to_total_months(years, months)
-    if neg:
-        total = -total
-    if not _fits_in_i32(total):
-        return None
-    return total
+    return parse_year_month_duration_months(value)
 
 
 def _get_function_name(token) -> Optional[str]:

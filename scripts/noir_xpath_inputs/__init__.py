@@ -33,6 +33,10 @@ from .constants import (
     tz_offset_to_micros,
     years_months_to_total_months,
 )
+from .duration import (
+    parse_day_time_duration_micros,
+    parse_year_month_duration_months,
+)
 from .qt3tests import (
     QT3_NS,
     TestCase,
@@ -63,7 +67,9 @@ __all__ = [
     "discover_available_functions",
     "fits_in_i32",
     "fits_in_i64",
+    "parse_day_time_duration_micros",
     "parse_test_file",
+    "parse_year_month_duration_months",
     "time_components_to_micros",
     "tz_offset_to_micros",
     "years_months_to_total_months",
