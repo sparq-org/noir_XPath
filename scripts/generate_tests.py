@@ -1051,6 +1051,45 @@ def extract_ymd_literals_from_expr(expr: str) -> list[tuple[str, int]]:
     return result
 
 
+# Helpers for the small set of `let <var> = <ctor>(...);` lines that appear in the
+# generated Noir tests. Centralising these keeps the conversion handlers focused on
+# typing logic rather than string formatting; the output is byte-for-byte unchanged.
+_SETUP_INDENT = "\n    "
+
+
+def _let_dt(name: str, utc_micros: int, tz: int) -> str:
+    return f"let {name} = datetime_from_epoch_microseconds_with_tz({utc_micros}, {tz});"
+
+
+def _let_d(name: str, epoch_days: int, tz: int) -> str:
+    return f"let {name} = date_from_epoch_days_with_tz({epoch_days}, {tz});"
+
+
+def _let_t(name: str, micros: int, tz: int) -> str:
+    return f"let {name} = time_from_microseconds_with_tz({micros}, {tz});"
+
+
+def _let_dur(name: str, micros: int) -> str:
+    return f"let {name} = duration_from_microseconds({micros});"
+
+
+def _let_ymd(name: str, months: int) -> str:
+    return f"let {name} = XsdYearMonthDuration::new({months});"
+
+
+def _let_float(name: str, bits: int) -> str:
+    return f"let {name} = XsdFloat::from_bits({bits});"
+
+
+def _let_double(name: str, bits: int) -> str:
+    return f"let {name} = XsdDouble::from_bits({bits});"
+
+
+def _join_lets(*lines: str) -> str:
+    """Join `let ...;` lines with the four-space indent used inside Noir test bodies."""
+    return _SETUP_INDENT.join(lines)
+
+
 def convert_xpath_expr(
     expr: str, function_name: str
 ) -> Optional[tuple[str, str, Optional[str]]]:
@@ -1396,7 +1435,7 @@ def convert_xpath_expr(
                     # Skip dates before 1970 (negative epoch) - not supported
                     if utc_micros < 0:
                         return None
-                    setup = f"let dt = datetime_from_epoch_microseconds_with_tz({utc_micros}, {tz_offset});"
+                    setup = _let_dt("dt", utc_micros, tz_offset)
                     return (setup, f"{noir_func}(dt)", None)
             except Exception:
                 pass
@@ -1425,7 +1464,7 @@ def convert_xpath_expr(
                     # Skip dates before 1970 (negative epoch) - not supported
                     if epoch_days < 0:
                         return None
-                    setup = f"let d = date_from_epoch_days_with_tz({epoch_days}, {tz_offset});"
+                    setup = _let_d("d", epoch_days, tz_offset)
                     return (setup, f"{noir_func}(d)", None)
             except Exception:
                 pass
@@ -1453,7 +1492,7 @@ def convert_xpath_expr(
                     if result is None:
                         return None
                     micros, tz_offset = result
-                    setup = f"let t = time_from_microseconds_with_tz({micros}, {tz_offset});"
+                    setup = _let_t("t", micros, tz_offset)
                     return (setup, f"{noir_func}(t)", None)
             except Exception:
                 pass
@@ -1489,7 +1528,7 @@ def convert_xpath_expr(
                             if epoch_days < 0:
                                 return None
 
-                            setup = f"let d = date_from_epoch_days_with_tz({epoch_days}, {src_tz});"
+                            setup = _let_d("d", epoch_days, src_tz)
 
                             # Check second argument
                             if len(args) == 1:
@@ -1523,7 +1562,7 @@ def convert_xpath_expr(
                                 return None
                             micros, src_tz = result
 
-                            setup = f"let t = time_from_microseconds_with_tz({micros}, {src_tz});"
+                            setup = _let_t("t", micros, src_tz)
 
                             # Check second argument
                             if len(args) == 1:
@@ -1558,7 +1597,7 @@ def convert_xpath_expr(
                             if utc_micros < 0:
                                 return None
 
-                            setup = f"let dt = datetime_from_epoch_microseconds_with_tz({utc_micros}, {src_tz});"
+                            setup = _let_dt("dt", utc_micros, src_tz)
 
                             # Check second argument
                             if len(args) == 1:
@@ -1613,9 +1652,7 @@ def convert_xpath_expr(
                         if isinstance(duration_str, str):
                             micros = parse_duration(duration_str)
                             if micros is not None and _fits_in_i64(micros):
-                                setup = (
-                                    f"let dur = duration_from_microseconds({micros});"
-                                )
+                                setup = _let_dur("dur", micros)
                                 return (setup, f"{noir_func}(dur)", None)
             except Exception:
                 # If parsing the duration constructor fails, we cannot generate
@@ -1661,7 +1698,10 @@ def convert_xpath_expr(
 
                             if micros1 is not None and micros2 is not None:
                                 if _fits_in_i64(micros1) and _fits_in_i64(micros2):
-                                    setup = f"let dur1 = duration_from_microseconds({micros1});\n    let dur2 = duration_from_microseconds({micros2});"
+                                    setup = _join_lets(
+                                        _let_dur("dur1", micros1),
+                                        _let_dur("dur2", micros2),
+                                    )
                                     return (setup, f"{noir_func}(dur1, dur2)", None)
             except Exception:
                 # This is a best-effort optimization for duration comparisons; if parsing
@@ -1698,7 +1738,10 @@ def convert_xpath_expr(
 
                                 if micros1 is not None and micros2 is not None:
                                     if _fits_in_i64(micros1) and _fits_in_i64(micros2):
-                                        setup = f"let dur1 = duration_from_microseconds({micros1});\n    let dur2 = duration_from_microseconds({micros2});"
+                                        setup = _join_lets(
+                                            _let_dur("dur1", micros1),
+                                            _let_dur("dur2", micros2),
+                                        )
                                         return (setup, f"{noir_func}(dur1, dur2)", None)
                     elif symbol == "-" and noir_func == "duration_subtract":
                         inner_args1 = _get_function_args(token[0])
@@ -1716,7 +1759,10 @@ def convert_xpath_expr(
 
                                 if micros1 is not None and micros2 is not None:
                                     if _fits_in_i64(micros1) and _fits_in_i64(micros2):
-                                        setup = f"let dur1 = duration_from_microseconds({micros1});\n    let dur2 = duration_from_microseconds({micros2});"
+                                        setup = _join_lets(
+                                            _let_dur("dur1", micros1),
+                                            _let_dur("dur2", micros2),
+                                        )
                                         return (setup, f"{noir_func}(dur1, dur2)", None)
 
                 # DateTime + Duration
@@ -1735,7 +1781,10 @@ def convert_xpath_expr(
                                 if result is not None and micros_dur is not None:
                                     utc_micros, tz_offset = result
                                     if utc_micros >= 0 and _fits_in_i64(micros_dur):
-                                        setup = f"let dt = datetime_from_epoch_microseconds_with_tz({utc_micros}, {tz_offset});\n    let dur = duration_from_microseconds({micros_dur});"
+                                        setup = _join_lets(
+                                            _let_dt("dt", utc_micros, tz_offset),
+                                            _let_dur("dur", micros_dur),
+                                        )
                                         return (setup, f"{noir_func}(dt, dur)", None)
 
                 # DateTime - Duration
@@ -1754,7 +1803,10 @@ def convert_xpath_expr(
                                 if result is not None and micros_dur is not None:
                                     utc_micros, tz_offset = result
                                     if utc_micros >= 0 and _fits_in_i64(micros_dur):
-                                        setup = f"let dt = datetime_from_epoch_microseconds_with_tz({utc_micros}, {tz_offset});\n    let dur = duration_from_microseconds({micros_dur});"
+                                        setup = _join_lets(
+                                            _let_dt("dt", utc_micros, tz_offset),
+                                            _let_dur("dur", micros_dur),
+                                        )
                                         return (setup, f"{noir_func}(dt, dur)", None)
 
                 # DateTime - DateTime (returns duration)
@@ -1772,7 +1824,10 @@ def convert_xpath_expr(
                                 utc_micros2, tz_offset2 = result2
 
                                 if utc_micros1 >= 0 and utc_micros2 >= 0:
-                                    setup = f"let dt1 = datetime_from_epoch_microseconds_with_tz({utc_micros1}, {tz_offset1});\n    let dt2 = datetime_from_epoch_microseconds_with_tz({utc_micros2}, {tz_offset2});"
+                                    setup = _join_lets(
+                                        _let_dt("dt1", utc_micros1, tz_offset1),
+                                        _let_dt("dt2", utc_micros2, tz_offset2),
+                                    )
                                     return (setup, f"{noir_func}(dt1, dt2)", None)
 
                 # Date - Date (returns dayTimeDuration)
@@ -1790,7 +1845,10 @@ def convert_xpath_expr(
                                 epoch_days2, tz_offset2 = result2
 
                                 if epoch_days1 >= 0 and epoch_days2 >= 0:
-                                    setup = f"let d1 = date_from_epoch_days_with_tz({epoch_days1}, {tz_offset1});\n    let d2 = date_from_epoch_days_with_tz({epoch_days2}, {tz_offset2});"
+                                    setup = _join_lets(
+                                        _let_d("d1", epoch_days1, tz_offset1),
+                                        _let_d("d2", epoch_days2, tz_offset2),
+                                    )
                                     return (setup, f"{noir_func}(d1, d2)", None)
 
                 # Time - Time (returns dayTimeDuration)
@@ -1806,7 +1864,10 @@ def convert_xpath_expr(
                             if result1 is not None and result2 is not None:
                                 micros1, tz_offset1 = result1
                                 micros2, tz_offset2 = result2
-                                setup = f"let t1 = time_from_microseconds_with_tz({micros1}, {tz_offset1});\n    let t2 = time_from_microseconds_with_tz({micros2}, {tz_offset2});"
+                                setup = _join_lets(
+                                    _let_t("t1", micros1, tz_offset1),
+                                    _let_t("t2", micros2, tz_offset2),
+                                )
                                 return (setup, f"{noir_func}(t1, t2)", None)
             except Exception:
                 # Skip tests that cannot be evaluated (e.g., complex expressions)
@@ -1882,7 +1943,7 @@ def convert_xpath_expr(
                     micros = _parse_duration_ctor(token[1])
                     factor = _eval_int_scalar(token[0])
                 if micros is not None and factor is not None:
-                    setup = f"let dur = duration_from_microseconds({micros});"
+                    setup = _let_dur("dur", micros)
                     return (setup, f"{noir_func}(dur, {factor})", None)
 
             # duration div int
@@ -1891,7 +1952,7 @@ def convert_xpath_expr(
                     micros = _parse_duration_ctor(token[0])
                     divisor = _eval_int_scalar(token[1])
                     if micros is not None and divisor is not None:
-                        setup = f"let dur = duration_from_microseconds({micros});"
+                        setup = _let_dur("dur", micros)
                         return (setup, f"{noir_func}(dur, {divisor})", None)
 
             # duration div duration -> i64 ratio
@@ -1903,9 +1964,9 @@ def convert_xpath_expr(
                     micros1 = _parse_duration_ctor(token[0])
                     micros2 = _parse_duration_ctor(token[1])
                     if micros1 is not None and micros2 is not None:
-                        setup = (
-                            f"let dur1 = duration_from_microseconds({micros1});\n"
-                            f"    let dur2 = duration_from_microseconds({micros2});"
+                        setup = _join_lets(
+                            _let_dur("dur1", micros1),
+                            _let_dur("dur2", micros2),
                         )
                         return (setup, f"{noir_func}(dur1, dur2)", None)
 
@@ -1920,7 +1981,7 @@ def convert_xpath_expr(
                     months = _parse_ym_duration_ctor(token[1])
                     factor = _eval_int_scalar(token[0])
                 if months is not None and factor is not None and _fits_in_i32(factor):
-                    setup = f"let dur = XsdYearMonthDuration::new({months});"
+                    setup = _let_ymd("dur", months)
                     return (setup, f"{noir_func}(dur, {factor})", None)
 
             # yearMonthDuration div int
@@ -1933,7 +1994,7 @@ def convert_xpath_expr(
                         and divisor is not None
                         and _fits_in_i32(divisor)
                     ):
-                        setup = f"let dur = XsdYearMonthDuration::new({months});"
+                        setup = _let_ymd("dur", months)
                         return (setup, f"{noir_func}(dur, {divisor})", None)
 
             # yearMonthDuration div yearMonthDuration -> i32 ratio
@@ -1945,9 +2006,9 @@ def convert_xpath_expr(
                     months1 = _parse_ym_duration_ctor(token[0])
                     months2 = _parse_ym_duration_ctor(token[1])
                     if months1 is not None and months2 is not None:
-                        setup = (
-                            f"let d1 = XsdYearMonthDuration::new({months1});\n"
-                            f"    let d2 = XsdYearMonthDuration::new({months2});"
+                        setup = _join_lets(
+                            _let_ymd("d1", months1),
+                            _let_ymd("d2", months2),
                         )
                         return (setup, f"{noir_func}(d1, d2)", None)
         except Exception:
@@ -1966,15 +2027,15 @@ def convert_xpath_expr(
                 if not _fits_in_i32(months1) or not _fits_in_i32(months2):
                     return None
                 if symbol == "+" and noir_func == "ym_duration_add":
-                    setup = (
-                        f"let d1 = XsdYearMonthDuration::new({months1});\n"
-                        f"    let d2 = XsdYearMonthDuration::new({months2});"
+                    setup = _join_lets(
+                        _let_ymd("d1", months1),
+                        _let_ymd("d2", months2),
                     )
                     return (setup, f"{noir_func}(d1, d2)", None)
                 if symbol == "-" and noir_func == "ym_duration_subtract":
-                    setup = (
-                        f"let d1 = XsdYearMonthDuration::new({months1});\n"
-                        f"    let d2 = XsdYearMonthDuration::new({months2});"
+                    setup = _join_lets(
+                        _let_ymd("d1", months1),
+                        _let_ymd("d2", months2),
                     )
                     return (setup, f"{noir_func}(d1, d2)", None)
         except Exception:
@@ -2008,7 +2069,10 @@ def convert_xpath_expr(
                         # Skip dates before 1970
                         if utc_micros1 < 0 or utc_micros2 < 0:
                             return None
-                        setup = f"let dt1 = datetime_from_epoch_microseconds_with_tz({utc_micros1}, {tz_offset1});\n    let dt2 = datetime_from_epoch_microseconds_with_tz({utc_micros2}, {tz_offset2});"
+                        setup = _join_lets(
+                            _let_dt("dt1", utc_micros1, tz_offset1),
+                            _let_dt("dt2", utc_micros2, tz_offset2),
+                        )
                         return (setup, f"{noir_func}(dt1, dt2)", None)
             except Exception:
                 pass
@@ -2037,7 +2101,10 @@ def convert_xpath_expr(
                     if result1 is not None and result2 is not None:
                         micros1, tz_offset1 = result1
                         micros2, tz_offset2 = result2
-                        setup = f"let t1 = time_from_microseconds_with_tz({micros1}, {tz_offset1});\n    let t2 = time_from_microseconds_with_tz({micros2}, {tz_offset2});"
+                        setup = _join_lets(
+                            _let_t("t1", micros1, tz_offset1),
+                            _let_t("t2", micros2, tz_offset2),
+                        )
                         return (setup, f"{noir_func}(t1, t2)", None)
             except Exception:
                 pass
@@ -2069,7 +2136,10 @@ def convert_xpath_expr(
                         # Skip dates before 1970
                         if epoch_days1 < 0 or epoch_days2 < 0:
                             return None
-                        setup = f"let d1 = date_from_epoch_days_with_tz({epoch_days1}, {tz_offset1});\n    let d2 = date_from_epoch_days_with_tz({epoch_days2}, {tz_offset2});"
+                        setup = _join_lets(
+                            _let_d("d1", epoch_days1, tz_offset1),
+                            _let_d("d2", epoch_days2, tz_offset2),
+                        )
                         return (setup, f"{noir_func}(d1, d2)", None)
             except Exception:
                 pass
@@ -2099,7 +2169,10 @@ def convert_xpath_expr(
                     # YearMonthDuration stores months (and years as months * 12)
                     months1 = d1.months
                     months2 = d2.months
-                    setup = f"let d1 = XsdYearMonthDuration::new({months1});\n    let d2 = XsdYearMonthDuration::new({months2});"
+                    setup = _join_lets(
+                        _let_ymd("d1", months1),
+                        _let_ymd("d2", months2),
+                    )
                     return (setup, f"{noir_func}(d1, d2)", None)
             except Exception:
                 pass
@@ -2157,12 +2230,18 @@ def convert_xpath_expr(
                     if is_float32:
                         a_bits = float_to_bits(a_float)
                         b_bits = float_to_bits(b_float)
-                        setup = f"let a = XsdFloat::from_bits({a_bits});\n    let b = XsdFloat::from_bits({b_bits});"
+                        setup = _join_lets(
+                            _let_float("a", a_bits),
+                            _let_float("b", b_bits),
+                        )
                         return (setup, f"{noir_func}(a, b)", None)
                     else:
                         a_bits = double_to_bits(a_float)
                         b_bits = double_to_bits(b_float)
-                        setup = f"let a = XsdDouble::from_bits({a_bits});\n    let b = XsdDouble::from_bits({b_bits});"
+                        setup = _join_lets(
+                            _let_double("a", a_bits),
+                            _let_double("b", b_bits),
+                        )
                         return (setup, f"{noir_func}(a, b)", None)
             except Exception:
                 pass
@@ -2193,12 +2272,18 @@ def convert_xpath_expr(
                     if is_float32:
                         a_bits = float_to_bits(a_float)
                         b_bits = float_to_bits(b_float)
-                        setup = f"let a = XsdFloat::from_bits({a_bits});\n    let b = XsdFloat::from_bits({b_bits});"
+                        setup = _join_lets(
+                            _let_float("a", a_bits),
+                            _let_float("b", b_bits),
+                        )
                         return (setup, f"{noir_func}(a, b)", None)
                     else:
                         a_bits = double_to_bits(a_float)
                         b_bits = double_to_bits(b_float)
-                        setup = f"let a = XsdDouble::from_bits({a_bits});\n    let b = XsdDouble::from_bits({b_bits});"
+                        setup = _join_lets(
+                            _let_double("a", a_bits),
+                            _let_double("b", b_bits),
+                        )
                         return (setup, f"{noir_func}(a, b)", None)
             except Exception:
                 pass
@@ -2306,11 +2391,11 @@ def convert_xpath_expr(
 
                     if is_float32:
                         val_bits = float_to_bits(val_float)
-                        setup = f"let val = XsdFloat::from_bits({val_bits});"
+                        setup = _let_float("val", val_bits)
                         return (setup, f"{noir_func}(val)", None)
                     else:
                         val_bits = double_to_bits(val_float)
-                        setup = f"let val = XsdDouble::from_bits({val_bits});"
+                        setup = _let_double("val", val_bits)
                         return (setup, f"{noir_func}(val)", None)
             except Exception:
                 pass
@@ -2329,11 +2414,11 @@ def convert_xpath_expr(
 
                     if is_float32:
                         val_bits = float_to_bits(val_float)
-                        setup = f"let val = XsdFloat::from_bits({val_bits});"
+                        setup = _let_float("val", val_bits)
                         return (setup, f"{noir_func}(val)", None)
                     else:
                         val_bits = double_to_bits(val_float)
-                        setup = f"let val = XsdDouble::from_bits({val_bits});"
+                        setup = _let_double("val", val_bits)
                         return (setup, f"{noir_func}(val)", None)
             except Exception:
                 pass
@@ -2352,11 +2437,11 @@ def convert_xpath_expr(
 
                     if is_float32:
                         val_bits = float_to_bits(val_float)
-                        setup = f"let val = XsdFloat::from_bits({val_bits});"
+                        setup = _let_float("val", val_bits)
                         return (setup, f"{noir_func}(val)", None)
                     else:
                         val_bits = double_to_bits(val_float)
-                        setup = f"let val = XsdDouble::from_bits({val_bits});"
+                        setup = _let_double("val", val_bits)
                         return (setup, f"{noir_func}(val)", None)
             except Exception:
                 pass
@@ -2477,7 +2562,7 @@ def convert_xpath_expr(
                     # Skip dates before 1970 (negative epoch) - not supported
                     if utc_micros < 0:
                         return None
-                    setup = f"let dt = datetime_from_epoch_microseconds_with_tz({utc_micros}, {tz_offset});"
+                    setup = _let_dt("dt", utc_micros, tz_offset)
                     return (setup, f"{noir_func}(dt)", None)
             except Exception:
                 # Skip tests that cannot be evaluated (e.g., complex expressions)
@@ -2548,7 +2633,7 @@ def convert_xpath_expr(
                         if source_symbol == "float":
                             float_val = float(source_val)
                             bits = float_to_bits(float_val)
-                            setup = f"let f = XsdFloat::from_bits({bits});"
+                            setup = _let_float("f", bits)
                             return (setup, f"{noir_func}(f)", None)
 
                     # For xs:integer-from-double or xs:float-from-double: expect xs:double source
@@ -2556,7 +2641,7 @@ def convert_xpath_expr(
                         if source_symbol == "double":
                             double_val = float(source_val)
                             bits = double_to_bits(double_val)
-                            setup = f"let d = XsdDouble::from_bits({bits});"
+                            setup = _let_double("d", bits)
                             return (setup, f"{noir_func}(d)", None)
 
                 except Exception:
@@ -2597,7 +2682,7 @@ def convert_xpath_expr(
                                 if isinstance(inner_val, (int, float, Decimal)):
                                     float_val = float(inner_val)
                                     bits = float_to_bits(float_val)
-                                    setup = f"let f = XsdFloat::from_bits({bits});"
+                                    setup = _let_float("f", bits)
                                     return (setup, f"{noir_func}(f)", None)
                         return None
 
@@ -2610,7 +2695,7 @@ def convert_xpath_expr(
                                 if isinstance(inner_val, (int, float, Decimal)):
                                     double_val = float(inner_val)
                                     bits = double_to_bits(double_val)
-                                    setup = f"let d = XsdDouble::from_bits({bits});"
+                                    setup = _let_double("d", bits)
                                     return (setup, f"{noir_func}(d)", None)
                         return None
 
