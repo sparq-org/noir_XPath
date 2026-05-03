@@ -1,0 +1,52 @@
+[
+  {
+    "timestamp": "2026-05-03T12:12:06",
+    "git_commit": "2b670f7c",
+    "buffer_width": 20,
+    "operation": "unsigned_to_string",
+    "input_kind": "witness-driven u64 (no constant folding)",
+    "variants": {
+      "baseline": {
+        "main_expression_width": 1756,
+        "main_acir_opcodes": 17,
+        "ancillary_acir_opcodes": 17,
+        "ancillary_functions": [
+          {
+            "name": "directive_invert",
+            "acir_opcodes": 9,
+            "brillig_opcodes": null
+          },
+          {
+            "name": "directive_integer_quotient",
+            "acir_opcodes": 8,
+            "brillig_opcodes": null
+          }
+        ],
+        "total_acir_opcodes": 34
+      },
+      "unconstrained": {
+        "main_expression_width": 714,
+        "main_acir_opcodes": 253,
+        "ancillary_acir_opcodes": 253,
+        "ancillary_functions": [
+          {
+            "name": "unsigned_to_string_unconstrained",
+            "acir_opcodes": 236,
+            "brillig_opcodes": null
+          },
+          {
+            "name": "directive_invert",
+            "acir_opcodes": 9,
+            "brillig_opcodes": null
+          },
+          {
+            "name": "directive_integer_quotient",
+            "acir_opcodes": 8,
+            "brillig_opcodes": null
+          }
+        ],
+        "total_acir_opcodes": 506
+      }
+    }
+  }
+]
