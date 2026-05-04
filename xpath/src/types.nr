@@ -120,11 +120,18 @@ impl XsdDate {
 
 impl Eq for XsdDate {
     fn eq(self, other: Self) -> bool {
-        // Compare epoch_days directly, which compares calendar dates (not instants in time).
-        // This follows XPath date semantics: dates with the same year/month/day are equal
-        // regardless of timezone. For example, 2000-01-01+05:00 equals 2000-01-01-10:00
-        // because they represent the same calendar date in different timezones.
-        // Note: timezone offset is intentionally not compared here.
+        // op:date-equal -- calendar-date equality. Per XSD 1.1 §3.3.9,
+        // xs:date is a calendar value (Y/M/D triple), not an instant; two
+        // values with the same Y/M/D are equal regardless of timezone. For
+        // example, 2000-01-01+05:00 equals 2000-01-01-10:00 because they
+        // share the same calendar date.
+        //
+        // ORDERING IS DIFFERENT: `date::date_less_than` /
+        // `date::date_greater_than` apply the timezone before comparing
+        // per XPath F&O 3.1 §10.4.6, so two values can be `==` here but
+        // unequal under those operators. The asymmetry is specified — see
+        // `xpath/src/date.nr` for the UTC-normalisation rationale and the
+        // issue-#33 regression tests.
         self.epoch_days == other.epoch_days
     }
 }
