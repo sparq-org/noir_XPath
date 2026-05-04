@@ -1,16 +1,15 @@
-# Canonical CI workflow template for Noir-flavoured sub-repos.
+# CI workflow for noir_XPath.
 #
-# Source of truth: zkp-sparql-workspace/templates/sub-repo/noir/.github/workflows/ci.yml.tmpl
-# Rendered by:    zkp-sparql-workspace/scripts/sync-standards.sh
-#
-# Hook blocks delimited by `# HOOK:<name>` / `# /HOOK:<name>` are kept when
-# `<name>` appears in this sub-repo's `ci_hooks` list in `.sync.json`, and
-# stripped otherwise. Variables `${PACKAGE_NAME}` etc. are NOT yet supported —
-# this template is lifted verbatim from `noir_IEEE754` (canonical per §3 of
-# `docs/cross-repo-consistency-plan.md`), so package names currently read
-# `ieee754`. Phase 2 of the migration plan introduces per-repo variable
-# substitution; until then, only `noir_IEEE754` should be rendered from this
-# template.
+# NOTE: this file is rendered from
+# `zkp-sparql-workspace/templates/sub-repo/noir/.github/workflows/ci.yml.tmpl`
+# but currently carries local edits to use this repo's package names
+# (`xpath` / `xpath_unit_tests`) rather than the canonical's hard-coded
+# `ieee754` / `ieee754_unit_tests`. The next phase of the cross-repo
+# consistency plan introduces `${PACKAGE_NAME}` / `${UNIT_TEST_PACKAGE}`
+# substitution in the renderer; once that lands, re-running
+# `scripts/sync-standards.sh` will reproduce these edits from the canonical
+# without manual intervention. Tracked in
+# zkp-sparql-workspace `STABILISATION-TODOS.md` (Template-substitution gaps).
 name: CI
 
 on:
@@ -59,7 +58,7 @@ jobs:
           toolchain: ${{ matrix.noir-version }}
 
       - name: Check format
-        run: nargo fmt --check --package ieee754
+        run: nargo fmt --check --package xpath
 
   # Run unit tests on all Noir versions
   unit-tests:
@@ -82,8 +81,7 @@ jobs:
       - name: Run unit tests
         run: |
           echo "Running unit tests"
-          nargo test --package ieee754_unit_tests test_float32 || exit 1
-          nargo test --package ieee754_unit_tests test_float64 || exit 1
+          nargo test --package xpath_unit_tests || exit 1
 
 
   # Summary job that depends on all test jobs
