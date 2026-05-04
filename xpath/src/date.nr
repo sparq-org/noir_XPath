@@ -25,12 +25,12 @@ pub fn date_from_components(year: i32, month: u8, day: u8) -> XsdDate {
 ///
 /// The stored `epoch_days` is the *local-calendar* date, i.e. days since
 /// 1970-01-01 ignoring the offset; the `tz_offset_minutes` field is kept
-/// alongside as metadata. Two dates with the same Y/M/D but different
-/// timezones therefore share `epoch_days` and compare equal under
-/// `date_equal` (XSD 1.1 §3.3.9: xs:date is a calendar value, not an
-/// instant), but they compare differently under `date_less_than` /
-/// `date_greater_than`, which apply the timezone before comparing per
-/// XPath F&O §10.4.6. See `date_to_utc_micros` for the ordering key.
+/// alongside. All four `op:date-*` comparison operators (equality and
+/// ordering) follow the XPath F&O 3.1 §10.4.6 contract: cast each value
+/// to xs:dateTime at 00:00:00 in its timezone and compare on the
+/// resulting UTC instant. See `date_to_utc_minutes` for the ordering
+/// key. For the tz-insensitive XSD 1.1 §3.3.9 calendar-equality, see
+/// `date_calendar_equal`.
 pub fn date_from_components_with_tz(
     year: i32,
     month: u8,
@@ -83,63 +83,76 @@ pub fn timezone_from_date(date: XsdDate) -> XsdDayTimeDuration {
 // Date Comparison Functions
 // ============================================================================
 //
-// XPath F&O 3.1 §10.4.6 (op:date-equal, op:date-less-than,
-// op:date-greater-than) defines ordering via cast to xs:dateTime at
-// start-of-day in the value's timezone, then UTC-normalised compare.
+// XPath F&O 3.1 §10.4.6 defines op:date-equal / op:date-less-than /
+// op:date-greater-than via cast to xs:dateTime at start-of-day in the
+// value's timezone followed by a UTC-normalised compare. All three
+// operators therefore agree on the same UTC-instant ordering — that's
+// the contract the conformance suite (`test_packages/xpath_test_opdate_*`)
+// asserts and what this module implements.
 //
-// We model an XsdDate as a (calendar epoch_days, tz_offset_minutes) pair
-// where the calendar date is interpreted as 00:00:00 local-time on that day;
-// the corresponding UTC instant is
-// `epoch_days * MICROS_PER_DAY - tz_offset_minutes * MICROS_PER_MINUTE`.
+// The underlying instant is `epoch_days * 1440 - tz_offset_minutes`,
+// expressed in minutes since the Unix epoch. Minutes (not microseconds)
+// are sufficient because xs:date has day granularity and
+// `tz_offset_minutes` is a whole-minute count — and minutes-scale keeps
+// the intermediate product safely inside `i64` for any plausible
+// `epoch_days` range (`i32::MAX * 1440 ~= 3.1e12`, well below `i64::MAX`
+// of ~9.2e18; in microseconds the product would be ~1.8e20 and overflow).
 //
-// Equality remains calendar-based per XSD 1.1 §3.3.9 (xsd:date is a calendar
-// value, not an instant). This deliberately differs from the ordering
-// semantics — two dates can be `date_equal` but compare unequal under
-// `date_less_than` if their timezones differ. That asymmetry mirrors the
-// XPath F&O specification.
+// Calendar-only equality (xs:date as a calendar value per XSD 1.1 §3.3.9,
+// ignoring timezone) is exposed separately as `date_calendar_equal` for
+// callers that need it; `op:date-equal` uses the F&O semantics.
 //
-// Absent-timezone handling: this implementation treats an XsdDate constructed
-// without a timezone as UTC (`tz_offset_minutes == 0`). The "implicit
-// timezone" XPath dynamic-context concept is not modelled; UTC is the
-// closest sound approximation in a context-free setting.
+// Absent-timezone handling: this implementation treats an XsdDate
+// constructed without a timezone as UTC (`tz_offset_minutes == 0`). The
+// "implicit timezone" XPath dynamic-context concept is not modelled;
+// UTC is the closest sound approximation in a context-free setting.
 
-/// Convert an XsdDate to its represented UTC instant in microseconds. Used
-/// as the ordering key for `op:date-less-than` / `op:date-greater-than`.
-fn date_to_utc_micros(d: XsdDate) -> i64 {
-    let day_micros: i64 = (d.epoch_days as i64) * (XSD_MICROS_PER_DAY as i64);
-    let tz_micros: i64 = (d.tz_offset_minutes as i64) * (XSD_MICROS_PER_MINUTE as i64);
-    day_micros - tz_micros
+/// Convert an XsdDate to its UTC ordering key, in minutes since the Unix
+/// epoch. Used by `op:date-equal` / `op:date-less-than` /
+/// `op:date-greater-than`. Minutes-scale (rather than microseconds)
+/// keeps the intermediate product inside `i64` even at `i32::MAX`
+/// epoch_days, while preserving full ordering precision because both
+/// `epoch_days` and `tz_offset_minutes` are integral.
+fn date_to_utc_minutes(d: XsdDate) -> i64 {
+    let day_minutes: i64 = (d.epoch_days as i64) * 1440;
+    day_minutes - (d.tz_offset_minutes as i64)
 }
 
-/// op:date-equal -- two dates are equal iff they refer to the same calendar
-/// date. Timezone is intentionally ignored here per XSD 1.1 §3.3.9.
+/// op:date-equal — two dates are equal iff they map to the same UTC
+/// instant after normalising start-of-day in each value's timezone. This
+/// matches XPath F&O 3.1 §10.4.6 and the W3C op:date-equal conformance
+/// suite. For the tz-insensitive XSD 1.1 §3.3.9 calendar-equality, see
+/// `date_calendar_equal`.
 pub fn date_equal(a: XsdDate, b: XsdDate) -> bool {
+    date_to_utc_minutes(a) == date_to_utc_minutes(b)
+}
+
+/// XSD 1.1 §3.3.9 calendar-equality: two dates share the same Y/M/D
+/// regardless of timezone. Exposed separately because `op:date-equal`
+/// (and `impl Eq for XsdDate`) follow the XPath F&O instant semantics.
+pub fn date_calendar_equal(a: XsdDate, b: XsdDate) -> bool {
     a.epoch_days == b.epoch_days
 }
 
-/// op:date-less-than -- compares dates as their corresponding xs:dateTime
+/// op:date-less-than — compares dates as their corresponding xs:dateTime
 /// values at 00:00:00 in their respective timezones, normalised to UTC.
 pub fn date_less_than(a: XsdDate, b: XsdDate) -> bool {
-    date_to_utc_micros(a) < date_to_utc_micros(b)
+    date_to_utc_minutes(a) < date_to_utc_minutes(b)
 }
 
-/// op:date-greater-than -- mirror of `date_less_than`.
+/// op:date-greater-than — mirror of `date_less_than`.
 pub fn date_greater_than(a: XsdDate, b: XsdDate) -> bool {
-    date_to_utc_micros(a) > date_to_utc_micros(b)
+    date_to_utc_minutes(a) > date_to_utc_minutes(b)
 }
 
-/// Convenience: <= under UTC-normalised ordering.
-///
-/// Note: this is NOT `date_less_than(a, b) || date_equal(a, b)` because
-/// `date_equal` is calendar-equality while ordering is instant-based.
-/// It is `<=` on the UTC instant directly.
+/// Convenience: `<=` under the UTC-normalised ordering.
 pub fn date_le(a: XsdDate, b: XsdDate) -> bool {
-    date_to_utc_micros(a) <= date_to_utc_micros(b)
+    date_to_utc_minutes(a) <= date_to_utc_minutes(b)
 }
 
-/// Convenience: >= under UTC-normalised ordering. Same caveat as `date_le`.
+/// Convenience: `>=` under the UTC-normalised ordering.
 pub fn date_ge(a: XsdDate, b: XsdDate) -> bool {
-    date_to_utc_micros(a) >= date_to_utc_micros(b)
+    date_to_utc_minutes(a) >= date_to_utc_minutes(b)
 }
 
 // ============================================================================
@@ -279,18 +292,40 @@ fn test_date_roundtrip_various_samples() {
 }
 
 // ----------------------------------------------------------------------------
-// Issue #33 — XsdDate timezone-aware ordering tests.
-// XPath F&O 3.1 §10.4.6: op:date-less-than/greater-than normalise the
-// (epoch_days, tz_offset_minutes) pair to a UTC instant before comparing.
-// Calendar-equality (date_equal) deliberately ignores tz per XSD 1.1 §3.3.9.
+// Issue #33 — XsdDate timezone-aware comparison tests.
+// XPath F&O 3.1 §10.4.6: op:date-equal / op:date-less-than /
+// op:date-greater-than all normalise the (epoch_days, tz_offset_minutes)
+// pair to a UTC instant before comparing. The XSD 1.1 §3.3.9 calendar-
+// only equality is exposed separately as `date_calendar_equal`.
 // ----------------------------------------------------------------------------
 
 #[test]
-fn test_date_equal_ignores_tz() {
-    // Same calendar date, different timezones -> calendar-equal.
+fn test_date_equal_uses_utc_instant() {
+    // Same calendar date, different timezones -> different UTC instants,
+    // so op:date-equal returns false. This matches XPath F&O 3.1 §10.4.6
+    // and `test_packages/xpath_test_opdate_equal::cbcl_date_equal_004`.
     let a = date_from_components_with_tz(2025, 12, 31, 0); // 2025-12-31Z
     let b = date_from_components_with_tz(2025, 12, 31, -720); // 2025-12-31-12:00
+    assert(!date_equal(a, b));
+}
+
+#[test]
+fn test_date_calendar_equal_ignores_tz() {
+    // Same calendar date, different timezones -> calendar-equal under
+    // XSD 1.1 §3.3.9. This is the helper for callers who want the
+    // tz-insensitive Y/M/D comparison rather than F&O instant equality.
+    let a = date_from_components_with_tz(2025, 12, 31, 0);
+    let b = date_from_components_with_tz(2025, 12, 31, -720);
+    assert(date_calendar_equal(a, b));
+}
+
+#[test]
+fn test_date_equal_matches_calendar_equal_when_tz_aligned() {
+    // Same calendar date, same timezone -> both operators agree.
+    let a = date_from_components_with_tz(2025, 12, 31, 540);
+    let b = date_from_components_with_tz(2025, 12, 31, 540);
     assert(date_equal(a, b));
+    assert(date_calendar_equal(a, b));
 }
 
 #[test]

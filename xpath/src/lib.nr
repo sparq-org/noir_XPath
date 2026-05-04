@@ -175,11 +175,11 @@ pub use duration::{
 
 // Re-export date functions
 pub use date::{
-    adjust_date_to_timezone, adjust_date_to_timezone_none, date_add_duration, date_equal,
-    date_from_components, date_from_components_with_tz, date_from_epoch_days,
-    date_from_epoch_days_with_tz, date_ge, date_greater_than, date_le, date_less_than,
-    date_subtract_duration, day_from_date, fn_dateTime, month_from_date, subtract_dates,
-    timezone_from_date, year_from_date,
+    adjust_date_to_timezone, adjust_date_to_timezone_none, date_add_duration,
+    date_calendar_equal, date_equal, date_from_components, date_from_components_with_tz,
+    date_from_epoch_days, date_from_epoch_days_with_tz, date_ge, date_greater_than,
+    date_le, date_less_than, date_subtract_duration, day_from_date, fn_dateTime,
+    month_from_date, subtract_dates, timezone_from_date, year_from_date,
 };
 
 // Re-export time functions
