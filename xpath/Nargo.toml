@@ -5,4 +5,4 @@ authors = ["jeswr"]
 
 [dependencies]
 ieee754 = { tag = "main", git = "https://github.com/jeswr/noir_IEEE754", directory = "ieee754" }
-json_parser = { tag = "v0.4.0", git = "https://github.com/noir-lang/noir_json_parser" }
+json_parser = { tag = "main", git = "https://github.com/noir-lang/noir_json_parser" }
