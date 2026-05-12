@@ -4,5 +4,8 @@ type = "lib"
 authors = ["jeswr"]
 
 [dependencies]
-ieee754 = { tag = "main", git = "https://github.com/jeswr/noir_IEEE754", directory = "ieee754" }
+# TODO: revert to `{ tag = "...", git = "https://github.com/jeswr/noir_IEEE754", directory = "ieee754" }`
+# once the new `Float<E, M, RM>` API is published on the GitHub `main` branch of
+# `jeswr/noir_IEEE754`. Tracked in `IEEE754_MIGRATION.md` at the repo root.
+ieee754 = { path = "../../../../noir_IEEE754/ieee754" }
 json_parser = { tag = "main", git = "https://github.com/noir-lang/noir_json_parser" }

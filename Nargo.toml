@@ -241,4 +241,28 @@ members = [
     "test_packages/xpath_test_xsfloat_from_int",
     "test_packages/xpath_test_xsinteger_from_double",
     "test_packages/xpath_test_xsinteger_from_float",
+    # Float / double arithmetic regression coverage. These packages already
+    # exist on disk under `test_packages/` but were not wired into the
+    # workspace pre-migration; they are added here so the new
+    # `Float<E, M, RM>` API gets exercised end-to-end.
+    "test_packages/xpath_test_opnumeric_add_float",
+    "test_packages/xpath_test_opnumeric_add_double",
+    "test_packages/xpath_test_opnumeric_subtract_float",
+    "test_packages/xpath_test_opnumeric_subtract_double",
+    "test_packages/xpath_test_opnumeric_multiply_float",
+    "test_packages/xpath_test_opnumeric_multiply_double",
+    "test_packages/xpath_test_opnumeric_divide_float",
+    "test_packages/xpath_test_opnumeric_divide_double",
+    "test_packages/xpath_test_opnumeric_equal_float",
+    "test_packages/xpath_test_opnumeric_equal_double",
+    "test_packages/xpath_test_opnumeric_less_than_float",
+    "test_packages/xpath_test_opnumeric_less_than_double",
+    "test_packages/xpath_test_opnumeric_greater_than_float",
+    "test_packages/xpath_test_opnumeric_greater_than_double",
+    "test_packages/xpath_test_fnround_float",
+    "test_packages/xpath_test_fnround_double",
+    "test_packages/xpath_test_fnceiling_float",
+    "test_packages/xpath_test_fnceiling_double",
+    "test_packages/xpath_test_fnfloor_float",
+    "test_packages/xpath_test_fnfloor_double",
 ]
