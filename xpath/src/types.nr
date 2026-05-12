@@ -2,6 +2,14 @@
 //!
 //! Provides Noir representations of XML Schema datatypes used in SPARQL.
 
+// Microsecond scaling ladder is sourced from `crate::constants` (single
+// source of truth -- see `xpath/src/constants.nr`). Imported up here so
+// every `impl` block below can reach the constants without having to
+// re-declare the `use` line.
+use crate::constants::{
+    XSD_MICROS_PER_DAY, XSD_MICROS_PER_HOUR, XSD_MICROS_PER_MINUTE, XSD_MICROS_PER_SECOND,
+};
+
 /// DateTime representation with timezone support.
 /// Stores microseconds since Unix epoch (1970-01-01T00:00:00Z) as UTC,
 /// plus the original timezone offset for component extraction.
@@ -48,50 +56,141 @@ impl Eq for XsdDateTime {
 }
 
 /// Duration representation for timezone offsets and intervals.
-/// Uses microseconds with a sign flag for negative durations.
+///
+/// Stores a single authoritative signed microsecond count (`i64`). All
+/// other accessors -- absolute components (`days` / `hours` / `minutes` /
+/// `seconds` / `microseconds`), sign (`is_negative`), arithmetic and
+/// comparison -- are derived from it. Modelled on the IEEE 754 `Float<>`
+/// pattern in `noir_IEEE754`: one canonical encoding, every observable
+/// property as a method.
 pub struct XsdDayTimeDuration {
-    /// Total microseconds (absolute value)
-    pub microseconds: Field,
-    /// Whether duration is negative
-    pub negative: bool,
+    /// Total microseconds (signed; negative values encode negative durations).
+    pub signed_micros: i64,
 }
 
 impl XsdDayTimeDuration {
-    /// Create a new duration
-    pub fn new(microseconds: Field, negative: bool) -> Self {
-        XsdDayTimeDuration { microseconds, negative }
-    }
-
-    /// Create a zero duration
-    pub fn zero() -> Self {
-        XsdDayTimeDuration { microseconds: 0, negative: false }
-    }
-
-    /// Create from signed microseconds (i64)
+    /// Create from signed microseconds (i64). This is the canonical
+    /// constructor; `new` / `from_components` are thin shims.
     pub fn from_signed_micros(micros: i64) -> Self {
-        if micros < 0 {
-            let abs_val: u64 = (-micros) as u64;
-            XsdDayTimeDuration { microseconds: abs_val as Field, negative: true }
+        XsdDayTimeDuration { signed_micros: micros }
+    }
+
+    /// Create a duration from an unsigned magnitude and a negative flag.
+    /// Kept for back-compat with call-sites that have a `(abs, neg)` split
+    /// from a parser; new code should prefer `from_signed_micros`.
+    pub fn new(microseconds: Field, negative: bool) -> Self {
+        let abs: i64 = microseconds as i64;
+        let signed: i64 = if negative { -abs } else { abs };
+        XsdDayTimeDuration { signed_micros: signed }
+    }
+
+    /// Create from `(negative, days, hours, minutes, seconds, microseconds)`.
+    /// Inputs are normalised so e.g. `seconds=90` becomes `1 min 30 s`.
+    pub fn from_components(
+        negative: bool,
+        days: u32,
+        hours: u32,
+        minutes: u32,
+        seconds: u32,
+        microseconds: u32,
+    ) -> Self {
+        let total: i64 = (days as i64) * (XSD_MICROS_PER_DAY as i64)
+            + (hours as i64) * (XSD_MICROS_PER_HOUR as i64)
+            + (minutes as i64) * (XSD_MICROS_PER_MINUTE as i64)
+            + (seconds as i64) * (XSD_MICROS_PER_SECOND as i64)
+            + microseconds as i64;
+        let signed: i64 = if negative { -total } else { total };
+        XsdDayTimeDuration { signed_micros: signed }
+    }
+
+    /// Create a zero duration.
+    pub fn zero() -> Self {
+        XsdDayTimeDuration { signed_micros: 0 }
+    }
+
+    /// Authoritative getter -- the value stored in the struct.
+    pub fn to_signed_micros(self) -> i64 {
+        self.signed_micros
+    }
+
+    // ---- Derived accessors --------------------------------------------------
+
+    /// `true` iff the duration is strictly negative.
+    pub fn is_negative(self) -> bool {
+        self.signed_micros < 0
+    }
+
+    /// Absolute value as unsigned microseconds. Used internally by every
+    /// component accessor; pulled out so the abs-value step is computed
+    /// once per call instead of four times.
+    fn abs_micros(self) -> i64 {
+        if self.signed_micros < 0 {
+            -self.signed_micros
         } else {
-            let abs_val: u64 = micros as u64;
-            XsdDayTimeDuration { microseconds: abs_val as Field, negative: false }
+            self.signed_micros
         }
     }
 
-    /// Convert to signed microseconds (i64)
-    pub fn to_signed_micros(self) -> i64 {
-        let abs_micros: i64 = self.microseconds as i64;
-        if self.negative {
-            -abs_micros
-        } else {
-            abs_micros
-        }
+    /// Days component (absolute value), e.g. for `fn:days-from-duration`.
+    pub fn days(self) -> u32 {
+        (self.abs_micros() / (XSD_MICROS_PER_DAY as i64)) as u32
+    }
+
+    /// Hours component within the day (0-23, absolute value).
+    pub fn hours(self) -> u8 {
+        let day_remainder = self.abs_micros() % (XSD_MICROS_PER_DAY as i64);
+        (day_remainder / (XSD_MICROS_PER_HOUR as i64)) as u8
+    }
+
+    /// Minutes component within the hour (0-59, absolute value).
+    pub fn minutes(self) -> u8 {
+        let hour_remainder = self.abs_micros() % (XSD_MICROS_PER_HOUR as i64);
+        (hour_remainder / (XSD_MICROS_PER_MINUTE as i64)) as u8
+    }
+
+    /// Seconds component within the minute (0-59, absolute value).
+    pub fn seconds(self) -> u8 {
+        let minute_remainder = self.abs_micros() % (XSD_MICROS_PER_MINUTE as i64);
+        (minute_remainder / (XSD_MICROS_PER_SECOND as i64)) as u8
+    }
+
+    /// Microseconds component within the second (0-999999, absolute value).
+    pub fn microseconds(self) -> u32 {
+        (self.abs_micros() % (XSD_MICROS_PER_SECOND as i64)) as u32
+    }
+
+    // ---- Derived arithmetic -------------------------------------------------
+
+    /// Negation -- flips the sign.
+    pub fn negate(self) -> Self {
+        XsdDayTimeDuration { signed_micros: -self.signed_micros }
+    }
+
+    /// op:add-dayTimeDurations.
+    pub fn add(self, other: Self) -> Self {
+        XsdDayTimeDuration { signed_micros: self.signed_micros + other.signed_micros }
+    }
+
+    /// op:subtract-dayTimeDurations.
+    pub fn subtract(self, other: Self) -> Self {
+        XsdDayTimeDuration { signed_micros: self.signed_micros - other.signed_micros }
+    }
+
+    /// op:multiply-dayTimeDuration by an integer scalar.
+    pub fn multiply(self, factor: i64) -> Self {
+        XsdDayTimeDuration { signed_micros: self.signed_micros * factor }
+    }
+
+    /// op:divide-dayTimeDuration by an integer scalar.
+    /// Caller is responsible for checking `divisor != 0`.
+    pub fn divide(self, divisor: i64) -> Self {
+        XsdDayTimeDuration { signed_micros: self.signed_micros / divisor }
     }
 }
 
 impl Eq for XsdDayTimeDuration {
     fn eq(self, other: Self) -> bool {
-        (self.microseconds == other.microseconds) & (self.negative == other.negative)
+        self.signed_micros == other.signed_micros
     }
 }
 
@@ -138,10 +237,6 @@ pub struct XsdTime {
     /// Range: `XSD_TZ_MIN_MINUTES` (-14:00) to `XSD_TZ_MAX_MINUTES` (+14:00).
     pub tz_offset_minutes: i16,
 }
-
-// Microsecond scaling ladder is sourced from `crate::constants` (single
-// source of truth -- see `xpath/src/constants.nr`).
-use crate::constants::{XSD_MICROS_PER_HOUR, XSD_MICROS_PER_MINUTE, XSD_MICROS_PER_SECOND};
 
 impl XsdTime {
     /// Create a new Time from microseconds since midnight (assumes UTC)

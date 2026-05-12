@@ -1,7 +1,10 @@
 //! Duration functions for XPath/SPARQL
 //!
-//! Implements xsd:dayTimeDuration operations.
-//! Duration values are stored as signed microseconds in a Field.
+//! Implements xsd:dayTimeDuration operations. The authoritative encoding is a
+//! single signed `i64` (microseconds) inside `XsdDayTimeDuration`; this file
+//! now provides thin free-function wrappers over the inherent methods so
+//! existing call-sites continue to compile. New code should prefer the
+//! method-form (`a.add(b)`, `dur.days()`, etc.) directly.
 //!
 //! XPath operators implemented:
 //! - op:add-dayTimeDurations, op:subtract-dayTimeDurations
@@ -9,14 +12,8 @@
 //! - op:add-dayTimeDuration-to-dateTime, op:subtract-dayTimeDuration-from-dateTime
 //! - op:dayTimeDuration-equal, op:dayTimeDuration-less-than, op:dayTimeDuration-greater-than
 
-use crate::constants::{
-    XSD_MICROS_PER_DAY, XSD_MICROS_PER_HOUR, XSD_MICROS_PER_MINUTE, XSD_MICROS_PER_SECOND,
-};
+use crate::constants::XSD_MICROS_PER_DAY;
 use crate::types::{XsdDateTime, XsdDayTimeDuration};
-
-// Microsecond scaling ladder is sourced from `crate::constants` (single
-// source of truth -- see `xpath/src/constants.nr`). Call sites cast the
-// canonical u64 globals to i64 inline to keep duration arithmetic signed.
 
 // ============================================================================
 // Duration Construction Functions
@@ -27,8 +24,9 @@ pub fn duration_from_microseconds(micros: i64) -> XsdDayTimeDuration {
     XsdDayTimeDuration::from_signed_micros(micros)
 }
 
-/// Create a duration from components
-/// days, hours, minutes, seconds can be any values; they will be normalized
+/// Create a duration from components. Thin wrapper around
+/// `XsdDayTimeDuration::from_components` for symmetry with the other
+/// `duration_*` free functions.
 pub fn duration_from_components(
     negative: bool,
     days: u32,
@@ -37,14 +35,7 @@ pub fn duration_from_components(
     seconds: u32,
     microseconds: u32,
 ) -> XsdDayTimeDuration {
-    let total: i64 = (days as i64) * (XSD_MICROS_PER_DAY as i64)
-        + (hours as i64) * (XSD_MICROS_PER_HOUR as i64)
-        + (minutes as i64) * (XSD_MICROS_PER_MINUTE as i64)
-        + (seconds as i64) * (XSD_MICROS_PER_SECOND as i64)
-        + microseconds as i64;
-
-    let signed_total = if negative { -total } else { total };
-    XsdDayTimeDuration::from_signed_micros(signed_total)
+    XsdDayTimeDuration::from_components(negative, days, hours, minutes, seconds, microseconds)
 }
 
 /// Create a zero duration
@@ -63,38 +54,27 @@ pub fn duration_to_microseconds(dur: XsdDayTimeDuration) -> i64 {
 
 /// Check if duration is negative
 pub fn duration_is_negative(dur: XsdDayTimeDuration) -> bool {
-    dur.to_signed_micros() < 0
+    dur.is_negative()
 }
 
 /// Extract days component (absolute value)
 pub fn days_from_duration(dur: XsdDayTimeDuration) -> u32 {
-    let micros = dur.to_signed_micros();
-    let abs_micros: i64 = if micros < 0 { -micros } else { micros };
-    (abs_micros / (XSD_MICROS_PER_DAY as i64)) as u32
+    dur.days()
 }
 
 /// Extract hours component (0-23, absolute value)
 pub fn hours_from_duration(dur: XsdDayTimeDuration) -> u8 {
-    let micros = dur.to_signed_micros();
-    let abs_micros: i64 = if micros < 0 { -micros } else { micros };
-    let day_remainder = abs_micros % (XSD_MICROS_PER_DAY as i64);
-    (day_remainder / (XSD_MICROS_PER_HOUR as i64)) as u8
+    dur.hours()
 }
 
 /// Extract minutes component (0-59, absolute value)
 pub fn minutes_from_duration(dur: XsdDayTimeDuration) -> u8 {
-    let micros = dur.to_signed_micros();
-    let abs_micros: i64 = if micros < 0 { -micros } else { micros };
-    let hour_remainder = abs_micros % (XSD_MICROS_PER_HOUR as i64);
-    (hour_remainder / (XSD_MICROS_PER_MINUTE as i64)) as u8
+    dur.minutes()
 }
 
 /// Extract seconds component (0-59, absolute value)
 pub fn seconds_from_duration(dur: XsdDayTimeDuration) -> u8 {
-    let micros = dur.to_signed_micros();
-    let abs_micros: i64 = if micros < 0 { -micros } else { micros };
-    let minute_remainder = abs_micros % (XSD_MICROS_PER_MINUTE as i64);
-    (minute_remainder / (XSD_MICROS_PER_SECOND as i64)) as u8
+    dur.seconds()
 }
 
 // ============================================================================
@@ -102,36 +82,27 @@ pub fn seconds_from_duration(dur: XsdDayTimeDuration) -> u8 {
 // ============================================================================
 
 /// op:add-dayTimeDurations
-/// Adds two durations
 pub fn duration_add(a: XsdDayTimeDuration, b: XsdDayTimeDuration) -> XsdDayTimeDuration {
-    let sum = a.to_signed_micros() + b.to_signed_micros();
-    XsdDayTimeDuration::from_signed_micros(sum)
+    a.add(b)
 }
 
 /// op:subtract-dayTimeDurations
-/// Subtracts second duration from first
 pub fn duration_subtract(a: XsdDayTimeDuration, b: XsdDayTimeDuration) -> XsdDayTimeDuration {
-    let diff = a.to_signed_micros() - b.to_signed_micros();
-    XsdDayTimeDuration::from_signed_micros(diff)
+    a.subtract(b)
 }
 
-/// op:multiply-dayTimeDuration
-/// Multiplies a duration by a scalar
+/// op:multiply-dayTimeDuration by an integer scalar
 pub fn duration_multiply(dur: XsdDayTimeDuration, factor: i64) -> XsdDayTimeDuration {
-    let result = dur.to_signed_micros() * factor;
-    XsdDayTimeDuration::from_signed_micros(result)
+    dur.multiply(factor)
 }
 
-/// op:divide-dayTimeDuration
-/// Divides a duration by a scalar
+/// op:divide-dayTimeDuration by an integer scalar
 pub fn duration_divide(dur: XsdDayTimeDuration, divisor: i64) -> XsdDayTimeDuration {
     assert(divisor != 0, "Division by zero");
-    let result = dur.to_signed_micros() / divisor;
-    XsdDayTimeDuration::from_signed_micros(result)
+    dur.divide(divisor)
 }
 
-/// op:divide-dayTimeDuration-by-dayTimeDuration
-/// Divides two durations, returning a ratio as i64
+/// op:divide-dayTimeDuration-by-dayTimeDuration -- returns the integer ratio.
 pub fn duration_divide_by_duration(a: XsdDayTimeDuration, b: XsdDayTimeDuration) -> i64 {
     let b_micros = b.to_signed_micros();
     assert(b_micros != 0, "Division by zero duration");
@@ -140,7 +111,7 @@ pub fn duration_divide_by_duration(a: XsdDayTimeDuration, b: XsdDayTimeDuration)
 
 /// Negates a duration
 pub fn duration_negate(dur: XsdDayTimeDuration) -> XsdDayTimeDuration {
-    XsdDayTimeDuration::from_signed_micros(-dur.to_signed_micros())
+    dur.negate()
 }
 
 // ============================================================================
@@ -151,8 +122,7 @@ pub fn duration_negate(dur: XsdDayTimeDuration) -> XsdDayTimeDuration {
 /// Adds a duration to a dateTime
 pub fn datetime_add_duration(dt: XsdDateTime, dur: XsdDayTimeDuration) -> XsdDateTime {
     let dt_micros: i64 = dt.epoch_microseconds as i64;
-    let dur_micros = dur.to_signed_micros();
-    let result = dt_micros + dur_micros;
+    let result = dt_micros + dur.to_signed_micros();
     assert(result >= 0, "DateTime cannot be negative");
     let result_u64: u64 = result as u64;
     XsdDateTime::new(result_u64 as Field)
@@ -162,8 +132,7 @@ pub fn datetime_add_duration(dt: XsdDateTime, dur: XsdDayTimeDuration) -> XsdDat
 /// Subtracts a duration from a dateTime
 pub fn datetime_subtract_duration(dt: XsdDateTime, dur: XsdDayTimeDuration) -> XsdDateTime {
     let dt_micros: i64 = dt.epoch_microseconds as i64;
-    let dur_micros = dur.to_signed_micros();
-    let result = dt_micros - dur_micros;
+    let result = dt_micros - dur.to_signed_micros();
     assert(result >= 0, "DateTime cannot be negative");
     let result_u64: u64 = result as u64;
     XsdDateTime::new(result_u64 as Field)
@@ -183,7 +152,7 @@ pub fn datetime_difference(a: XsdDateTime, b: XsdDateTime) -> XsdDayTimeDuration
 
 /// op:dayTimeDuration-equal
 pub fn duration_equal(a: XsdDayTimeDuration, b: XsdDayTimeDuration) -> bool {
-    a.to_signed_micros() == b.to_signed_micros()
+    a == b
 }
 
 /// op:dayTimeDuration-less-than

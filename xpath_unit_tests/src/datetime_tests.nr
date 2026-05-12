@@ -32,15 +32,15 @@ fn test_datetime_equality() {
 #[test]
 fn test_duration_creation() {
     let dur = XsdDayTimeDuration::new(3600000000, false);
-    assert(dur.microseconds == 3600000000);
-    assert(dur.negative == false);
+    assert(dur.to_signed_micros() == 3600000000);
+    assert(dur.is_negative() == false);
 }
 
 #[test]
 fn test_duration_zero() {
     let dur = XsdDayTimeDuration::zero();
-    assert(dur.microseconds == 0);
-    assert(dur.negative == false);
+    assert(dur.to_signed_micros() == 0);
+    assert(dur.is_negative() == false);
 }
 
 // ============================================================================
