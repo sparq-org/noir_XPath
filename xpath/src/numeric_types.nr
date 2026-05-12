@@ -15,21 +15,32 @@
 //! - xs:float can be promoted to xs:double
 //!
 //! For operations with mixed types, both operands are promoted to the same type.
+//!
+//! ## Dependency on `ieee754`
+//!
+//! This module consumes the new generic `Float<EXP_BITS, MANT_BITS, RM>` API
+//! from `jeswr/noir_IEEE754`: `f32 = Float<8, 23, RNE>`,
+//! `f64 = Float<11, 52, RNE>`. See `IEEE754_MIGRATION.md` at the repo root
+//! for the old-to-new operator mapping. Operator dispatch (`+ - * /`),
+//! IEEE-aware equality (`==`), and `flt` / `fle` / `fgt` / `fge` for the
+//! NaN-unordered comparisons all come from there; the round / ceil / floor
+//! helpers below still consume / produce raw IEEE bit patterns via
+//! `to_field()` / `Float::from(...)` because their bit-twiddling code paths
+//! pre-date the structured API.
 
-use ieee754::float::{
-    abs_float32, abs_float64, add_float32, add_float32_with_rounding, add_float64,
-    add_float64_with_rounding, div_float32, div_float64, float32_eq, float32_from_bits, float32_ge,
-    float32_gt, float32_is_infinity, float32_is_nan, float32_is_zero, float32_le, float32_lt,
-    float32_to_bits, FLOAT32_ZERO, float64_eq, float64_from_bits, float64_ge, float64_gt,
-    float64_is_infinity, float64_is_nan, float64_is_zero, float64_le, float64_lt, float64_to_bits,
-    FLOAT64_ZERO, IEEE754Float32, IEEE754Float64, mul_float32, mul_float64, sub_float32,
-    sub_float64,
-};
-use ieee754::types::{
-    FLOAT32_EXPONENT_MASK, FLOAT32_MANTISSA_MASK, FLOAT32_SIGN_MASK, FLOAT64_EXPONENT_MASK,
-    FLOAT64_MANTISSA_MASK, FLOAT64_SIGN_MASK, ROUNDING_MODE_NEAREST_AWAY,
-    ROUNDING_MODE_TOWARD_NEGATIVE, ROUNDING_MODE_TOWARD_POSITIVE,
-};
+use ieee754::{f32, f64, Float};
+
+// IEEE 754 layout constants. The new ieee754 crate no longer exports these
+// (`Float::from(field)` does the verified bit-extraction internally), but the
+// fn:round / fn:ceiling / fn:floor / cast_* helpers below still operate on
+// the raw bit pattern, so we keep local copies as the single source of truth
+// for those code paths.
+global FLOAT32_SIGN_MASK: u32 = 0x80000000;
+global FLOAT32_EXPONENT_MASK: u32 = 0x7F800000;
+global FLOAT32_MANTISSA_MASK: u32 = 0x007FFFFF;
+global FLOAT64_SIGN_MASK: u64 = 0x8000000000000000;
+global FLOAT64_EXPONENT_MASK: u64 = 0x7FF0000000000000;
+global FLOAT64_MANTISSA_MASK: u64 = 0x000FFFFFFFFFFFFF;
 
 // ============================================================================
 // Numeric Type Enum
@@ -88,49 +99,51 @@ impl Eq for NumericType {
 
 /// IEEE 754 float32 wrapped as XPath xs:float
 pub struct XsdFloat {
-    /// The underlying IEEE 754 float32 value
-    pub value: IEEE754Float32,
+    /// The underlying IEEE 754 float32 value (`Float<8, 23, RNE>`)
+    pub value: f32,
 }
 
 impl XsdFloat {
-    /// Create from IEEE 754 bit representation
+    /// Create from IEEE 754 bit representation. The `From<Field>` impl in
+    /// `ieee754::repr` does the verified sign / exponent / mantissa
+    /// decomposition.
     pub fn from_bits(bits: u32) -> Self {
-        XsdFloat { value: float32_from_bits(bits) }
+        XsdFloat { value: Float::from(bits as Field) }
     }
 
-    /// Convert to IEEE 754 bit representation
+    /// Convert to IEEE 754 bit representation.
     pub fn to_bits(self) -> u32 {
-        float32_to_bits(self.value)
+        self.value.to_field() as u32
     }
 
     /// Check if this value is NaN
     pub fn is_nan(self) -> bool {
-        float32_is_nan(self.value)
+        self.value.is_nan()
     }
 
     /// Create positive zero
     pub fn zero() -> Self {
-        XsdFloat::from_bits(0x00000000)
+        XsdFloat { value: Float::signed_zero(0) }
     }
 
     /// Create negative zero
     pub fn neg_zero() -> Self {
-        XsdFloat::from_bits(0x80000000)
+        XsdFloat { value: Float::signed_zero(1) }
     }
 
     /// Create positive infinity
     pub fn infinity() -> Self {
-        XsdFloat::from_bits(0x7F800000)
+        XsdFloat { value: Float::signed_infinity(0) }
     }
 
     /// Create negative infinity
     pub fn neg_infinity() -> Self {
-        XsdFloat::from_bits(0xFF800000)
+        XsdFloat { value: Float::signed_infinity(1) }
     }
 
-    /// Create NaN
+    /// Create NaN (quiet)
     pub fn nan() -> Self {
-        XsdFloat::from_bits(0x7FC00000) // Quiet NaN
+        XsdFloat::from_bits(0x7FC00000)
     }
 
     /// Create from a small integer (-127 to 127)
@@ -173,7 +186,8 @@ impl XsdFloat {
 
 impl Eq for XsdFloat {
     fn eq(self, other: Self) -> bool {
-        float32_eq(self.value, other.value)
+        // `Float::eq` honours IEEE semantics (NaN != NaN, +0 == -0).
+        self.value == other.value
     }
 }
 
@@ -183,49 +197,51 @@ impl Eq for XsdFloat {
 
 /// IEEE 754 float64 wrapped as XPath xs:double
 pub struct XsdDouble {
-    /// The underlying IEEE 754 float64 value
-    pub value: IEEE754Float64,
+    /// The underlying IEEE 754 float64 value (`Float<11, 52, RNE>`)
+    pub value: f64,
 }
 
 impl XsdDouble {
-    /// Create from IEEE 754 bit representation
+    /// Create from IEEE 754 bit representation. The `From<Field>` impl in
+    /// `ieee754::repr` does the verified sign / exponent / mantissa
+    /// decomposition.
     pub fn from_bits(bits: u64) -> Self {
-        XsdDouble { value: float64_from_bits(bits) }
+        XsdDouble { value: Float::from(bits as Field) }
     }
 
-    /// Convert to IEEE 754 bit representation
+    /// Convert to IEEE 754 bit representation.
     pub fn to_bits(self) -> u64 {
-        float64_to_bits(self.value)
+        self.value.to_field() as u64
     }
 
     /// Check if this value is NaN
     pub fn is_nan(self) -> bool {
-        float64_is_nan(self.value)
+        self.value.is_nan()
     }
 
     /// Create positive zero
     pub fn zero() -> Self {
-        XsdDouble::from_bits(0x0000000000000000)
+        XsdDouble { value: Float::signed_zero(0) }
     }
 
     /// Create negative zero
     pub fn neg_zero() -> Self {
-        XsdDouble::from_bits(0x8000000000000000)
+        XsdDouble { value: Float::signed_zero(1) }
     }
 
     /// Create positive infinity
     pub fn infinity() -> Self {
-        XsdDouble::from_bits(0x7FF0000000000000)
+        XsdDouble { value: Float::signed_infinity(0) }
     }
 
     /// Create negative infinity
     pub fn neg_infinity() -> Self {
-        XsdDouble::from_bits(0xFFF0000000000000)
+        XsdDouble { value: Float::signed_infinity(1) }
     }
 
-    /// Create NaN
+    /// Create NaN (quiet)
     pub fn nan() -> Self {
-        XsdDouble::from_bits(0x7FF8000000000000) // Quiet NaN
+        XsdDouble::from_bits(0x7FF8000000000000)
     }
 
     /// Create from a small integer (-127 to 127)
@@ -315,7 +331,8 @@ impl XsdDouble {
 
 impl Eq for XsdDouble {
     fn eq(self, other: Self) -> bool {
-        float64_eq(self.value, other.value)
+        // `Float::eq` honours IEEE semantics (NaN != NaN, +0 == -0).
+        self.value == other.value
     }
 }
 
@@ -348,29 +365,29 @@ pub fn get_common_type(t1: NumericType, t2: NumericType) -> NumericType {
 /// op:numeric-equal for xs:float
 /// NaN does not equal itself per IEEE 754 / XPath spec
 pub fn numeric_equal_float(a: XsdFloat, b: XsdFloat) -> bool {
-    float32_eq(a.value, b.value)
+    a.value == b.value
 }
 
 /// op:numeric-less-than for xs:float
 /// Returns false if either operand is NaN
 pub fn numeric_less_than_float(a: XsdFloat, b: XsdFloat) -> bool {
-    float32_lt(a.value, b.value)
+    a.value.flt(b.value)
 }
 
 /// op:numeric-greater-than for xs:float
 /// Returns false if either operand is NaN
 pub fn numeric_greater_than_float(a: XsdFloat, b: XsdFloat) -> bool {
-    float32_gt(a.value, b.value)
+    a.value.fgt(b.value)
 }
 
 /// op:numeric-less-than-or-equal for xs:float
 pub fn numeric_le_float(a: XsdFloat, b: XsdFloat) -> bool {
-    float32_le(a.value, b.value)
+    a.value.fle(b.value)
 }
 
 /// op:numeric-greater-than-or-equal for xs:float
 pub fn numeric_ge_float(a: XsdFloat, b: XsdFloat) -> bool {
-    float32_ge(a.value, b.value)
+    a.value.fge(b.value)
 }
 
 // ============================================================================
@@ -380,29 +397,29 @@ pub fn numeric_ge_float(a: XsdFloat, b: XsdFloat) -> bool {
 /// op:numeric-equal for xs:double
 /// NaN does not equal itself per IEEE 754 / XPath spec
 pub fn numeric_equal_double(a: XsdDouble, b: XsdDouble) -> bool {
-    float64_eq(a.value, b.value)
+    a.value == b.value
 }
 
 /// op:numeric-less-than for xs:double
 /// Returns false if either operand is NaN
 pub fn numeric_less_than_double(a: XsdDouble, b: XsdDouble) -> bool {
-    float64_lt(a.value, b.value)
+    a.value.flt(b.value)
 }
 
 /// op:numeric-greater-than for xs:double
 /// Returns false if either operand is NaN
 pub fn numeric_greater_than_double(a: XsdDouble, b: XsdDouble) -> bool {
-    float64_gt(a.value, b.value)
+    a.value.fgt(b.value)
 }
 
 /// op:numeric-less-than-or-equal for xs:double
 pub fn numeric_le_double(a: XsdDouble, b: XsdDouble) -> bool {
-    float64_le(a.value, b.value)
+    a.value.fle(b.value)
 }
 
 /// op:numeric-greater-than-or-equal for xs:double
 pub fn numeric_ge_double(a: XsdDouble, b: XsdDouble) -> bool {
-    float64_ge(a.value, b.value)
+    a.value.fge(b.value)
 }
 
 // ============================================================================
@@ -411,27 +428,27 @@ pub fn numeric_ge_double(a: XsdDouble, b: XsdDouble) -> bool {
 
 /// op:numeric-add for xs:float
 pub fn numeric_add_float(a: XsdFloat, b: XsdFloat) -> XsdFloat {
-    XsdFloat { value: add_float32(a.value, b.value) }
+    XsdFloat { value: a.value + b.value }
 }
 
 /// op:numeric-subtract for xs:float
 pub fn numeric_subtract_float(a: XsdFloat, b: XsdFloat) -> XsdFloat {
-    XsdFloat { value: sub_float32(a.value, b.value) }
+    XsdFloat { value: a.value - b.value }
 }
 
 /// op:numeric-multiply for xs:float
 pub fn numeric_multiply_float(a: XsdFloat, b: XsdFloat) -> XsdFloat {
-    XsdFloat { value: mul_float32(a.value, b.value) }
+    XsdFloat { value: a.value * b.value }
 }
 
 /// op:numeric-divide for xs:float
 pub fn numeric_divide_float(a: XsdFloat, b: XsdFloat) -> XsdFloat {
-    XsdFloat { value: div_float32(a.value, b.value) }
+    XsdFloat { value: a.value / b.value }
 }
 
 /// fn:abs for xs:float
 pub fn abs_float(a: XsdFloat) -> XsdFloat {
-    XsdFloat { value: abs_float32(a.value) }
+    XsdFloat { value: a.value.abs() }
 }
 
 // ============================================================================
@@ -440,27 +457,27 @@ pub fn abs_float(a: XsdFloat) -> XsdFloat {
 
 /// op:numeric-add for xs:double
 pub fn numeric_add_double(a: XsdDouble, b: XsdDouble) -> XsdDouble {
-    XsdDouble { value: add_float64(a.value, b.value) }
+    XsdDouble { value: a.value + b.value }
 }
 
 /// op:numeric-subtract for xs:double
 pub fn numeric_subtract_double(a: XsdDouble, b: XsdDouble) -> XsdDouble {
-    XsdDouble { value: sub_float64(a.value, b.value) }
+    XsdDouble { value: a.value - b.value }
 }
 
 /// op:numeric-multiply for xs:double
 pub fn numeric_multiply_double(a: XsdDouble, b: XsdDouble) -> XsdDouble {
-    XsdDouble { value: mul_float64(a.value, b.value) }
+    XsdDouble { value: a.value * b.value }
 }
 
 /// op:numeric-divide for xs:double
 pub fn numeric_divide_double(a: XsdDouble, b: XsdDouble) -> XsdDouble {
-    XsdDouble { value: div_float64(a.value, b.value) }
+    XsdDouble { value: a.value / b.value }
 }
 
 /// fn:abs for xs:double
 pub fn abs_double(a: XsdDouble) -> XsdDouble {
-    XsdDouble { value: abs_float64(a.value) }
+    XsdDouble { value: a.value.abs() }
 }
 
 // ============================================================================
@@ -928,12 +945,9 @@ pub fn cast_double_to_float(d: XsdDouble) -> XsdFloat {
 // Rounding Functions
 // ============================================================================
 
-// Float32 / Float64 layout constants.
-// `FLOAT{32,64}_SIGN_MASK`, `FLOAT{32,64}_EXPONENT_MASK` and
-// `FLOAT{32,64}_MANTISSA_MASK` are imported above from `ieee754::types`
-// (single source of truth -- see `noir_IEEE754/ieee754/src/types.nr`).
-// `EXP_BIAS` and `MANTISSA_BITS` are not yet exported by noir_IEEE754;
-// they remain local until the IEEE 754 crate publishes them.
+// Float32 / Float64 layout constants (local copies -- see comment at top of
+// file). `EXP_BIAS` and `MANTISSA_BITS` are not exported by noir_IEEE754 even
+// in the new API.
 global FLOAT32_EXP_BIAS: u32 = 127;
 global FLOAT32_MANTISSA_BITS: u32 = 23;
 global FLOAT64_EXP_BIAS: u64 = 1023;
@@ -944,8 +958,7 @@ global FLOAT64_MANTISSA_BITS: u64 = 52;
 /// XPath fn:round: 0.5 -> 1, -0.5 -> -0, 1.5 -> 2, -1.5 -> -1
 pub fn round_float(a: XsdFloat) -> XsdFloat {
     let bits = a.to_bits();
-    let is_special =
-        float32_is_nan(a.value) | float32_is_infinity(a.value) | float32_is_zero(a.value);
+    let is_special = a.value.is_nan() | a.value.is_infinity() | a.value.is_zero();
 
     let sign = bits & FLOAT32_SIGN_MASK;
     let is_negative = sign != 0;
@@ -1039,8 +1052,7 @@ pub fn round_float(a: XsdFloat) -> XsdFloat {
 /// XPath fn:round: 0.5 -> 1, -0.5 -> -0, 1.5 -> 2, -1.5 -> -1
 pub fn round_double(a: XsdDouble) -> XsdDouble {
     let bits = a.to_bits();
-    let is_special =
-        float64_is_nan(a.value) | float64_is_infinity(a.value) | float64_is_zero(a.value);
+    let is_special = a.value.is_nan() | a.value.is_infinity() | a.value.is_zero();
 
     let sign = bits & FLOAT64_SIGN_MASK;
     let is_negative = sign != 0;
@@ -1129,8 +1141,7 @@ pub fn round_double(a: XsdDouble) -> XsdDouble {
 /// Round toward positive infinity
 pub fn ceil_float(a: XsdFloat) -> XsdFloat {
     let bits = a.to_bits();
-    let is_special =
-        float32_is_nan(a.value) | float32_is_infinity(a.value) | float32_is_zero(a.value);
+    let is_special = a.value.is_nan() | a.value.is_infinity() | a.value.is_zero();
 
     let sign = bits & FLOAT32_SIGN_MASK;
     let is_negative = sign != 0;
@@ -1197,8 +1208,7 @@ pub fn ceil_float(a: XsdFloat) -> XsdFloat {
 /// Round toward positive infinity
 pub fn ceil_double(a: XsdDouble) -> XsdDouble {
     let bits = a.to_bits();
-    let is_special =
-        float64_is_nan(a.value) | float64_is_infinity(a.value) | float64_is_zero(a.value);
+    let is_special = a.value.is_nan() | a.value.is_infinity() | a.value.is_zero();
 
     let sign = bits & FLOAT64_SIGN_MASK;
     let is_negative = sign != 0;
@@ -1265,8 +1275,7 @@ pub fn ceil_double(a: XsdDouble) -> XsdDouble {
 /// Round toward negative infinity
 pub fn floor_float(a: XsdFloat) -> XsdFloat {
     let bits = a.to_bits();
-    let is_special =
-        float32_is_nan(a.value) | float32_is_infinity(a.value) | float32_is_zero(a.value);
+    let is_special = a.value.is_nan() | a.value.is_infinity() | a.value.is_zero();
 
     let sign = bits & FLOAT32_SIGN_MASK;
     let is_negative = sign != 0;
@@ -1333,8 +1342,7 @@ pub fn floor_float(a: XsdFloat) -> XsdFloat {
 /// Round toward negative infinity
 pub fn floor_double(a: XsdDouble) -> XsdDouble {
     let bits = a.to_bits();
-    let is_special =
-        float64_is_nan(a.value) | float64_is_infinity(a.value) | float64_is_zero(a.value);
+    let is_special = a.value.is_nan() | a.value.is_infinity() | a.value.is_zero();
 
     let sign = bits & FLOAT64_SIGN_MASK;
     let is_negative = sign != 0;
