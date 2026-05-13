@@ -123,22 +123,22 @@ impl XsdFloat {
 
     /// Create positive zero
     pub fn zero() -> Self {
-        XsdFloat { value: Float::signed_zero(0) }
+        XsdFloat { value: Float::signed_zero(false) }
     }
 
     /// Create negative zero
     pub fn neg_zero() -> Self {
-        XsdFloat { value: Float::signed_zero(1) }
+        XsdFloat { value: Float::signed_zero(true) }
     }
 
     /// Create positive infinity
     pub fn infinity() -> Self {
-        XsdFloat { value: Float::signed_infinity(0) }
+        XsdFloat { value: Float::signed_infinity(false) }
     }
 
     /// Create negative infinity
     pub fn neg_infinity() -> Self {
-        XsdFloat { value: Float::signed_infinity(1) }
+        XsdFloat { value: Float::signed_infinity(true) }
     }
 
     /// Create NaN (quiet)
@@ -221,22 +221,22 @@ impl XsdDouble {
 
     /// Create positive zero
     pub fn zero() -> Self {
-        XsdDouble { value: Float::signed_zero(0) }
+        XsdDouble { value: Float::signed_zero(false) }
     }
 
     /// Create negative zero
     pub fn neg_zero() -> Self {
-        XsdDouble { value: Float::signed_zero(1) }
+        XsdDouble { value: Float::signed_zero(true) }
     }
 
     /// Create positive infinity
     pub fn infinity() -> Self {
-        XsdDouble { value: Float::signed_infinity(0) }
+        XsdDouble { value: Float::signed_infinity(false) }
     }
 
     /// Create negative infinity
     pub fn neg_infinity() -> Self {
-        XsdDouble { value: Float::signed_infinity(1) }
+        XsdDouble { value: Float::signed_infinity(true) }
     }
 
     /// Create NaN (quiet)

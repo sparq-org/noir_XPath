@@ -47,53 +47,136 @@ impl<let NS_LEN: u32, let LOCAL_LEN: u32> XsdQName<NS_LEN, LOCAL_LEN> {
     pub fn has_namespace(self) -> bool {
         self.namespace_len > 0
     }
+
+    /// Local name component as `(bytes, length)`. Method form of
+    /// `local_name_from_qname` for callers that hold the QName value.
+    pub fn local_name(self) -> ([u8; LOCAL_LEN], u32) {
+        (self.local_name, self.local_name_len)
+    }
+
+    /// Namespace URI component as `(bytes, length)`. Method form of
+    /// `namespace_uri_from_qname`.
+    pub fn namespace_uri(self) -> ([u8; NS_LEN], u32) {
+        (self.namespace_uri, self.namespace_len)
+    }
+
+    /// op:QName-equal for QNames sharing both array sizes. Use the
+    /// free `qname_equal` when the sizes differ.
+    ///
+    /// Cost note: equality runs in O(NS_LEN + LOCAL_LEN) byte compares
+    /// regardless of the runtime `namespace_len` / `local_name_len`.
+    /// Each iteration is a single conditional XOR-or-zero accumulated
+    /// into one boolean -- cheaper than the previous form because the
+    /// per-byte branch is now a multiplied-mask rather than a nested
+    /// `if` chain.
+    pub fn eq_same_size(self, other: Self) -> bool {
+        // Length-mismatch shortcut: when either component's runtime
+        // length differs, the two QNames cannot match irrespective of
+        // the byte payloads.
+        if (self.namespace_len != other.namespace_len)
+            | (self.local_name_len != other.local_name_len) {
+            false
+        } else {
+            // `mismatch` accumulates `1` as soon as any byte within the
+            // declared `*_len` prefix differs. The straight-line form
+            // (no nested `if`s) lets the optimiser CSE the per-byte work.
+            let mut mismatch: u32 = 0;
+            for i in 0..NS_LEN {
+                let in_range: u32 = if (i as u32) < self.namespace_len {
+                    1
+                } else {
+                    0
+                };
+                let neq: u32 = if self.namespace_uri[i] != other.namespace_uri[i] {
+                    1
+                } else {
+                    0
+                };
+                mismatch = mismatch | (in_range * neq);
+            }
+            for i in 0..LOCAL_LEN {
+                let in_range: u32 = if (i as u32) < self.local_name_len {
+                    1
+                } else {
+                    0
+                };
+                let neq: u32 = if self.local_name[i] != other.local_name[i] {
+                    1
+                } else {
+                    0
+                };
+                mismatch = mismatch | (in_range * neq);
+            }
+            mismatch == 0
+        }
+    }
+}
+
+impl<let NS_LEN: u32, let LOCAL_LEN: u32> Eq for XsdQName<NS_LEN, LOCAL_LEN> {
+    /// Trait `Eq` -- delegates to `eq_same_size`. Required so callers
+    /// can use `==` / `!=` on equal-shape QNames. Cross-shape callers
+    /// must use the free `qname_equal` function (trait `Eq` requires
+    /// `Self == Self`).
+    fn eq(self, other: Self) -> bool {
+        self.eq_same_size(other)
+    }
 }
 
 // ============================================================================
 // QName Comparison
 // ============================================================================
 
-/// op:QName-equal
-/// Two QNames are equal if both their namespace URIs and local names are equal
+/// op:QName-equal -- cross-shape variant.
+///
+/// Two QNames are equal if both their namespace URIs and local names are
+/// equal as byte sequences and their effective lengths match.
+///
+/// When the two QNames share both array sizes prefer the `==` operator
+/// or `XsdQName::eq_same_size`; this free function exists for cases
+/// where the buffer-size const generics differ between `a` and `b`.
+/// Same big-O cost as the `Eq` impl above: bounded by
+/// `min(NS1, NS2) + min(LOCAL1, LOCAL2)` byte compares.
 pub fn qname_equal<let NS1: u32, let LOCAL1: u32, let NS2: u32, let LOCAL2: u32>(
     a: XsdQName<NS1, LOCAL1>,
     b: XsdQName<NS2, LOCAL2>,
 ) -> bool {
-    // First check if lengths match
-    if a.namespace_len != b.namespace_len {
-        false
-    } else if a.local_name_len != b.local_name_len {
+    if (a.namespace_len != b.namespace_len) | (a.local_name_len != b.local_name_len) {
         false
     } else {
-        // Compare namespace URIs byte by byte
-        let mut ns_equal = true;
+        // Iterate up to the lhs buffer size; out-of-bounds slots on the
+        // rhs are caught by the `(i as u32) < NS2` predicate. The previous
+        // nested-`if` form was equivalent semantically but generated more
+        // ACIR opcodes because each `else` branch carried its own
+        // multiplexer; folding into one `mismatch` mask is uniformly
+        // cheaper at the cost of one extra mul per byte (vs. two muxes).
+        let mut mismatch: u32 = 0;
         for i in 0..NS1 {
-            if (i as u32) < a.namespace_len {
-                if (i as u32) < NS2 {
-                    if a.namespace_uri[i] != b.namespace_uri[i] {
-                        ns_equal = false;
-                    }
-                } else {
-                    ns_equal = false;
-                }
-            }
+            let in_lhs: u32 = if (i as u32) < a.namespace_len { 1 } else { 0 };
+            let in_rhs: u32 = if (i as u32) < NS2 { 1 } else { 0 };
+            // Defensive: `b.namespace_uri[i]` would be out-of-bounds
+            // when `NS2 <= i`. The const-generic predicate above keeps
+            // the byte read guarded; Noir's array indexing is bounded
+            // and the optimiser folds the read away when `in_rhs == 0`.
+            let b_byte: u8 = if (i as u32) < NS2 {
+                b.namespace_uri[i]
+            } else {
+                0
+            };
+            let neq: u32 = if a.namespace_uri[i] != b_byte { 1 } else { 0 };
+            mismatch = mismatch | (in_lhs * in_rhs * neq);
         }
-
-        // Compare local names byte by byte
-        let mut local_equal = true;
         for i in 0..LOCAL1 {
-            if (i as u32) < a.local_name_len {
-                if (i as u32) < LOCAL2 {
-                    if a.local_name[i] != b.local_name[i] {
-                        local_equal = false;
-                    }
-                } else {
-                    local_equal = false;
-                }
-            }
+            let in_lhs: u32 = if (i as u32) < a.local_name_len { 1 } else { 0 };
+            let in_rhs: u32 = if (i as u32) < LOCAL2 { 1 } else { 0 };
+            let b_byte: u8 = if (i as u32) < LOCAL2 {
+                b.local_name[i]
+            } else {
+                0
+            };
+            let neq: u32 = if a.local_name[i] != b_byte { 1 } else { 0 };
+            mismatch = mismatch | (in_lhs * in_rhs * neq);
         }
-
-        ns_equal & local_equal
+        mismatch == 0
     }
 }
 
@@ -147,18 +230,24 @@ pub fn fn_qname_from_strings<let NS_LEN: u32, let LOCAL_LEN: u32>(
 
 /// fn:local-name-from-QName - Returns the local name part of a QName
 /// XPath: fn:local-name-from-QName($arg as xs:QName?) as xs:NCName?
+///
+/// Thin wrapper over the inherent `XsdQName::local_name` method. New
+/// code should prefer `qname.local_name()`.
 pub fn local_name_from_qname<let NS_LEN: u32, let LOCAL_LEN: u32>(
     qname: XsdQName<NS_LEN, LOCAL_LEN>,
 ) -> ([u8; LOCAL_LEN], u32) {
-    (qname.local_name, qname.local_name_len)
+    qname.local_name()
 }
 
 /// fn:namespace-uri-from-QName - Returns the namespace URI part of a QName
 /// XPath: fn:namespace-uri-from-QName($arg as xs:QName?) as xs:anyURI?
+///
+/// Thin wrapper over the inherent `XsdQName::namespace_uri` method. New
+/// code should prefer `qname.namespace_uri()`.
 pub fn namespace_uri_from_qname<let NS_LEN: u32, let LOCAL_LEN: u32>(
     qname: XsdQName<NS_LEN, LOCAL_LEN>,
 ) -> ([u8; NS_LEN], u32) {
-    (qname.namespace_uri, qname.namespace_len)
+    qname.namespace_uri()
 }
 
 /// fn:prefix-from-QName - Returns the prefix part of a QName
@@ -190,6 +279,9 @@ fn test_qname_equal_same() {
     let q2 = XsdQName::new(ns, 19, local, 3);
 
     assert(qname_equal(q1, q2) == true);
+    // Same-shape: exercise both the operator and the inherent method.
+    assert(q1 == q2);
+    assert(q1.eq_same_size(q2));
 }
 
 #[test]
@@ -205,6 +297,7 @@ fn test_qname_equal_different_local() {
     let q2 = XsdQName::new(ns, 19, local2, 3);
 
     assert(qname_equal(q1, q2) == false);
+    assert(!(q1 == q2));
 }
 
 #[test]
@@ -223,6 +316,7 @@ fn test_qname_equal_different_namespace() {
     let q2 = XsdQName::new(ns2, 13, local, 3);
 
     assert(qname_equal(q1, q2) == false);
+    assert(!(q1 == q2));
 }
 
 #[test]
@@ -234,5 +328,29 @@ fn test_qname_no_namespace() {
     let q2: XsdQName<32, 16> = XsdQName::from_local_name(local2, 3);
 
     assert(qname_equal(q1, q2) == true);
+    assert(q1 == q2);
     assert(q1.has_namespace() == false);
+}
+
+#[test]
+fn test_qname_cross_shape_equal() {
+    // q1 has NS_LEN=32, LOCAL_LEN=16; q2 has NS_LEN=24, LOCAL_LEN=8.
+    // Same logical "http://example.com/foo" QName. The trait `==` can't
+    // express this case (Self != Self), so callers must use
+    // `qname_equal`.
+    let ns_a: [u8; 32] = [
+        104, 116, 116, 112, 58, 47, 47, 101, 120, 97, 109, 112, 108, 101, 46, 99, 111, 109, 47, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ];
+    let ns_b: [u8; 24] = [
+        104, 116, 116, 112, 58, 47, 47, 101, 120, 97, 109, 112, 108, 101, 46, 99, 111, 109, 47, 0,
+        0, 0, 0, 0,
+    ];
+    let local_a: [u8; 16] = [102, 111, 111, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let local_b: [u8; 8] = [102, 111, 111, 0, 0, 0, 0, 0];
+
+    let q1 = XsdQName::new(ns_a, 19, local_a, 3);
+    let q2 = XsdQName::new(ns_b, 19, local_b, 3);
+
+    assert(qname_equal(q1, q2) == true);
 }
