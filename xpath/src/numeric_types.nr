@@ -191,6 +191,67 @@ impl Eq for XsdFloat {
     }
 }
 
+impl XsdFloat {
+    // ---- Arithmetic methods ------------------------------------------------
+    //
+    // Method-form mirrors of the existing `numeric_*_float` free
+    // functions (which remain as wrappers). The IEEE 754 wrapper type
+    // `Float<8, 23, RNE>` already implements `+ - * /` via operator
+    // overloads in `noir_IEEE754`, so the methods are one-liners.
+
+    /// op:numeric-add for xs:float.
+    pub fn add(self, other: Self) -> Self {
+        XsdFloat { value: self.value + other.value }
+    }
+
+    /// op:numeric-subtract for xs:float.
+    pub fn subtract(self, other: Self) -> Self {
+        XsdFloat { value: self.value - other.value }
+    }
+
+    /// op:numeric-multiply for xs:float.
+    pub fn multiply(self, other: Self) -> Self {
+        XsdFloat { value: self.value * other.value }
+    }
+
+    /// op:numeric-divide for xs:float.
+    pub fn divide(self, other: Self) -> Self {
+        XsdFloat { value: self.value / other.value }
+    }
+
+    /// fn:abs for xs:float.
+    pub fn abs(self) -> Self {
+        XsdFloat { value: self.value.abs() }
+    }
+
+    // ---- IEEE-aware ordering ------------------------------------------------
+    //
+    // Floats are NOT `Ord` -- IEEE 754 `<` is non-total (NaN unordered),
+    // so `Ord`'s total-order contract cannot hold. Inherent methods
+    // named `lt`/`le`/`gt`/`ge` instead, with the same semantics as the
+    // underlying `Float::flt` / `fle` / `fgt` / `fge` predicates.
+
+    /// op:numeric-less-than for xs:float (NaN-unordered).
+    pub fn lt(self, other: Self) -> bool {
+        self.value.flt(other.value)
+    }
+
+    /// op:numeric-less-than-or-equal for xs:float (NaN-unordered).
+    pub fn le(self, other: Self) -> bool {
+        self.value.fle(other.value)
+    }
+
+    /// op:numeric-greater-than for xs:float (NaN-unordered).
+    pub fn gt(self, other: Self) -> bool {
+        self.value.fgt(other.value)
+    }
+
+    /// op:numeric-greater-than-or-equal for xs:float (NaN-unordered).
+    pub fn ge(self, other: Self) -> bool {
+        self.value.fge(other.value)
+    }
+}
+
 // ============================================================================
 // Float64 Wrapper (xs:double)
 // ============================================================================
@@ -336,6 +397,61 @@ impl Eq for XsdDouble {
     }
 }
 
+impl XsdDouble {
+    // ---- Arithmetic methods (mirror XsdFloat) ------------------------------
+
+    /// op:numeric-add for xs:double.
+    pub fn add(self, other: Self) -> Self {
+        XsdDouble { value: self.value + other.value }
+    }
+
+    /// op:numeric-subtract for xs:double.
+    pub fn subtract(self, other: Self) -> Self {
+        XsdDouble { value: self.value - other.value }
+    }
+
+    /// op:numeric-multiply for xs:double.
+    pub fn multiply(self, other: Self) -> Self {
+        XsdDouble { value: self.value * other.value }
+    }
+
+    /// op:numeric-divide for xs:double.
+    pub fn divide(self, other: Self) -> Self {
+        XsdDouble { value: self.value / other.value }
+    }
+
+    /// fn:abs for xs:double.
+    pub fn abs(self) -> Self {
+        XsdDouble { value: self.value.abs() }
+    }
+
+    // ---- IEEE-aware ordering ------------------------------------------------
+    //
+    // Same rationale as `XsdFloat::lt` -- IEEE 754 non-total order
+    // forbids implementing `Ord`. Methods delegate to the underlying
+    // `Float::flt` / `fle` / `fgt` / `fge`.
+
+    /// op:numeric-less-than for xs:double (NaN-unordered).
+    pub fn lt(self, other: Self) -> bool {
+        self.value.flt(other.value)
+    }
+
+    /// op:numeric-less-than-or-equal for xs:double (NaN-unordered).
+    pub fn le(self, other: Self) -> bool {
+        self.value.fle(other.value)
+    }
+
+    /// op:numeric-greater-than for xs:double (NaN-unordered).
+    pub fn gt(self, other: Self) -> bool {
+        self.value.fgt(other.value)
+    }
+
+    /// op:numeric-greater-than-or-equal for xs:double (NaN-unordered).
+    pub fn ge(self, other: Self) -> bool {
+        self.value.fge(other.value)
+    }
+}
+
 // ============================================================================
 // Type Promotion Functions
 // ============================================================================
@@ -362,120 +478,116 @@ pub fn get_common_type(t1: NumericType, t2: NumericType) -> NumericType {
 // Float Comparison Functions
 // ============================================================================
 
-/// op:numeric-equal for xs:float
-/// NaN does not equal itself per IEEE 754 / XPath spec
+/// op:numeric-equal for xs:float. Thin wrapper over `Eq` for `XsdFloat`.
+/// NaN does not equal itself per IEEE 754 / XPath spec.
 pub fn numeric_equal_float(a: XsdFloat, b: XsdFloat) -> bool {
-    a.value == b.value
+    a == b
 }
 
-/// op:numeric-less-than for xs:float
-/// Returns false if either operand is NaN
+/// op:numeric-less-than for xs:float. Thin wrapper over `XsdFloat::lt`.
 pub fn numeric_less_than_float(a: XsdFloat, b: XsdFloat) -> bool {
-    a.value.flt(b.value)
+    a.lt(b)
 }
 
-/// op:numeric-greater-than for xs:float
-/// Returns false if either operand is NaN
+/// op:numeric-greater-than for xs:float. Thin wrapper over `XsdFloat::gt`.
 pub fn numeric_greater_than_float(a: XsdFloat, b: XsdFloat) -> bool {
-    a.value.fgt(b.value)
+    a.gt(b)
 }
 
-/// op:numeric-less-than-or-equal for xs:float
+/// op:numeric-less-than-or-equal for xs:float. Thin wrapper over `XsdFloat::le`.
 pub fn numeric_le_float(a: XsdFloat, b: XsdFloat) -> bool {
-    a.value.fle(b.value)
+    a.le(b)
 }
 
-/// op:numeric-greater-than-or-equal for xs:float
+/// op:numeric-greater-than-or-equal for xs:float. Thin wrapper over `XsdFloat::ge`.
 pub fn numeric_ge_float(a: XsdFloat, b: XsdFloat) -> bool {
-    a.value.fge(b.value)
+    a.ge(b)
 }
 
 // ============================================================================
 // Double Comparison Functions
 // ============================================================================
 
-/// op:numeric-equal for xs:double
-/// NaN does not equal itself per IEEE 754 / XPath spec
+/// op:numeric-equal for xs:double. Thin wrapper over `Eq` for `XsdDouble`.
+/// NaN does not equal itself per IEEE 754 / XPath spec.
 pub fn numeric_equal_double(a: XsdDouble, b: XsdDouble) -> bool {
-    a.value == b.value
+    a == b
 }
 
-/// op:numeric-less-than for xs:double
-/// Returns false if either operand is NaN
+/// op:numeric-less-than for xs:double. Thin wrapper over `XsdDouble::lt`.
 pub fn numeric_less_than_double(a: XsdDouble, b: XsdDouble) -> bool {
-    a.value.flt(b.value)
+    a.lt(b)
 }
 
-/// op:numeric-greater-than for xs:double
-/// Returns false if either operand is NaN
+/// op:numeric-greater-than for xs:double. Thin wrapper over `XsdDouble::gt`.
 pub fn numeric_greater_than_double(a: XsdDouble, b: XsdDouble) -> bool {
-    a.value.fgt(b.value)
+    a.gt(b)
 }
 
-/// op:numeric-less-than-or-equal for xs:double
+/// op:numeric-less-than-or-equal for xs:double. Thin wrapper over `XsdDouble::le`.
 pub fn numeric_le_double(a: XsdDouble, b: XsdDouble) -> bool {
-    a.value.fle(b.value)
+    a.le(b)
 }
 
-/// op:numeric-greater-than-or-equal for xs:double
+/// op:numeric-greater-than-or-equal for xs:double. Thin wrapper over `XsdDouble::ge`.
 pub fn numeric_ge_double(a: XsdDouble, b: XsdDouble) -> bool {
-    a.value.fge(b.value)
+    a.ge(b)
 }
 
 // ============================================================================
 // Float Arithmetic Functions
 // ============================================================================
 
-/// op:numeric-add for xs:float
+/// op:numeric-add for xs:float. Thin wrapper over `XsdFloat::add`.
 pub fn numeric_add_float(a: XsdFloat, b: XsdFloat) -> XsdFloat {
-    XsdFloat { value: a.value + b.value }
+    a.add(b)
 }
 
-/// op:numeric-subtract for xs:float
+/// op:numeric-subtract for xs:float. Thin wrapper over `XsdFloat::subtract`.
 pub fn numeric_subtract_float(a: XsdFloat, b: XsdFloat) -> XsdFloat {
-    XsdFloat { value: a.value - b.value }
+    a.subtract(b)
 }
 
-/// op:numeric-multiply for xs:float
+/// op:numeric-multiply for xs:float. Thin wrapper over `XsdFloat::multiply`.
 pub fn numeric_multiply_float(a: XsdFloat, b: XsdFloat) -> XsdFloat {
-    XsdFloat { value: a.value * b.value }
+    a.multiply(b)
 }
 
-/// op:numeric-divide for xs:float
+/// op:numeric-divide for xs:float. Thin wrapper over `XsdFloat::divide`.
 pub fn numeric_divide_float(a: XsdFloat, b: XsdFloat) -> XsdFloat {
-    XsdFloat { value: a.value / b.value }
+    a.divide(b)
 }
 
-/// fn:abs for xs:float
+/// fn:abs for xs:float. Thin wrapper over `XsdFloat::abs`.
 pub fn abs_float(a: XsdFloat) -> XsdFloat {
-    XsdFloat { value: a.value.abs() }
+    a.abs()
 }
 
 // ============================================================================
 // Double Arithmetic Functions
 // ============================================================================
 
-/// op:numeric-add for xs:double
+/// op:numeric-add for xs:double. Thin wrapper over `XsdDouble::add`.
 pub fn numeric_add_double(a: XsdDouble, b: XsdDouble) -> XsdDouble {
-    XsdDouble { value: a.value + b.value }
+    a.add(b)
 }
 
-/// op:numeric-subtract for xs:double
+/// op:numeric-subtract for xs:double. Thin wrapper over `XsdDouble::subtract`.
 pub fn numeric_subtract_double(a: XsdDouble, b: XsdDouble) -> XsdDouble {
-    XsdDouble { value: a.value - b.value }
+    a.subtract(b)
 }
 
-/// op:numeric-multiply for xs:double
+/// op:numeric-multiply for xs:double. Thin wrapper over `XsdDouble::multiply`.
 pub fn numeric_multiply_double(a: XsdDouble, b: XsdDouble) -> XsdDouble {
-    XsdDouble { value: a.value * b.value }
+    a.multiply(b)
 }
 
-/// op:numeric-divide for xs:double
+/// op:numeric-divide for xs:double. Thin wrapper over `XsdDouble::divide`.
 pub fn numeric_divide_double(a: XsdDouble, b: XsdDouble) -> XsdDouble {
-    XsdDouble { value: a.value / b.value }
+    a.divide(b)
 }
 
-/// fn:abs for xs:double
+/// fn:abs for xs:double. Thin wrapper over `XsdDouble::abs`.
 pub fn abs_double(a: XsdDouble) -> XsdDouble {
     XsdDouble { value: a.value.abs() }
 }
