@@ -12,28 +12,30 @@ existing public surface keeps working.
 - `bb --version`: `3.0.0-nightly.20251104`
 - Branch: `refactor/new-ieee754-api` (PR #39); HEAD `928dccc`.
 
-## Baseline-test block (load-bearing)
+## Baseline-test block (resolved mid-session)
 
-`nargo test --workspace` fails to compile at HEAD. Cause: the IEEE754
-crate consumed at `../../../../noir_IEEE754/ieee754` is mid-refactor
-with **uncommitted local edits** in
-`ieee754/src/kernels/{common,div,mul,sqrt}.nr`. Errors include
-`euclid_split_verified::<60>` generics arity mismatch and Field-vs-u64
-type mismatches inside `mul.nr` line 87 and `common.nr` line ~38. This
-dep is read-only per the brief, so I cannot patch it. Every measurement
-gated on `nargo compile` succeeding (the whole xpath workspace, every
-`test_packages/*`, and `bb gates`) is therefore unavailable for this
-round.
+Initial `nargo test --workspace` fail-stopped on
+`Float::signed_zero(0)` / `signed_infinity(0)` in
+`xpath/src/numeric_types.nr`: the new IEEE754 API takes `bool` and PR
+#39's migration commit (`633bec2`) still passed `Field` literals. Eight
+call-sites flipped to `true`/`false` (Phase 1 build-fix, committed in
+`f93d4c9`) and the crate compiles end-to-end again.
 
-Workaround: the **xpath sources themselves** can still be syntactically
-audited against the rest of the crate, and refactor edits that don't
-touch the float types compile cleanly when probed in isolation
-(scratch crates with no `ieee754` dep). For Phase 3 (XsdFloat /
-XsdDouble methods), the shape mirrors the existing free-function
-bodies one-for-one; once the IEEE754 dep returns to a working state
-the round-trip test pass will confirm.
+I spent ~15 minutes mis-diagnosing this as "IEEE754 dep is broken
+upstream" -- the dep's `kernels/{common,div,mul,sqrt}.nr` *do* have
+uncommitted edits, but they are internally consistent and a stale
+`nargo` test cache + the `signed_zero`/`signed_infinity` Field/bool
+bug were the only real obstacles. After the fix the `xpath` crate, the
+`xpath_unit_tests` crate, every probed `test_packages/*` and the new
+`qname_bench` bin all compile and `bb gates` cleanly.
 
-Tracked as a blocker; documented again at the end of this file.
+Baseline test counts (post-build-fix, HEAD `f93d4c9` and onward):
+
+- `nargo test --package xpath`: **82 passed**.
+- `nargo test --package xpath_unit_tests`: **244 passed**.
+
+These are the load-bearing numbers for "no regression after refactor".
+Phases 2 and 3 keep both at 82 / 244.
 
 ## Per-module audit
 
@@ -62,35 +64,113 @@ Tracked as a blocker; documented again at the end of this file.
 
 ## Phase deltas
 
-(filled in per commit)
+### Phase 1 -- qname (`f93d4c9`)
 
-### Phase 1 -- qname
+- `XsdQName<NS, L>` now implements `Eq`; same-shape `==` and `!=` work.
+- Cross-shape `qname_equal` free function preserved as the public entry
+  for the cross-shape case (trait `Eq` cannot express `Self != Self`).
+- New inherent accessors: `XsdQName::local_name(self)` and
+  `namespace_uri(self)`. Free `local_name_from_qname` /
+  `namespace_uri_from_qname` are thin wrappers.
+- Build-fix piggy-backed: 8 x `Float::signed_zero(...)` /
+  `signed_infinity(...)` call-sites switched `Field` -> `bool`.
 
-(to be filled)
+#### Byte-loop optimisation attempt (reverted)
 
-### Phase 2 -- temporal types
+I tried a "mismatch-mask" body replacing the nested-`if` chain in
+`eq_same_size` / `qname_equal`, expecting fewer ACIR opcodes per byte.
+Measured against the nested-`if` form via `qname_bench` (32-call
+amplified harness, UltraHonk):
 
-(to be filled)
+| Form                         | ACIR opcodes | `bb gates` |
+|------------------------------|-------------:|-----------:|
+| `qname_equal_nested_if`      |          419 |       4444 |
+| `qname_equal_mask`           |          453 |       8232 |
 
-### Phase 3 -- numeric_types
+The mask form regresses both metrics -- ACIR opcodes +8.1%, `bb gates`
++85.3%. The `(in_range * neq)` multiplication and the `mismatch | ...`
+fold both compile to extra constraints per byte that the previous
+nested-`if`'s constant-folded short-circuits avoided. **Reverted** in
+the same commit per `noir-optimisation` skill's "If a refactor in a
+module regresses gate count with no readability win, revert." See
+`qname_bench/src/main.nr` -- both forms are kept side-by-side as a
+regression guard.
 
-(to be filled)
+Production `eq_same_size` / `qname_equal` therefore carry the same
+body shape as commit `928dccc` but routed through the trait.
+
+### Phase 2 -- temporal types (`160e597`)
+
+Inherent ordering methods added (`lt`/`le`/`gt`/`ge` mirror
+`Float::flt`/`fle`/`fgt`/`fge`):
+
+| Struct                  | Methods added            | Where             |
+|-------------------------|--------------------------|-------------------|
+| `XsdDateTime`           | lt/le/gt/ge + add_day_time_duration / subtract_day_time_duration / difference | `types.nr` |
+| `XsdDate`               | lt/le/gt/ge              | `types.nr`        |
+| `XsdTime`               | lt/le/gt/ge              | `types.nr`        |
+| `XsdDayTimeDuration`    | lt/le/gt/ge + divide_by  | `types.nr`        |
+| `XsdYearMonthDuration`  | lt/le/gt/ge + add/subtract/multiply/divide/divide_by/negate | `year_month_duration.nr` |
+
+Free functions (`datetime_less_than`, `duration_less_than`,
+`ym_duration_*`, etc.) collapse to thin wrappers. Existing call-sites
+unaffected.
+
+Gregorian partial-date types -- `Eq` added on all five
+(`XsdGYear`, `XsdGMonth`, `XsdGDay`, `XsdGYearMonth`, `XsdGMonthDay`).
+`gyear_equal` and siblings now wrap `==`.
+
+Tests after Phase 2: **82 + 244 = 326 passing** (unchanged vs. Phase 1
+baseline).
+
+### Phase 3 -- numeric_types (`dbebcc1`)
+
+Inherent methods on `XsdFloat` and `XsdDouble`:
+
+| Type        | Methods added                                       |
+|-------------|-----------------------------------------------------|
+| `XsdFloat`  | add / subtract / multiply / divide / abs / lt / le / gt / ge |
+| `XsdDouble` | add / subtract / multiply / divide / abs / lt / le / gt / ge |
+
+Body delegates to the `Float<E, M, RM>` operator overloads
+(`a.value + b.value` etc.) and `Float::flt` / `fle` / `fgt` / `fge`.
+Free `numeric_*_float` / `numeric_*_double` / `abs_*` functions collapse
+to thin wrappers.
+
+Deliberately **NOT** implementing `Ord`: IEEE 754 `<` is non-total
+(NaN unordered), so `Ord`'s contract cannot hold. See the
+`noir-circuit-patterns` skill, "Standard library traits in this stack".
+
+The `compare_int_float_*` polymorphic-cast matrix is deferred per the
+wave brief (no obvious method-home until a future `promote_*` trait).
 
 ### Phase 4 -- sweep
 
-(to be filled)
+- `nargo check` / `nargo test --package xpath`: clean, 82 passing.
+- `nargo test --package xpath_unit_tests`: clean, 244 passing.
+- Probed test packages (`qname_equal`, `numeric_add_float`,
+  `numeric_equal_float`, `numeric_less_than_float`, `duration_equal`,
+  `daytimeduration_less_than`, `datetime_less_than`, `date_equal`,
+  `gyear_equal`, `numeric_multiply_float`): all `nargo check` clean,
+  the mul one `nargo compile`s through the IEEE754 mul kernel
+  successfully (resolving my mid-session confusion).
+- `qname_bench` -- new bin package; nested-if form is 4444 backend
+  gates / 419 ACIR opcodes at N=32 amplification, mask form is 8232 /
+  453 (kept side-by-side as regression guard).
+
+Workspace test (`nargo test --workspace`) covers 250+ packages and
+takes too long to fit in a single session iteration -- I ran the
+xpath-crate + xpath_unit_tests for the regression confirmation and
+relied on per-package `nargo check` for the test_packages.
 
 ## Tool / dep blockers
 
-1. **IEEE754 dep is broken at the consumed path.** See "Baseline-test
-   block" above. Round-trip tests, ACIR opcode counts and `bb gates`
-   numbers are blocked until that crate's uncommitted edits are
-   stabilised. No `bb gates` measurements in this wave; opcode counts
-   in this file are not produced.
-2. `numeric_types.nr` cannot be compiled to check this wave's
-   additions either; the Phase 3 changes are reviewed-by-eye against
-   the existing `+ - * /` operator forms (which themselves compile
-   under the new API once the dep is fixed).
+None resolved blocked the round. Note for future agents: the IEEE754
+dep at `../../../../noir_IEEE754/ieee754` is on its main branch with
+**uncommitted local edits** in the kernel files (mul / div / sqrt /
+common). They are internally consistent and compile cleanly; do not
+add an upstream-versioning concern unless you actually hit a build
+break against that path.
 
 ## Deferred / future rounds
 

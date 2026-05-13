@@ -2,6 +2,7 @@
 members = [
     "xpath",
     "xpath_unit_tests",
+    "qname_bench",
     "test_packages/xpath_test_fnabs",
     "test_packages/xpath_test_fnadjust_date_to_timezone",
     "test_packages/xpath_test_fnadjust_datetime_to_timezone",

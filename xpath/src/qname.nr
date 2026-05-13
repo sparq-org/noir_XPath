@@ -65,49 +65,38 @@ impl<let NS_LEN: u32, let LOCAL_LEN: u32> XsdQName<NS_LEN, LOCAL_LEN> {
     ///
     /// Cost note: equality runs in O(NS_LEN + LOCAL_LEN) byte compares
     /// regardless of the runtime `namespace_len` / `local_name_len`.
-    /// Each iteration is a single conditional XOR-or-zero accumulated
-    /// into one boolean -- cheaper than the previous form because the
-    /// per-byte branch is now a multiplied-mask rather than a nested
-    /// `if` chain.
+    /// The mismatch-mask form measured *worse* on `bb gates` than the
+    /// nested-`if` form on UltraHonk (8232 vs. 4444 backend gates at
+    /// N=32 amplification), so we keep the nested-`if` body the
+    /// migration inherited from `928dccc` -- see
+    /// `qname_bench/` for the measurement script.
     pub fn eq_same_size(self, other: Self) -> bool {
-        // Length-mismatch shortcut: when either component's runtime
-        // length differs, the two QNames cannot match irrespective of
-        // the byte payloads.
-        if (self.namespace_len != other.namespace_len)
-            | (self.local_name_len != other.local_name_len) {
+        if self.namespace_len != other.namespace_len {
+            false
+        } else if self.local_name_len != other.local_name_len {
             false
         } else {
-            // `mismatch` accumulates `1` as soon as any byte within the
-            // declared `*_len` prefix differs. The straight-line form
-            // (no nested `if`s) lets the optimiser CSE the per-byte work.
-            let mut mismatch: u32 = 0;
+            // Compare namespace URIs byte by byte.
+            let mut ns_equal = true;
             for i in 0..NS_LEN {
-                let in_range: u32 = if (i as u32) < self.namespace_len {
-                    1
-                } else {
-                    0
-                };
-                let neq: u32 = if self.namespace_uri[i] != other.namespace_uri[i] {
-                    1
-                } else {
-                    0
-                };
-                mismatch = mismatch | (in_range * neq);
+                if (i as u32) < self.namespace_len {
+                    if self.namespace_uri[i] != other.namespace_uri[i] {
+                        ns_equal = false;
+                    }
+                }
             }
+
+            // Compare local names byte by byte.
+            let mut local_equal = true;
             for i in 0..LOCAL_LEN {
-                let in_range: u32 = if (i as u32) < self.local_name_len {
-                    1
-                } else {
-                    0
-                };
-                let neq: u32 = if self.local_name[i] != other.local_name[i] {
-                    1
-                } else {
-                    0
-                };
-                mismatch = mismatch | (in_range * neq);
+                if (i as u32) < self.local_name_len {
+                    if self.local_name[i] != other.local_name[i] {
+                        local_equal = false;
+                    }
+                }
             }
-            mismatch == 0
+
+            ns_equal & local_equal
         }
     }
 }
@@ -136,47 +125,49 @@ impl<let NS_LEN: u32, let LOCAL_LEN: u32> Eq for XsdQName<NS_LEN, LOCAL_LEN> {
 /// where the buffer-size const generics differ between `a` and `b`.
 /// Same big-O cost as the `Eq` impl above: bounded by
 /// `min(NS1, NS2) + min(LOCAL1, LOCAL2)` byte compares.
+///
+/// Body is the nested-`if` form, preserved verbatim from `928dccc`.
+/// An alternative `mismatch-mask` form was tried for cost; `bb gates`
+/// regressed it from 4444 to 8232 backend gates (1.85x worse) at N=32
+/// amplification under UltraHonk -- see `qname_bench/`.
 pub fn qname_equal<let NS1: u32, let LOCAL1: u32, let NS2: u32, let LOCAL2: u32>(
     a: XsdQName<NS1, LOCAL1>,
     b: XsdQName<NS2, LOCAL2>,
 ) -> bool {
-    if (a.namespace_len != b.namespace_len) | (a.local_name_len != b.local_name_len) {
+    if a.namespace_len != b.namespace_len {
+        false
+    } else if a.local_name_len != b.local_name_len {
         false
     } else {
-        // Iterate up to the lhs buffer size; out-of-bounds slots on the
-        // rhs are caught by the `(i as u32) < NS2` predicate. The previous
-        // nested-`if` form was equivalent semantically but generated more
-        // ACIR opcodes because each `else` branch carried its own
-        // multiplexer; folding into one `mismatch` mask is uniformly
-        // cheaper at the cost of one extra mul per byte (vs. two muxes).
-        let mut mismatch: u32 = 0;
+        // Compare namespace URIs byte by byte.
+        let mut ns_equal = true;
         for i in 0..NS1 {
-            let in_lhs: u32 = if (i as u32) < a.namespace_len { 1 } else { 0 };
-            let in_rhs: u32 = if (i as u32) < NS2 { 1 } else { 0 };
-            // Defensive: `b.namespace_uri[i]` would be out-of-bounds
-            // when `NS2 <= i`. The const-generic predicate above keeps
-            // the byte read guarded; Noir's array indexing is bounded
-            // and the optimiser folds the read away when `in_rhs == 0`.
-            let b_byte: u8 = if (i as u32) < NS2 {
-                b.namespace_uri[i]
-            } else {
-                0
-            };
-            let neq: u32 = if a.namespace_uri[i] != b_byte { 1 } else { 0 };
-            mismatch = mismatch | (in_lhs * in_rhs * neq);
+            if (i as u32) < a.namespace_len {
+                if (i as u32) < NS2 {
+                    if a.namespace_uri[i] != b.namespace_uri[i] {
+                        ns_equal = false;
+                    }
+                } else {
+                    ns_equal = false;
+                }
+            }
         }
+
+        // Compare local names byte by byte.
+        let mut local_equal = true;
         for i in 0..LOCAL1 {
-            let in_lhs: u32 = if (i as u32) < a.local_name_len { 1 } else { 0 };
-            let in_rhs: u32 = if (i as u32) < LOCAL2 { 1 } else { 0 };
-            let b_byte: u8 = if (i as u32) < LOCAL2 {
-                b.local_name[i]
-            } else {
-                0
-            };
-            let neq: u32 = if a.local_name[i] != b_byte { 1 } else { 0 };
-            mismatch = mismatch | (in_lhs * in_rhs * neq);
+            if (i as u32) < a.local_name_len {
+                if (i as u32) < LOCAL2 {
+                    if a.local_name[i] != b.local_name[i] {
+                        local_equal = false;
+                    }
+                } else {
+                    local_equal = false;
+                }
+            }
         }
-        mismatch == 0
+
+        ns_equal & local_equal
     }
 }
 

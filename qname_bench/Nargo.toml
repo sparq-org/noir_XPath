@@ -1,0 +1,7 @@
+[package]
+name = "qname_bench"
+type = "bin"
+authors = ["jeswr"]
+
+[dependencies]
+xpath = { path = "../xpath" }
