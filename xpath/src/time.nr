@@ -97,24 +97,24 @@ pub fn time_equal(a: XsdTime, b: XsdTime) -> bool {
     a.utc_microseconds() == b.utc_microseconds()
 }
 
-/// op:time-less-than - Returns true if a is before b (in UTC)
+/// op:time-less-than - Returns true if a is before b (in UTC). Thin wrapper over `XsdTime::lt`.
 pub fn time_less_than(a: XsdTime, b: XsdTime) -> bool {
-    a.utc_microseconds() < b.utc_microseconds()
+    a.lt(b)
 }
 
-/// op:time-greater-than - Returns true if a is after b (in UTC)
+/// op:time-greater-than - Returns true if a is after b (in UTC). Thin wrapper over `XsdTime::gt`.
 pub fn time_greater_than(a: XsdTime, b: XsdTime) -> bool {
-    a.utc_microseconds() > b.utc_microseconds()
+    a.gt(b)
 }
 
-/// op:time-less-than-or-equal
+/// op:time-less-than-or-equal. Thin wrapper over `XsdTime::le`.
 pub fn time_le(a: XsdTime, b: XsdTime) -> bool {
-    a.utc_microseconds() <= b.utc_microseconds()
+    a.le(b)
 }
 
-/// op:time-greater-than-or-equal
+/// op:time-greater-than-or-equal. Thin wrapper over `XsdTime::ge`.
 pub fn time_ge(a: XsdTime, b: XsdTime) -> bool {
-    a.utc_microseconds() >= b.utc_microseconds()
+    a.ge(b)
 }
 
 // ============================================================================

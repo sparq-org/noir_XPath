@@ -64,6 +64,69 @@ impl XsdYearMonthDuration {
             self.total_months as u32
         }
     }
+
+    // ---- Arithmetic --------------------------------------------------------
+    //
+    // All methods operate on the canonical `total_months: i32` encoding.
+    // The free `ym_duration_*` functions in this module are thin
+    // wrappers for back-compat with the original XPath naming.
+
+    /// op:add-yearMonthDurations.
+    pub fn add(self, other: Self) -> Self {
+        XsdYearMonthDuration::new(self.total_months + other.total_months)
+    }
+
+    /// op:subtract-yearMonthDurations.
+    pub fn subtract(self, other: Self) -> Self {
+        XsdYearMonthDuration::new(self.total_months - other.total_months)
+    }
+
+    /// op:multiply-yearMonthDuration by an integer scalar.
+    pub fn multiply(self, factor: i32) -> Self {
+        XsdYearMonthDuration::new(self.total_months * factor)
+    }
+
+    /// op:divide-yearMonthDuration by an integer scalar. Caller must
+    /// check `divisor != 0`.
+    pub fn divide(self, divisor: i32) -> Self {
+        XsdYearMonthDuration::new(self.total_months / divisor)
+    }
+
+    /// op:divide-yearMonthDuration-by-yearMonthDuration -- integer
+    /// ratio of total-month counts. Caller must check `other` is non-zero.
+    pub fn divide_by(self, other: Self) -> i32 {
+        self.total_months / other.total_months
+    }
+
+    /// Negation.
+    pub fn negate(self) -> Self {
+        XsdYearMonthDuration::new(-self.total_months)
+    }
+
+    // ---- Ordering ----------------------------------------------------------
+    //
+    // i32 typed compares -- already in the cheap range-check path,
+    // no extra hoisting required.
+
+    /// op:yearMonthDuration-less-than.
+    pub fn lt(self, other: Self) -> bool {
+        self.total_months < other.total_months
+    }
+
+    /// op:yearMonthDuration-less-than-or-equal.
+    pub fn le(self, other: Self) -> bool {
+        self.total_months <= other.total_months
+    }
+
+    /// op:yearMonthDuration-greater-than.
+    pub fn gt(self, other: Self) -> bool {
+        self.total_months > other.total_months
+    }
+
+    /// op:yearMonthDuration-greater-than-or-equal.
+    pub fn ge(self, other: Self) -> bool {
+        self.total_months >= other.total_months
+    }
 }
 
 impl Eq for XsdYearMonthDuration {
@@ -278,73 +341,69 @@ pub fn months_from_duration(dur: XsdYearMonthDuration) -> i32 {
 // YearMonthDuration Arithmetic
 // ============================================================================
 
-/// op:add-yearMonthDurations
-/// Adds two yearMonthDurations
+/// op:add-yearMonthDurations. Thin wrapper over `XsdYearMonthDuration::add`.
 pub fn ym_duration_add(a: XsdYearMonthDuration, b: XsdYearMonthDuration) -> XsdYearMonthDuration {
-    XsdYearMonthDuration::new(a.total_months + b.total_months)
+    a.add(b)
 }
 
-/// op:subtract-yearMonthDurations
-/// Subtracts second yearMonthDuration from first
+/// op:subtract-yearMonthDurations. Thin wrapper over `XsdYearMonthDuration::subtract`.
 pub fn ym_duration_subtract(
     a: XsdYearMonthDuration,
     b: XsdYearMonthDuration,
 ) -> XsdYearMonthDuration {
-    XsdYearMonthDuration::new(a.total_months - b.total_months)
+    a.subtract(b)
 }
 
-/// op:multiply-yearMonthDuration
-/// Multiplies a yearMonthDuration by an integer
+/// op:multiply-yearMonthDuration. Thin wrapper over `XsdYearMonthDuration::multiply`.
 pub fn ym_duration_multiply(dur: XsdYearMonthDuration, factor: i32) -> XsdYearMonthDuration {
-    XsdYearMonthDuration::new(dur.total_months * factor)
+    dur.multiply(factor)
 }
 
-/// op:divide-yearMonthDuration
-/// Divides a yearMonthDuration by an integer
+/// op:divide-yearMonthDuration. Thin wrapper over `XsdYearMonthDuration::divide`.
 pub fn ym_duration_divide(dur: XsdYearMonthDuration, divisor: i32) -> XsdYearMonthDuration {
     assert(divisor != 0, "Division by zero");
-    XsdYearMonthDuration::new(dur.total_months / divisor)
+    dur.divide(divisor)
 }
 
-/// op:divide-yearMonthDuration-by-yearMonthDuration
-/// Divides two yearMonthDurations, returning a ratio
+/// op:divide-yearMonthDuration-by-yearMonthDuration. Thin wrapper over
+/// `XsdYearMonthDuration::divide_by`.
 pub fn ym_duration_divide_by_duration(a: XsdYearMonthDuration, b: XsdYearMonthDuration) -> i32 {
     assert(b.total_months != 0, "Division by zero duration");
-    a.total_months / b.total_months
+    a.divide_by(b)
 }
 
-/// Negates a yearMonthDuration
+/// Negates a yearMonthDuration. Thin wrapper over `XsdYearMonthDuration::negate`.
 pub fn ym_duration_negate(dur: XsdYearMonthDuration) -> XsdYearMonthDuration {
-    XsdYearMonthDuration::new(-dur.total_months)
+    dur.negate()
 }
 
 // ============================================================================
 // YearMonthDuration Comparison
 // ============================================================================
 
-/// op:yearMonthDuration-equal
+/// op:yearMonthDuration-equal. Thin wrapper over `Eq` for `XsdYearMonthDuration`.
 pub fn ym_duration_equal(a: XsdYearMonthDuration, b: XsdYearMonthDuration) -> bool {
-    a.total_months == b.total_months
+    a == b
 }
 
-/// op:yearMonthDuration-less-than
+/// op:yearMonthDuration-less-than. Thin wrapper over `XsdYearMonthDuration::lt`.
 pub fn ym_duration_less_than(a: XsdYearMonthDuration, b: XsdYearMonthDuration) -> bool {
-    a.total_months < b.total_months
+    a.lt(b)
 }
 
-/// op:yearMonthDuration-greater-than
+/// op:yearMonthDuration-greater-than. Thin wrapper over `XsdYearMonthDuration::gt`.
 pub fn ym_duration_greater_than(a: XsdYearMonthDuration, b: XsdYearMonthDuration) -> bool {
-    a.total_months > b.total_months
+    a.gt(b)
 }
 
-/// op:yearMonthDuration-less-than-or-equal
+/// op:yearMonthDuration-less-than-or-equal. Thin wrapper over `XsdYearMonthDuration::le`.
 pub fn ym_duration_le(a: XsdYearMonthDuration, b: XsdYearMonthDuration) -> bool {
-    a.total_months <= b.total_months
+    a.le(b)
 }
 
-/// op:yearMonthDuration-greater-than-or-equal
+/// op:yearMonthDuration-greater-than-or-equal. Thin wrapper over `XsdYearMonthDuration::ge`.
 pub fn ym_duration_ge(a: XsdYearMonthDuration, b: XsdYearMonthDuration) -> bool {
-    a.total_months >= b.total_months
+    a.ge(b)
 }
 
 // ============================================================================

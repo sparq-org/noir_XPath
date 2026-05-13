@@ -89,24 +89,24 @@ pub fn date_equal(a: XsdDate, b: XsdDate) -> bool {
     a.epoch_days == b.epoch_days
 }
 
-/// Check if first date is less than second
+/// Check if first date is less than second. Thin wrapper over `XsdDate::lt`.
 pub fn date_less_than(a: XsdDate, b: XsdDate) -> bool {
-    a.epoch_days < b.epoch_days
+    a.lt(b)
 }
 
-/// Check if first date is greater than second
+/// Check if first date is greater than second. Thin wrapper over `XsdDate::gt`.
 pub fn date_greater_than(a: XsdDate, b: XsdDate) -> bool {
-    a.epoch_days > b.epoch_days
+    a.gt(b)
 }
 
-/// Check if first date is less than or equal to second
+/// Check if first date is less than or equal to second. Thin wrapper over `XsdDate::le`.
 pub fn date_le(a: XsdDate, b: XsdDate) -> bool {
-    a.epoch_days <= b.epoch_days
+    a.le(b)
 }
 
-/// Check if first date is greater than or equal to second
+/// Check if first date is greater than or equal to second. Thin wrapper over `XsdDate::ge`.
 pub fn date_ge(a: XsdDate, b: XsdDate) -> bool {
-    a.epoch_days >= b.epoch_days
+    a.ge(b)
 }
 
 // ============================================================================

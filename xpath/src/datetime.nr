@@ -190,36 +190,24 @@ pub fn datetime_equal(a: XsdDateTime, b: XsdDateTime) -> bool {
     a.epoch_microseconds == b.epoch_microseconds
 }
 
-/// op:dateTime-less-than
-/// Returns true if the first dateTime is earlier than the second.
+/// op:dateTime-less-than. Thin wrapper over `XsdDateTime::lt`.
 pub fn datetime_less_than(a: XsdDateTime, b: XsdDateTime) -> bool {
-    let a_micros: u64 = a.epoch_microseconds as u64;
-    let b_micros: u64 = b.epoch_microseconds as u64;
-    a_micros < b_micros
+    a.lt(b)
 }
 
-/// op:dateTime-greater-than
-/// Returns true if the first dateTime is later than the second.
+/// op:dateTime-greater-than. Thin wrapper over `XsdDateTime::gt`.
 pub fn datetime_greater_than(a: XsdDateTime, b: XsdDateTime) -> bool {
-    let a_micros: u64 = a.epoch_microseconds as u64;
-    let b_micros: u64 = b.epoch_microseconds as u64;
-    a_micros > b_micros
+    a.gt(b)
 }
 
-/// op:dateTime-less-than-or-equal
-/// Returns true if the first dateTime is earlier than or equal to the second.
+/// op:dateTime-less-than-or-equal. Thin wrapper over `XsdDateTime::le`.
 pub fn datetime_le(a: XsdDateTime, b: XsdDateTime) -> bool {
-    let a_micros: u64 = a.epoch_microseconds as u64;
-    let b_micros: u64 = b.epoch_microseconds as u64;
-    a_micros <= b_micros
+    a.le(b)
 }
 
-/// op:dateTime-greater-than-or-equal
-/// Returns true if the first dateTime is later than or equal to the second.
+/// op:dateTime-greater-than-or-equal. Thin wrapper over `XsdDateTime::ge`.
 pub fn datetime_ge(a: XsdDateTime, b: XsdDateTime) -> bool {
-    let a_micros: u64 = a.epoch_microseconds as u64;
-    let b_micros: u64 = b.epoch_microseconds as u64;
-    a_micros >= b_micros
+    a.ge(b)
 }
 
 // ============================================================================

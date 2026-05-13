@@ -104,9 +104,8 @@ pub fn duration_divide(dur: XsdDayTimeDuration, divisor: i64) -> XsdDayTimeDurat
 
 /// op:divide-dayTimeDuration-by-dayTimeDuration -- returns the integer ratio.
 pub fn duration_divide_by_duration(a: XsdDayTimeDuration, b: XsdDayTimeDuration) -> i64 {
-    let b_micros = b.to_signed_micros();
-    assert(b_micros != 0, "Division by zero duration");
-    a.to_signed_micros() / b_micros
+    assert(b.to_signed_micros() != 0, "Division by zero duration");
+    a.divide_by(b)
 }
 
 /// Negates a duration
@@ -119,31 +118,24 @@ pub fn duration_negate(dur: XsdDayTimeDuration) -> XsdDayTimeDuration {
 // ============================================================================
 
 /// op:add-dayTimeDuration-to-dateTime
-/// Adds a duration to a dateTime
+/// Adds a duration to a dateTime. Thin wrapper over
+/// `XsdDateTime::add_day_time_duration`.
 pub fn datetime_add_duration(dt: XsdDateTime, dur: XsdDayTimeDuration) -> XsdDateTime {
-    let dt_micros: i64 = dt.epoch_microseconds as i64;
-    let result = dt_micros + dur.to_signed_micros();
-    assert(result >= 0, "DateTime cannot be negative");
-    let result_u64: u64 = result as u64;
-    XsdDateTime::new(result_u64 as Field)
+    dt.add_day_time_duration(dur)
 }
 
 /// op:subtract-dayTimeDuration-from-dateTime
-/// Subtracts a duration from a dateTime
+/// Subtracts a duration from a dateTime. Thin wrapper over
+/// `XsdDateTime::subtract_day_time_duration`.
 pub fn datetime_subtract_duration(dt: XsdDateTime, dur: XsdDayTimeDuration) -> XsdDateTime {
-    let dt_micros: i64 = dt.epoch_microseconds as i64;
-    let result = dt_micros - dur.to_signed_micros();
-    assert(result >= 0, "DateTime cannot be negative");
-    let result_u64: u64 = result as u64;
-    XsdDateTime::new(result_u64 as Field)
+    dt.subtract_day_time_duration(dur)
 }
 
 /// op:subtract-dateTimes
-/// Returns the duration between two dateTimes (a - b)
+/// Returns the duration between two dateTimes (a - b). Thin wrapper
+/// over `XsdDateTime::difference`.
 pub fn datetime_difference(a: XsdDateTime, b: XsdDateTime) -> XsdDayTimeDuration {
-    let a_micros: i64 = a.epoch_microseconds as i64;
-    let b_micros: i64 = b.epoch_microseconds as i64;
-    XsdDayTimeDuration::from_signed_micros(a_micros - b_micros)
+    a.difference(b)
 }
 
 // ============================================================================
@@ -155,24 +147,24 @@ pub fn duration_equal(a: XsdDayTimeDuration, b: XsdDayTimeDuration) -> bool {
     a == b
 }
 
-/// op:dayTimeDuration-less-than
+/// op:dayTimeDuration-less-than. Thin wrapper over `XsdDayTimeDuration::lt`.
 pub fn duration_less_than(a: XsdDayTimeDuration, b: XsdDayTimeDuration) -> bool {
-    a.to_signed_micros() < b.to_signed_micros()
+    a.lt(b)
 }
 
-/// op:dayTimeDuration-greater-than
+/// op:dayTimeDuration-greater-than. Thin wrapper over `XsdDayTimeDuration::gt`.
 pub fn duration_greater_than(a: XsdDayTimeDuration, b: XsdDayTimeDuration) -> bool {
-    a.to_signed_micros() > b.to_signed_micros()
+    a.gt(b)
 }
 
-/// op:dayTimeDuration-less-than-or-equal
+/// op:dayTimeDuration-less-than-or-equal. Thin wrapper over `XsdDayTimeDuration::le`.
 pub fn duration_le(a: XsdDayTimeDuration, b: XsdDayTimeDuration) -> bool {
-    a.to_signed_micros() <= b.to_signed_micros()
+    a.le(b)
 }
 
-/// op:dayTimeDuration-greater-than-or-equal
+/// op:dayTimeDuration-greater-than-or-equal. Thin wrapper over `XsdDayTimeDuration::ge`.
 pub fn duration_ge(a: XsdDayTimeDuration, b: XsdDayTimeDuration) -> bool {
-    a.to_signed_micros() >= b.to_signed_micros()
+    a.ge(b)
 }
 
 // ============================================================================

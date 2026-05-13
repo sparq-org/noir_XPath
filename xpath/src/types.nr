@@ -47,6 +47,70 @@ impl XsdDateTime {
         let local_u64: u64 = local as u64;
         local_u64 as Field
     }
+
+    // ---- Comparison ---------------------------------------------------------
+    //
+    // The epoch_microseconds field is a Field; before the typed-compare
+    // optimisation a naive `<` on Field cost ~270 UltraHonk gates per
+    // call, while casting to u64 first lands in the cheap plookup path
+    // at ~95 gates. All four ordering methods cast once, then compare.
+
+    /// op:dateTime-less-than -- UTC ordering.
+    pub fn lt(self, other: Self) -> bool {
+        let a: u64 = self.epoch_microseconds as u64;
+        let b: u64 = other.epoch_microseconds as u64;
+        a < b
+    }
+
+    /// op:dateTime-less-than-or-equal -- UTC ordering.
+    pub fn le(self, other: Self) -> bool {
+        let a: u64 = self.epoch_microseconds as u64;
+        let b: u64 = other.epoch_microseconds as u64;
+        a <= b
+    }
+
+    /// op:dateTime-greater-than -- UTC ordering.
+    pub fn gt(self, other: Self) -> bool {
+        let a: u64 = self.epoch_microseconds as u64;
+        let b: u64 = other.epoch_microseconds as u64;
+        a > b
+    }
+
+    /// op:dateTime-greater-than-or-equal -- UTC ordering.
+    pub fn ge(self, other: Self) -> bool {
+        let a: u64 = self.epoch_microseconds as u64;
+        let b: u64 = other.epoch_microseconds as u64;
+        a >= b
+    }
+
+    // ---- Duration arithmetic -----------------------------------------------
+
+    /// op:add-dayTimeDuration-to-dateTime. The result must be a
+    /// non-negative microsecond count from the Unix epoch; an underflow
+    /// panics.
+    pub fn add_day_time_duration(self, dur: XsdDayTimeDuration) -> Self {
+        let dt_micros: i64 = self.epoch_microseconds as i64;
+        let result = dt_micros + dur.to_signed_micros();
+        assert(result >= 0, "DateTime cannot be negative");
+        let result_u64: u64 = result as u64;
+        XsdDateTime::new(result_u64 as Field)
+    }
+
+    /// op:subtract-dayTimeDuration-from-dateTime.
+    pub fn subtract_day_time_duration(self, dur: XsdDayTimeDuration) -> Self {
+        let dt_micros: i64 = self.epoch_microseconds as i64;
+        let result = dt_micros - dur.to_signed_micros();
+        assert(result >= 0, "DateTime cannot be negative");
+        let result_u64: u64 = result as u64;
+        XsdDateTime::new(result_u64 as Field)
+    }
+
+    /// op:subtract-dateTimes -- the duration `self - other`.
+    pub fn difference(self, other: Self) -> XsdDayTimeDuration {
+        let a_micros: i64 = self.epoch_microseconds as i64;
+        let b_micros: i64 = other.epoch_microseconds as i64;
+        XsdDayTimeDuration::from_signed_micros(a_micros - b_micros)
+    }
 }
 
 impl Eq for XsdDateTime {
@@ -186,6 +250,41 @@ impl XsdDayTimeDuration {
     pub fn divide(self, divisor: i64) -> Self {
         XsdDayTimeDuration { signed_micros: self.signed_micros / divisor }
     }
+
+    // ---- Ordering -----------------------------------------------------------
+    //
+    // IEEE 754-style: expose `lt` / `le` / `gt` / `ge` as inherent methods
+    // rather than an `Ord` impl. Same reason as `Float::flt` -- keeps the
+    // surface mirror-image with `noir_IEEE754` and avoids having to commit
+    // to a total-order semantics if a future variant ever encodes
+    // unrepresentable durations. Each compare lowers to a single i64
+    // typed compare (cheap on UltraHonk; ~175 gates beneath `Field::lt`).
+
+    /// op:dayTimeDuration-less-than.
+    pub fn lt(self, other: Self) -> bool {
+        self.signed_micros < other.signed_micros
+    }
+
+    /// op:dayTimeDuration-less-than-or-equal.
+    pub fn le(self, other: Self) -> bool {
+        self.signed_micros <= other.signed_micros
+    }
+
+    /// op:dayTimeDuration-greater-than.
+    pub fn gt(self, other: Self) -> bool {
+        self.signed_micros > other.signed_micros
+    }
+
+    /// op:dayTimeDuration-greater-than-or-equal.
+    pub fn ge(self, other: Self) -> bool {
+        self.signed_micros >= other.signed_micros
+    }
+
+    /// op:divide-dayTimeDuration-by-dayTimeDuration -- integer ratio of
+    /// signed-micro counts. Caller must check `other` is non-zero.
+    pub fn divide_by(self, other: Self) -> i64 {
+        self.signed_micros / other.signed_micros
+    }
 }
 
 impl Eq for XsdDayTimeDuration {
@@ -214,6 +313,33 @@ impl XsdDate {
     /// Create a new Date with timezone offset
     pub fn new_with_tz(epoch_days: i32, tz_offset_minutes: i16) -> Self {
         XsdDate { epoch_days, tz_offset_minutes }
+    }
+
+    // ---- Comparison ---------------------------------------------------------
+    //
+    // `epoch_days` is i32 -- typed compares are already cheap. The
+    // method-form mirrors the rest of the temporal types for caller
+    // ergonomics. Order is on calendar date (epoch days), not instant,
+    // matching the XPath spec.
+
+    /// op:date-less-than.
+    pub fn lt(self, other: Self) -> bool {
+        self.epoch_days < other.epoch_days
+    }
+
+    /// op:date-less-than-or-equal.
+    pub fn le(self, other: Self) -> bool {
+        self.epoch_days <= other.epoch_days
+    }
+
+    /// op:date-greater-than.
+    pub fn gt(self, other: Self) -> bool {
+        self.epoch_days > other.epoch_days
+    }
+
+    /// op:date-greater-than-or-equal.
+    pub fn ge(self, other: Self) -> bool {
+        self.epoch_days >= other.epoch_days
     }
 }
 
@@ -279,6 +405,31 @@ impl XsdTime {
         let local_micros = self.microseconds_since_midnight as i64;
         let offset_micros = (self.tz_offset_minutes as i64) * (XSD_MICROS_PER_MINUTE as i64);
         local_micros - offset_micros
+    }
+
+    // ---- Comparison ---------------------------------------------------------
+    //
+    // Compares as UTC microseconds (i64) so timezone offsets order
+    // correctly. Typed i64 compares lower cheaply.
+
+    /// op:time-less-than -- UTC ordering.
+    pub fn lt(self, other: Self) -> bool {
+        self.utc_microseconds() < other.utc_microseconds()
+    }
+
+    /// op:time-less-than-or-equal -- UTC ordering.
+    pub fn le(self, other: Self) -> bool {
+        self.utc_microseconds() <= other.utc_microseconds()
+    }
+
+    /// op:time-greater-than -- UTC ordering.
+    pub fn gt(self, other: Self) -> bool {
+        self.utc_microseconds() > other.utc_microseconds()
+    }
+
+    /// op:time-greater-than-or-equal -- UTC ordering.
+    pub fn ge(self, other: Self) -> bool {
+        self.utc_microseconds() >= other.utc_microseconds()
     }
 }
 

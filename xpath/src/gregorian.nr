@@ -29,6 +29,14 @@ impl XsdGYear {
     }
 }
 
+// Per XPath F&O: gregorian equality is on the calendar value, with the
+// timezone offset deliberately excluded (mirrors `XsdDate::eq`).
+impl Eq for XsdGYear {
+    fn eq(self, other: Self) -> bool {
+        self.year == other.year
+    }
+}
+
 /// xs:gMonth - A Gregorian month (1-12)
 pub struct XsdGMonth {
     pub month: u8,
@@ -45,6 +53,12 @@ impl XsdGMonth {
     }
 }
 
+impl Eq for XsdGMonth {
+    fn eq(self, other: Self) -> bool {
+        self.month == other.month
+    }
+}
+
 /// xs:gDay - A Gregorian day (1-31)
 pub struct XsdGDay {
     pub day: u8,
@@ -58,6 +72,12 @@ impl XsdGDay {
 
     pub fn new_with_tz(day: u8, tz_offset_minutes: i16) -> Self {
         Self { day, tz_offset_minutes }
+    }
+}
+
+impl Eq for XsdGDay {
+    fn eq(self, other: Self) -> bool {
+        self.day == other.day
     }
 }
 
@@ -78,6 +98,12 @@ impl XsdGYearMonth {
     }
 }
 
+impl Eq for XsdGYearMonth {
+    fn eq(self, other: Self) -> bool {
+        (self.year == other.year) & (self.month == other.month)
+    }
+}
+
 /// xs:gMonthDay - A Gregorian month and day (recurring annually)
 pub struct XsdGMonthDay {
     pub month: u8,
@@ -95,38 +121,39 @@ impl XsdGMonthDay {
     }
 }
 
+impl Eq for XsdGMonthDay {
+    fn eq(self, other: Self) -> bool {
+        (self.month == other.month) & (self.day == other.day)
+    }
+}
+
 // ============================================================================
 // Equality Comparison Functions
 // ============================================================================
 
-/// op:gYear-equal - Compare two gYear values for equality
-/// Two gYear values are equal if they represent the same year
+/// op:gYear-equal. Thin wrapper over `Eq` for `XsdGYear`.
 pub fn gyear_equal(a: XsdGYear, b: XsdGYear) -> bool {
-    a.year == b.year
+    a == b
 }
 
-/// op:gMonth-equal - Compare two gMonth values for equality
-/// Two gMonth values are equal if they represent the same month
+/// op:gMonth-equal. Thin wrapper over `Eq` for `XsdGMonth`.
 pub fn gmonth_equal(a: XsdGMonth, b: XsdGMonth) -> bool {
-    a.month == b.month
+    a == b
 }
 
-/// op:gDay-equal - Compare two gDay values for equality
-/// Two gDay values are equal if they represent the same day
+/// op:gDay-equal. Thin wrapper over `Eq` for `XsdGDay`.
 pub fn gday_equal(a: XsdGDay, b: XsdGDay) -> bool {
-    a.day == b.day
+    a == b
 }
 
-/// op:gYearMonth-equal - Compare two gYearMonth values for equality
-/// Two gYearMonth values are equal if they have the same year and month
+/// op:gYearMonth-equal. Thin wrapper over `Eq` for `XsdGYearMonth`.
 pub fn gyearmonth_equal(a: XsdGYearMonth, b: XsdGYearMonth) -> bool {
-    (a.year == b.year) & (a.month == b.month)
+    a == b
 }
 
-/// op:gMonthDay-equal - Compare two gMonthDay values for equality
-/// Two gMonthDay values are equal if they have the same month and day
+/// op:gMonthDay-equal. Thin wrapper over `Eq` for `XsdGMonthDay`.
 pub fn gmonthday_equal(a: XsdGMonthDay, b: XsdGMonthDay) -> bool {
-    (a.month == b.month) & (a.day == b.day)
+    a == b
 }
 
 // ============================================================================
