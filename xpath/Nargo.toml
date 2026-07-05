@@ -3,7 +3,8 @@ name = "xpath"
 version = "0.2.0"
 type = "lib"
 authors = ["jeswr"]
-compiler_version = ">=1.0.0-beta.21"
+# compiler_version omitted: nargo only accepts full release versions (not beta)
+# Verified compatible with nargo 1.0.0-beta.21 (noirc 89a0f0fa)
 
 [dependencies]
 # Float dep migrated from vendored noir_IEEE754 v0.3.1 to the optimized
