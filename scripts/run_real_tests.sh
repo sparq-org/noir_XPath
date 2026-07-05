@@ -27,23 +27,16 @@ shopt -s nullglob
 cd "$(dirname "$0")/.."
 
 # --- KNOWN_FAILING (bare package names under test_packages/) ---
-# Placeholder packages (no qt3tests case convertible -- also stub-excluded above,
-# listed here for completeness) plus the two real packages whose generated tests
-# do not compile against the current library API:
-#   fnmonths_from_duration / fnyears_from_duration -- generated tests pass an
-#   XsdDayTimeDuration but the library exposes these fns only for
-#   XsdYearMonthDuration (XPath says return 0); needs DayTimeDuration overloads.
-KNOWN_FAILING=(
-  "xpath_test_fncontains"
-  "xpath_test_fnends_with"
-  "xpath_test_fnstarts_with"
-  "xpath_test_fnstring_length"
-  "xpath_test_opadd_daytimeduration_to_datetime"
-  "xpath_test_opnotation_equal"
-  "xpath_test_opsubtract_daytimeduration_from_datetime"
-  "xpath_test_fnmonths_from_duration"
-  "xpath_test_fnyears_from_duration"
-)
+# Currently EMPTY: every previously-listed package now passes.
+#   - The 7 former assert(false) placeholders (fncontains, fnends_with,
+#     fnstarts_with, fnstring_length, opadd_daytimeduration_to_datetime,
+#     opnotation_equal, opsubtract_daytimeduration_from_datetime) received
+#     real qt3tests vectors in sparq PR #1550 (synced in face re-sync #3/#4).
+#   - fnmonths_from_duration / fnyears_from_duration now compile and pass
+#     (fn applied to an xs:dayTimeDuration returns 0 per XPath F&O).
+# If a real package regresses, add its bare name here with a reason and a
+# tracking reference; it is skipped with a ::warning, never masked silently.
+KNOWN_FAILING=()
 
 fail_fast="${FAIL_FAST:-0}"   # FAIL_FAST=1 to stop on first failure
 

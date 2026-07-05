@@ -47,14 +47,16 @@ set with no workflow edit.
 
 ### KNOWN_FAILING
 
-A short list of REAL packages with a documented, tracked latent failure. They are
-**skipped with a `::warning`, never masked silently**:
+A list (in `scripts/run_real_tests.sh`) of REAL packages with a documented,
+tracked latent failure. Entries are **skipped with a `::warning`, never masked
+silently**.
 
-| Package | Reason |
+The list is **currently empty**. Historical entries, all retired:
+
+| Former entry | Resolution |
 |---|---|
-| `xpath_test_fnmonths_from_duration` | generated test applies the fn to an `XsdDayTimeDuration`, but the library exposes it only for `XsdYearMonthDuration` (XPath says return 0); needs a DayTimeDuration overload |
-| `xpath_test_fnyears_from_duration` | same as above |
-| `xpath_test_fncontains`, `xpath_test_fnends_with`, `xpath_test_fnstarts_with`, `xpath_test_fnstring_length`, `xpath_test_opadd_daytimeduration_to_datetime`, `xpath_test_opnotation_equal`, `xpath_test_opsubtract_daytimeduration_from_datetime` | single `assert(false)` placeholder — no qt3tests case was convertible. (These also match the stub filter, so they are excluded before the KNOWN_FAILING check is reached.) |
+| `xpath_test_fncontains`, `xpath_test_fnends_with`, `xpath_test_fnstarts_with`, `xpath_test_fnstring_length`, `xpath_test_opadd_daytimeduration_to_datetime`, `xpath_test_opnotation_equal`, `xpath_test_opsubtract_daytimeduration_from_datetime` | were single `assert(false)` placeholders; received real qt3tests vectors in sparq PR #1550 (synced in face re-sync #3/#4) and now pass |
+| `xpath_test_fnmonths_from_duration`, `xpath_test_fnyears_from_duration` | now compile and pass — the fn applied to an `xs:dayTimeDuration` returns 0 per XPath F&O |
 
 ## Running the tests
 
@@ -76,14 +78,11 @@ nargo test --package xpath_unit_tests
 
 ### Latest measured results (nargo 1.0.0-beta.21)
 
-- `xpath` library: **128 `#[test]` functions** pass.
+- `xpath` library: **162 `#[test]` functions** pass.
 - `xpath_unit_tests`: **292 `#[test]` functions** pass.
-- `test_packages` partition: **103 REAL | 257 stub-wired (excluded)**.
-- REAL packages run: **101 passed**, **2 skipped** (KNOWN_FAILING:
-  `fnmonths_from_duration`, `fnyears_from_duration`), **0 unexpected failures**.
-
-(The remaining 7 KNOWN_FAILING entries are `assert(false)` placeholders already
-excluded by the stub filter, so they never reach the KNOWN_FAILING check.)
+- `test_packages` partition: **110 REAL | 250 stub-wired (excluded)**.
+- REAL packages run: **110 passed**, **0 skipped** (KNOWN_FAILING is empty),
+  **0 unexpected failures** — **1403 tests** across the real packages.
 
 ## Upstream → current test mapping (preservation certificate)
 
