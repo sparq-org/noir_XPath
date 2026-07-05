@@ -1,7 +1,9 @@
 [package]
 name = "xpath"
+version = "0.2.0"
 type = "lib"
 authors = ["jeswr"]
+compiler_version = ">=1.0.0-beta.21"
 
 [dependencies]
 # Float dep migrated from vendored noir_IEEE754 v0.3.1 to the optimized

@@ -12,7 +12,7 @@ and the dependency is repointed to `sparq_ieee754 = { path = "../vendor/ieee754"
 ## Provenance
 
 - **Upstream (canonical dev):** https://github.com/sparq-org/sparq — `zk/ieee754`
-- **Vendored from sparq commit:** `397ce99058776f1c12482fcbaeb256e394ac69e5`
+- **Vendored from sparq commit:** `cef945af64bd8595198db56ca9f2282b9d242838`
 - **Package:** `sparq_ieee754` (type `lib`, no dependencies)
 - **Contents:** `Nargo.toml`, `src/`, `README.md` only. The upstream crate's
   `bench/`, `differential/`, `tests/`, `scripts/`, and root `ct.nr` are NOT

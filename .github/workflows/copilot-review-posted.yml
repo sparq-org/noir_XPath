@@ -1,0 +1,77 @@
+name: copilot-review-posted producer
+
+# Produces the 'copilot-review-posted' commit status required by the branch
+# ruleset.  Sets the status to 'success' once copilot-pull-request-reviewer[bot]
+# has posted a review on the PR; keeps it 'pending' otherwise.
+#
+# Two triggers are used:
+#  - pull_request_review: fires when any review is submitted (including Copilot's).
+#  - pull_request (synchronize): re-evaluates after each new push so the status
+#    reverts to pending and then re-resolves once Copilot re-reviews the new head.
+#
+# Actions are SHA-pinned per house style.
+
+on:
+  pull_request_review:
+    types: [submitted]
+  pull_request:
+    types: [synchronize, opened, reopened]
+
+permissions:
+  statuses: write
+  pull-requests: read
+
+jobs:
+  post-status:
+    name: Check for Copilot review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post copilot-review-posted status
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const pr_number = context.payload.pull_request?.number
+              ?? context.payload.review?.pull_request_number;
+            if (!pr_number) {
+              core.setFailed("Could not determine PR number from event payload.");
+              return;
+            }
+
+            // Determine the head SHA for this PR.
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              pull_number: pr_number,
+            });
+            const head_sha = pr.head.sha;
+
+            // Check whether copilot-pull-request-reviewer[bot] has already
+            // submitted a review for this PR.
+            const reviews = await github.paginate(
+              github.rest.pulls.listReviews,
+              {
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                pull_number: pr_number,
+                per_page: 100,
+              }
+            );
+            const copilot_login = "copilot-pull-request-reviewer[bot]";
+            const copilot_reviewed = reviews.some(
+              r => r.user?.login === copilot_login
+            );
+
+            const state       = copilot_reviewed ? "success" : "pending";
+            const description = copilot_reviewed
+              ? "Copilot review posted"
+              : "Waiting for Copilot review";
+
+            await github.rest.repos.createCommitStatus({
+              owner:       context.repo.owner,
+              repo:        context.repo.repo,
+              sha:         head_sha,
+              state,
+              context:     "copilot-review-posted",
+              description,
+            });
+            core.info(`Posted status '${state}' for ${head_sha}`);
