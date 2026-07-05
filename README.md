@@ -143,9 +143,7 @@ The following SPARQL 1.1 functions are deferred due to complexity in zero-knowle
 - **Advanced aggregates**: GROUP_CONCAT, SAMPLE
   - Reason: Require string support or more complex logic
 
-See [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) for detailed planning of future features.
-
-For a complete mapping of all SPARQL 1.1 functions to their implementation status, see [SPARQL_COVERAGE.md](./SPARQL_COVERAGE.md).
+For a complete mapping of all SPARQL 1.1 functions to their implementation status, see [SPARQL_COVERAGE.md](./SPARQL_COVERAGE.md). Remaining deferred features are tracked as issues rather than an in-repo roadmap document.
 
 ## Usage
 
