@@ -1,8 +1,7 @@
 name: CI
 
-# Minimal CI for the published standalone face of noir_XPath.
-# Development happens in https://github.com/sparq-org/sparq under zk/xpath;
-# this repo is a mirror/publication target. See README.md.
+# Minimal CI for noir_XPath (this repo is the source of truth since v0.2.0;
+# it was externalized from the sparq monorepo's zk/xpath). See README.md.
 #
 # Pinned toolchain: nargo 1.0.0-beta.21 (single version -- no version matrix).
 # Actions are SHA-pinned.

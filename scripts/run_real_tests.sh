@@ -19,8 +19,8 @@
 # KNOWN_FAILING: packages in the REAL set with a documented latent failure. They
 # are SKIPPED with a ::warning, never masked silently. See TESTING.md.
 #
-# Development happens in https://github.com/sparq-org/sparq under zk/xpath;
-# this standalone repo is the published face. See README.md.
+# This repo is the source of truth for noir_XPath (externalized from the
+# sparq monorepo's zk/xpath at v0.2.0). See README.md.
 set -euo pipefail
 shopt -s nullglob
 

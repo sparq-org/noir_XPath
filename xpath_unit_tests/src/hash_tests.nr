@@ -40,3 +40,59 @@ fn test_hex_formatter_via_api() {
         assert(hex[i] == expected[i]);
     }
 }
+
+// ============================================================================
+// [FABLE-5] sq-3kd2g.4: SPARQL SHA-2 digests via the public API.
+// FIPS 180-4 KATs, independently cross-checked against Python hashlib.
+// ============================================================================
+
+#[test]
+fn test_sha256_hex_via_api() {
+    let s: str<3> = "abc";
+    let (hex, len) = dep::xpath::sha256_hex(s);
+    assert(len == 64);
+    let expected = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad".as_bytes();
+    for i in 0..64 {
+        assert(hex[i] == expected[i]);
+    }
+}
+
+#[test]
+fn test_sha384_hex_via_api() {
+    let s: str<3> = "abc";
+    let (hex, len) = dep::xpath::sha384_hex(s);
+    assert(len == 96);
+    let expected = "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7"
+        .as_bytes();
+    for i in 0..96 {
+        assert(hex[i] == expected[i]);
+    }
+}
+
+#[test]
+fn test_sha512_hex_via_api() {
+    let s: str<3> = "abc";
+    let (hex, len) = dep::xpath::sha512_hex(s);
+    assert(len == 128);
+    let expected = "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"
+        .as_bytes();
+    for i in 0..128 {
+        assert(hex[i] == expected[i]);
+    }
+}
+
+#[test]
+fn test_sha256_hex_bytes_composes_with_string_builders() {
+    // SHA256 over a ([u8; N], len) tuple produced by a string builder:
+    // upper_case("abc") = "ABC"; SHA256("ABC") =
+    // b5d4045c3f466fa91fe2cc6abe79232a1a57cdf104f7a26e716e0a1e2789df78
+    // (Python hashlib cross-check).
+    let s: str<3> = "abc";
+    let (up, up_len) = dep::xpath::upper_case(s);
+    let (hex, len) = dep::xpath::sha256_hex_bytes(up, up_len);
+    assert(len == 64);
+    let expected = "b5d4045c3f466fa91fe2cc6abe79232a1a57cdf104f7a26e716e0a1e2789df78".as_bytes();
+    for i in 0..64 {
+        assert(hex[i] == expected[i]);
+    }
+}

@@ -151,6 +151,79 @@ pub fn timezone_from_datetime(dt: XsdDateTime) -> crate::types::XsdDayTimeDurati
     duration_from_microseconds(offset_micros)
 }
 
+/// Sentinel offset value meaning "no timezone" for the TZ() string formatter.
+/// i16::MIN is outside the legal XSD offset range [-840, +840] minutes and is
+/// the same "None" encoding the adjust-*-to-timezone family documents.
+pub global TZ_OFFSET_NONE: i16 = -32768;
+
+/// SPARQL `TZ(?dt)` string formatter over a raw offset -- returns the timezone
+/// part of the lexical form as a `([u8; 6], u32)` byte-array tuple:
+///
+/// - `TZ_OFFSET_NONE` (no timezone) -> `""` (len 0), per SPARQL 17.4.5.9:
+///   TZ of a dateTime without timezone is the empty string;
+/// - offset `0` -> `"Z"` (len 1);
+/// - otherwise -> `"+HH:MM"` / `"-HH:MM"` (len 6), e.g. -300 -> `"-05:00"`.
+///
+/// Asserts the offset is either the sentinel or within the XSD legal range
+/// [-840, +840] minutes (+/-14:00), failing loudly on garbage. Exposed
+/// separately from `tz_from_datetime` so `XsdDate`/`XsdTime` callers (which
+/// also carry `tz_offset_minutes`) can reuse the formatter. [FABLE-5]
+/// sq-3kd2g.4
+pub fn tz_string_from_offset_minutes(offset_minutes: i16) -> ([u8; 6], u32) {
+    let mut out: [u8; 6] = [0; 6];
+    let mut len: u32 = 0;
+
+    if offset_minutes == TZ_OFFSET_NONE {
+        // No timezone: empty string.
+    } else if offset_minutes == 0 {
+        out[0] = 90; // 'Z'
+        len = 1;
+    } else {
+        assert(
+            (offset_minutes >= -840) & (offset_minutes <= 840),
+            "tz: offset outside the XSD range [-840, +840] minutes",
+        );
+        let negative = offset_minutes < 0;
+        let abs: u32 = if negative {
+            (0 - (offset_minutes as i32)) as u32
+        } else {
+            offset_minutes as u32
+        };
+        let hh = abs / 60;
+        let mm = abs % 60;
+        out[0] = if negative { 45 } else { 43 }; // '-' / '+'
+        out[1] = 48 + (hh / 10) as u8;
+        out[2] = 48 + (hh % 10) as u8;
+        out[3] = 58; // ':'
+        out[4] = 48 + (mm / 10) as u8;
+        out[5] = 48 + (mm % 10) as u8;
+        len = 6;
+    }
+
+    (out, len)
+}
+
+/// SPARQL `TZ(?dt)` -- the timezone part of the dateTime's lexical form as a
+/// simple-literal byte tuple: `"Z"`, `"+HH:MM"`/`"-HH:MM"`, or `""`.
+///
+/// REPRESENTATION CAVEAT (stated per SPARQL_COVERAGE.md): `XsdDateTime`
+/// stores `tz_offset_minutes: i16` with no separate "timezone absent" flag --
+/// `XsdDateTime::new()` produces offset 0, indistinguishable from an explicit
+/// `Z`. This function therefore returns:
+///
+/// - `""` only for the explicit `TZ_OFFSET_NONE` sentinel (the encoding the
+///   adjust-to-timezone-"None" family documents);
+/// - `"Z"` for offset 0 -- which also means a `+00:00` lexical form maps to
+///   `"Z"` (offset-0 spellings are not distinguished), and a dateTime whose
+///   producer dropped the timezone WITHOUT using the sentinel reports `"Z"`.
+///
+/// Callers whose data model tracks timezone-absence outside `XsdDateTime`
+/// must encode it as `TZ_OFFSET_NONE` (or call
+/// `tz_string_from_offset_minutes` directly). [FABLE-5] sq-3kd2g.4
+pub fn tz_from_datetime(dt: XsdDateTime) -> ([u8; 6], u32) {
+    tz_string_from_offset_minutes(dt.tz_offset_minutes)
+}
+
 // ============================================================================
 // Component Extraction Functions (return LOCAL time components)
 // ============================================================================
@@ -470,13 +543,8 @@ fn test_datetime_signed_epoch_civil_epoch_identity() {
     // (1969-01-01T00:00:00.000001), -58017600000000 (1968-02-29T12:00:00),
     // -2208988800000000 (1900-01-01T00:00:00), -14182940000000
     // (1969-07-20T20:17:40).
-    let epochs: [i64; 5] = [
-        -1,
-        -31_535_999_999_999,
-        -58_017_600_000_000,
-        -2_208_988_800_000_000,
-        -14_182_940_000_000,
-    ];
+    let epochs: [i64; 5] =
+        [-1, -31_535_999_999_999, -58_017_600_000_000, -2_208_988_800_000_000, -14_182_940_000_000];
     for i in 0..5 {
         let e = epochs[i];
         let dt = datetime_from_epoch_microseconds(signed_epoch(e));
@@ -491,4 +559,65 @@ fn test_datetime_signed_epoch_civil_epoch_identity() {
         );
         assert((rebuilt.epoch_microseconds as i64) == e);
     }
+}
+
+// ============================================================================
+// [FABLE-5] sq-3kd2g.4: SPARQL TZ() -- timezone lexical-part formatting.
+// Expected strings from the SPARQL 1.1 spec's own 17.4.5.9 examples
+// (TZ("2011-01-10T14:45:13.815-05:00") = "-05:00"; TZ(...Z) = "Z").
+// ============================================================================
+
+/// Test helper: assert a ([u8; 6], u32) tz tuple equals an expected ASCII
+/// prefix of the given length.
+fn assert_tz_eq(actual: ([u8; 6], u32), expected: str<6>, expected_len: u32) {
+    let (bytes, len) = actual;
+    assert(len == expected_len);
+    let exp = expected.as_bytes();
+    for i in 0..6 {
+        if (i as u32) < expected_len {
+            assert(bytes[i] == exp[i]);
+        }
+    }
+}
+
+#[test]
+fn test_tz_negative_offset_spec_example() {
+    // SPARQL 17.4.5.9: TZ("2011-01-10T14:45:13.815-05:00") = "-05:00".
+    let dt = datetime_from_components_with_tz(2011, 1, 10, 14, 45, 13, 815000, -300);
+    assert_tz_eq(tz_from_datetime(dt), "-05:00", 6);
+}
+
+#[test]
+fn test_tz_utc_is_z() {
+    // SPARQL 17.4.5.9: TZ of a Z dateTime = "Z".
+    let dt = datetime_from_components(2011, 1, 10, 14, 45, 13, 815000);
+    assert_tz_eq(tz_from_datetime(dt), "Z\0\0\0\0\0", 1);
+}
+
+#[test]
+fn test_tz_positive_non_hour_offset() {
+    // +05:30 (India): minutes component must render, sign must be '+'.
+    let dt = datetime_from_components_with_tz(2024, 6, 15, 14, 30, 45, 0, 330);
+    assert_tz_eq(tz_from_datetime(dt), "+05:30", 6);
+}
+
+#[test]
+fn test_tz_max_negative_offset() {
+    // XSD extreme -14:00.
+    assert_tz_eq(tz_string_from_offset_minutes(-840), "-14:00", 6);
+}
+
+#[test]
+fn test_tz_no_timezone_sentinel_is_empty() {
+    // TZ of a dateTime without timezone = "" (sentinel encoding).
+    assert_tz_eq(
+        tz_string_from_offset_minutes(TZ_OFFSET_NONE),
+        "\0\0\0\0\0\0",
+        0,
+    );
+}
+
+#[test(should_fail_with = "offset outside the XSD range")]
+fn test_tz_garbage_offset_fails() {
+    let _ = tz_string_from_offset_minutes(900);
 }

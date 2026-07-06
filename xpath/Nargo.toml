@@ -1,6 +1,6 @@
 [package]
 name = "xpath"
-version = "0.2.0"
+version = "0.3.0"
 type = "lib"
 authors = ["jeswr"]
 # compiler_version omitted: nargo only accepts full release versions (not beta)
@@ -13,3 +13,8 @@ sparq_ieee754 = { path = "../vendor/ieee754" }
 # Vendored copy of upstream git dep (see ../vendor/json_parser/VENDOR-PROVENANCE.md).
 # Upstream pin was: json_parser = noir-lang/noir_json_parser@main (floating).
 json_parser = { path = "../vendor/json_parser" }
+# SPARQL hash digests (SHA256/SHA384/SHA512 -- see xpath/src/hash.nr and
+# SPARQL_COVERAGE.md 17.4.6). Vendored noir-lang crates; provenance + license
+# + verification in ../vendor/sha256/ and ../vendor/sha512/ VENDOR-PROVENANCE.md.
+sha256 = { path = "../vendor/sha256" }
+sha512 = { path = "../vendor/sha512" }
