@@ -5,8 +5,8 @@ This document describes the test suite for `noir_XPath`, how to run it, and the
 the original `jeswr/noir_XPath` repository was preserved when this repository was
 re-published from the sparq monorepo.
 
-> Development happens in **https://github.com/sparq-org/sparq** under `zk/xpath`.
-> This repository is the published standalone face.
+> This repository is the source of truth for noir_XPath (externalized from
+> the sparq monorepo's `zk/xpath` at v0.2.0).
 
 ## Toolchain
 
@@ -73,16 +73,21 @@ nargo test --package xpath_unit_tests
 ```
 
 > Do **not** run `nargo test --workspace` from the repository root: it would
-> include the ~257 stub-wired packages that `assert(false)` by design, which
+> include the ~247 stub-wired packages that `assert(false)` by design, which
 > always "fail".
 
-### Latest measured results (nargo 1.0.0-beta.21)
+### Latest measured results (nargo 1.0.0-beta.21, v0.3.0)
 
-- `xpath` library: **162 `#[test]` functions** pass.
-- `xpath_unit_tests`: **292 `#[test]` functions** pass.
-- `test_packages` partition: **110 REAL | 250 stub-wired (excluded)**.
-- REAL packages run: **110 passed**, **0 skipped** (KNOWN_FAILING is empty),
-  **0 unexpected failures** — **1403 tests** across the real packages.
+- `xpath` library: **204 `#[test]` functions** pass (includes the sq-3kd2g.4
+  additions: SHA-2 digest KATs, langMatches, TZ, GROUP_CONCAT, SAMPLE).
+- `xpath_unit_tests`: **303 `#[test]` functions** pass.
+- `test_packages` partition: **113 REAL | 247 stub-wired (excluded)**.
+- REAL packages run: **113 passed**, **0 skipped** (KNOWN_FAILING is empty),
+  **0 unexpected failures** — **1454 tests** across the real packages.
+- The vendored digest crates (`vendor/sha256`, `vendor/sha512`) are not
+  workspace members; their deterministic KATs were verified on the upstream
+  checkouts at vendoring time (see their `VENDOR-PROVENANCE.md`), and the
+  `xpath` inline tests re-verify the FIPS 180-4 vectors through the wrappers.
 
 ## Upstream → current test mapping (preservation certificate)
 
@@ -148,4 +153,5 @@ See [scripts/README.md](./scripts/README.md).
 2. Add inline `#[test]`s in the module and/or `xpath_unit_tests/src/`.
 3. Where a qt3tests mapping applies, extend `scripts/generate_tests.py` and
    regenerate the package.
-4. Contribute upstream at **sparq-org/sparq** (`zk/xpath`).
+4. Open a pull request against **this repository** (the source of truth since
+   the v0.2.0 externalization).

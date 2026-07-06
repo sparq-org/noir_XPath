@@ -308,3 +308,31 @@ fn test_duration_ge_negative() {
     // -2 == -2
     assert(duration_ge(d1, d1) == true);
 }
+
+// ============================================================================
+// [FABLE-5] sq-3kd2g.4: SPARQL TZ() via the public API.
+// ============================================================================
+
+#[test]
+fn test_tz_from_datetime_via_api() {
+    // SPARQL 1.1 17.4.5.9 example: TZ("2011-01-10T14:45:13.815-05:00") = "-05:00".
+    let dt = dep::xpath::datetime_from_components_with_tz(2011, 1, 10, 14, 45, 13, 815000, -300);
+    let (tz, len) = dep::xpath::tz_from_datetime(dt);
+    assert(len == 6);
+    let expected = "-05:00".as_bytes();
+    for i in 0..6 {
+        assert(tz[i] == expected[i]);
+    }
+}
+
+#[test]
+fn test_tz_z_and_none_via_api() {
+    // Z spelling for offset 0; empty string for the no-timezone sentinel.
+    let dt = dep::xpath::datetime_from_components(2011, 1, 10, 14, 45, 13, 815000);
+    let (tz, len) = dep::xpath::tz_from_datetime(dt);
+    assert(len == 1);
+    assert(tz[0] == 90); // 'Z'
+
+    let (_, none_len) = dep::xpath::tz_string_from_offset_minutes(dep::xpath::TZ_OFFSET_NONE);
+    assert(none_len == 0);
+}

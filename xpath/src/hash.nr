@@ -1,38 +1,41 @@
-//! Hash functions for SPARQL/XPath strings -- circuit-native commitment hash
+//! Hash functions for SPARQL/XPath strings -- SPARQL SHA-2 digests +
+//! circuit-native commitment hash
 //!
 //! [OPUS-4.8] Added for beads task sq-y73 (string/regex/hash XPath functions).
-//! Flag for re-review when Fable returns.
+//! [FABLE-5] sq-3kd2g.4: SHA256/SHA384/SHA512 digests with canonical
+//! lowercase-hex output added on the vendored noir-lang crates.
 //!
 //! ## Scope and honesty note
 //!
 //! SPARQL 1.1 defines the hash builtins `MD5`, `SHA1`, `SHA256`, `SHA384`,
 //! `SHA512`, each mapping a lexical string to a **lowercase hex digest string**.
-//! None of these is implemented here, for concrete, measured toolchain reasons:
 //!
-//! - **No stdlib primitive at this toolchain pin.** On the pinned toolchain
-//!   (`nargo 1.0.0-beta.21`, `bb 5.0.0-nightly.20260324`) the Noir standard
-//!   library exposes only the *algebraic* hashes -- `std::hash::pedersen_hash`,
-//!   `pedersen_commitment`, `pedersen_hash_with_separator` (verified by
-//!   probe: `std::hash::sha256`, `std::keccak256`, `std::hash::poseidon2` and
-//!   friends all fail to resolve at beta.21; the byte-oriented crypto hashes
-//!   moved out to external crates). Implementing SHA-256/512 would require
-//!   vendoring an external Noir crate (e.g. `sha256`/`keccak256`), which is a
-//!   dependency-policy decision for the orchestrator, not a self-contained
-//!   in-circuit primitive.
-//! - **MD5 and SHA-1 should not be hand-rolled.** Both are cryptographically
-//!   broken (MD5 collisions are trivial; SHA-1 is `SHAttered`). There is no
-//!   Noir primitive for either, and adding a bespoke bit-twiddled MD5/SHA-1
-//!   compression function to a ZK crypto library would be a footgun: high
-//!   constraint cost for a hash nobody should rely on. Scoped out deliberately.
-//! - **Hex-string output is the expensive half.** Even with a digest, SPARQL's
-//!   hash functions return the *hex string*; producing a 64-char `str<64>` from
-//!   32 digest bytes is the byte-array-to-string pattern this crate already
-//!   handles with the `([u8; N], len)` convention (`bytes_to_lower_hex` below),
-//!   so that half is provided and reusable once a digest primitive lands.
+//! **Implemented (the sound subset):** `SHA256`, `SHA384`, `SHA512` -- as
+//! `sha256_hex` / `sha384_hex` / `sha512_hex` (plus `*_hex_bytes` variants for
+//! `([u8; N], len)` byte-tuple pipelines). The digest cores are the official
+//! noir-lang libraries, vendored under `vendor/sha256/` (tag v0.3.0) and
+//! `vendor/sha512/` (SHA-512 + SHA-384) -- see their VENDOR-PROVENANCE.md for
+//! pin, license, and the FIPS 180-4 known-answer verification on the pinned
+//! toolchain. The stdlib itself exposes no byte-oriented digest at
+//! `nargo 1.0.0-beta.21` (verified by probe: `std::hash::sha256`,
+//! `std::keccak256`, `std::hash::poseidon2` all fail to resolve -- the crypto
+//! hashes moved out to external crates), hence the vendored dependencies.
+//!
+//! **Deliberately NOT implemented:** `MD5` and `SHA-1`. Both are
+//! cryptographically broken (MD5 collisions are trivial; SHA-1 is
+//! `SHAttered`), there is no maintained noir-lang implementation of either,
+//! and adding a bespoke bit-twiddled compression function to a ZK crypto
+//! library would be a footgun: high constraint cost for a hash nobody should
+//! rely on. This is a permanent, documented omission (SPARQL_COVERAGE.md
+//! 17.4.6), not a pending TODO.
 //!
 //! ## What IS provided
 //!
-//! 1. `string_pedersen_hash` -- a **circuit-native content hash** over the bytes
+//! 1. `sha256_hex` / `sha384_hex` / `sha512_hex` (+ `*_hex_bytes`) -- the
+//!    SPARQL `SHA256`/`SHA384`/`SHA512` builtins: digest of the string's
+//!    logical UTF-8 bytes, returned as the canonical lowercase-hex
+//!    `([u8; 2*D], len)` byte-array tuple.
+//! 2. `string_pedersen_hash` -- a **circuit-native content hash** over the bytes
 //!    of a string, returning a single `Field`. Pedersen is the hash the
 //!    Barretenberg backend computes cheaply, and is exactly the right tool for
 //!    the ZK use case the SPARQL hash builtins are usually a proxy for:
@@ -41,8 +44,13 @@
 //!    literal to a public commitment). It is **not** MD5/SHA -- it is the
 //!    appropriate substitute when the goal is an in-circuit content digest.
 //!    Domain-separated so digests of different "kinds" cannot collide.
-//! 2. `bytes_to_lower_hex` -- the digest->hex-string formatter (the SPARQL hash
-//!    return-value shape), ready to wrap any future byte digest.
+//!    NOTE: the SHA-2 lanes above cost tens of thousands of constraints per
+//!    call; when the *semantics* needed is "commit to / compare a private
+//!    string", `string_pedersen_hash` is the cheap, correct choice, and the
+//!    SHA-2 lanes are for when a query's observable RESULT is the SPARQL
+//!    hex digest itself.
+//! 3. `bytes_to_lower_hex` -- the digest->hex-string formatter (the SPARQL hash
+//!    return-value shape), shared by the SHA-2 lanes.
 //!
 //! ## Cost model
 //!
@@ -104,10 +112,7 @@ pub fn string_pedersen_hash<let N: u32, let LIMBS: u32>(s: str<N>) -> Field {
     // Pack the payload bytes (only those < len) into the remaining limbs,
     // BYTES_PER_LIMB per limb, big-endian within a limb.
     let payload_limbs = LIMBS - 1;
-    assert(
-        payload_limbs * BYTES_PER_LIMB >= N,
-        "hash: LIMBS too small for string capacity N",
-    );
+    assert(payload_limbs * BYTES_PER_LIMB >= N, "hash: LIMBS too small for string capacity N");
 
     for i in 0..N {
         // Only fold real payload bytes; bytes at/after len are skipped so the
@@ -153,8 +158,87 @@ pub fn bytes_to_lower_hex<let N: u32, let OUT: u32>(digest: [u8; N]) -> ([u8; OU
 }
 
 // ============================================================================
+// SPARQL SHA-2 digests (canonical lowercase-hex output) -- sq-3kd2g.4 [FABLE-5]
+//
+// SPARQL 1.1 17.4.6: SHA256/SHA384/SHA512 map the UTF-8 bytes of the lexical
+// form to a lowercase-hex digest string. The digest cores are the vendored
+// noir-lang crates (vendor/sha256, vendor/sha512 -- FIPS 180-4 KAT-verified on
+// the pinned toolchain); the hex formatting is `bytes_to_lower_hex`.
+//
+// Two shapes per algorithm, matching the crate's string conventions:
+//  - `*_hex_bytes(bytes, len)`: byte-tuple pipeline input (compose with the
+//    `([u8; N], u32)`-returning string builders). Hashes exactly
+//    `bytes[0..len]`; asserts `len <= N` (fails loudly, never truncates).
+//  - `*_hex(s: str<N>)`: convenience wrapper over the logical content of a
+//    `str` (bytes before the first NUL -- the crate-wide capacity convention).
+//
+// The hex output is ALWAYS full-length (64/96/128 chars) with len == capacity;
+// the tuple shape is kept for uniformity with the other string builders.
+// ============================================================================
+
+/// SPARQL `SHA256(?s)` over an explicit byte window: digest of `bytes[0..len]`
+/// as a canonical lowercase-hex `([u8; 64], 64)` tuple.
+pub fn sha256_hex_bytes<let N: u32>(bytes: [u8; N], len: u32) -> ([u8; 64], u32) {
+    assert(len <= N, "sha256_hex_bytes: len exceeds buffer capacity");
+    let digest: [u8; 32] = dep::sha256::sha256_var(bytes, len);
+    bytes_to_lower_hex::<32, 64>(digest)
+}
+
+/// SPARQL `SHA256(?s)`: lowercase-hex SHA-256 digest of the string's logical
+/// UTF-8 content (bytes before the first NUL).
+pub fn sha256_hex<let N: u32>(s: str<N>) -> ([u8; 64], u32) {
+    let bytes = s.as_bytes();
+    sha256_hex_bytes(bytes, logical_len(bytes))
+}
+
+/// SPARQL `SHA384(?s)` over an explicit byte window: digest of `bytes[0..len]`
+/// as a canonical lowercase-hex `([u8; 96], 96)` tuple.
+pub fn sha384_hex_bytes<let N: u32>(bytes: [u8; N], len: u32) -> ([u8; 96], u32) {
+    assert(len <= N, "sha384_hex_bytes: len exceeds buffer capacity");
+    // from_parts asserts len <= N and zeroes the tail, so the digest depends
+    // only on bytes[0..len].
+    let msg: BoundedVec<u8, N> = BoundedVec::from_parts(bytes, len);
+    let digest: [u8; 48] = dep::sha512::sha384::sha384_var(msg);
+    bytes_to_lower_hex::<48, 96>(digest)
+}
+
+/// SPARQL `SHA384(?s)`: lowercase-hex SHA-384 digest of the string's logical
+/// UTF-8 content (bytes before the first NUL).
+pub fn sha384_hex<let N: u32>(s: str<N>) -> ([u8; 96], u32) {
+    let bytes = s.as_bytes();
+    sha384_hex_bytes(bytes, logical_len(bytes))
+}
+
+/// SPARQL `SHA512(?s)` over an explicit byte window: digest of `bytes[0..len]`
+/// as a canonical lowercase-hex `([u8; 128], 128)` tuple.
+pub fn sha512_hex_bytes<let N: u32>(bytes: [u8; N], len: u32) -> ([u8; 128], u32) {
+    assert(len <= N, "sha512_hex_bytes: len exceeds buffer capacity");
+    let msg: BoundedVec<u8, N> = BoundedVec::from_parts(bytes, len);
+    let digest: [u8; 64] = dep::sha512::sha512::sha512_var(msg);
+    bytes_to_lower_hex::<64, 128>(digest)
+}
+
+/// SPARQL `SHA512(?s)`: lowercase-hex SHA-512 digest of the string's logical
+/// UTF-8 content (bytes before the first NUL).
+pub fn sha512_hex<let N: u32>(s: str<N>) -> ([u8; 128], u32) {
+    let bytes = s.as_bytes();
+    sha512_hex_bytes(bytes, logical_len(bytes))
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
+
+/// Test helper: assert a `([u8; OUT], u32)` hex tuple equals an expected
+/// full-capacity ASCII string.
+fn assert_hex_eq<let OUT: u32>(actual: ([u8; OUT], u32), expected: str<OUT>) {
+    let (bytes, len) = actual;
+    assert(len == OUT);
+    let exp = expected.as_bytes();
+    for i in 0..OUT {
+        assert(bytes[i] == exp[i]);
+    }
+}
 
 #[test]
 fn test_string_pedersen_hash_deterministic() {
@@ -208,4 +292,102 @@ fn test_bytes_to_lower_hex_zero_and_max() {
     for i in 0..4 {
         assert(hex[i] == expected[i]);
     }
+}
+
+// ---- SPARQL SHA-2 digests (sq-3kd2g.4) ----
+//
+// Expected values are FIPS 180-4 known-answer vectors for "abc" and the empty
+// string, independently cross-checked against Python hashlib.
+
+#[test]
+fn test_sha256_hex_abc() {
+    // SHA256("abc") -- FIPS 180-4 KAT; also the SPARQL 1.1 spec's own 17.4.6
+    // hash-family example input.
+    let s: str<3> = "abc";
+    assert_hex_eq::<64>(
+        sha256_hex(s),
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+    );
+}
+
+#[test]
+fn test_sha256_hex_empty() {
+    // SHA256("") = e3b0c442... (KAT for the empty message).
+    let s: str<4> = "\0\0\0\0";
+    assert_hex_eq::<64>(
+        sha256_hex(s),
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    );
+}
+
+#[test]
+fn test_sha256_hex_logical_length() {
+    // Trailing capacity NULs are not part of the content: "abc\0\0" == "abc".
+    let padded: str<5> = "abc\0\0";
+    let exact: str<3> = "abc";
+    let (a, alen) = sha256_hex(padded);
+    let (b, blen) = sha256_hex(exact);
+    assert(alen == blen);
+    for i in 0..64 {
+        assert(a[i] == b[i]);
+    }
+}
+
+#[test]
+fn test_sha256_hex_bytes_window() {
+    // Byte-tuple lane hashes exactly bytes[0..len]: window "ab" out of "abX".
+    let buf: [u8; 3] = [97, 98, 88];
+    // SHA256("ab") KAT.
+    assert_hex_eq::<64>(
+        sha256_hex_bytes(buf, 2),
+        "fb8e20fc2e4c3f248c60c39bd652f3c1347298bb977b8b4d5903b85055620603",
+    );
+}
+
+#[test(should_fail_with = "len exceeds buffer capacity")]
+fn test_sha256_hex_bytes_len_over_capacity_fails() {
+    let buf: [u8; 2] = [97, 98];
+    let _ = sha256_hex_bytes(buf, 3);
+}
+
+#[test]
+fn test_sha384_hex_abc() {
+    // SHA384("abc") -- FIPS 180-4 KAT.
+    let s: str<3> = "abc";
+    assert_hex_eq::<96>(
+        sha384_hex(s),
+        "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7",
+    );
+}
+
+#[test]
+fn test_sha384_hex_logical_length() {
+    let padded: str<6> = "abc\0\0\0";
+    let exact: str<3> = "abc";
+    let (a, alen) = sha384_hex(padded);
+    let (b, blen) = sha384_hex(exact);
+    assert(alen == blen);
+    for i in 0..96 {
+        assert(a[i] == b[i]);
+    }
+}
+
+#[test]
+fn test_sha512_hex_abc() {
+    // SHA512("abc") -- FIPS 180-4 KAT.
+    let s: str<3> = "abc";
+    assert_hex_eq::<128>(
+        sha512_hex(s),
+        "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f",
+    );
+}
+
+#[test]
+fn test_sha512_hex_empty() {
+    // SHA512("") KAT.
+    let s: str<2> = "\0\0";
+    assert_hex_eq::<128>(
+        sha512_hex(s),
+        "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e",
+    );
 }

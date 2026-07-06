@@ -400,13 +400,18 @@ that signal the bounded semantics:
 All O(N·M) straight-line byte compares; ASCII-only; case-insensitivity is ASCII
 A–Z↔a–z. 14 inline tests + 6 unit tests.
 
-**Hash** (`hash.nr`, new) — SPARQL `MD5/SHA1/SHA256/SHA384/SHA512` are **NOT**
-provided. Verified by probe that the pinned toolchain's stdlib
-(`nargo 1.0.0-beta.21`) exposes only the algebraic Pedersen hashes
-(`std::hash::pedersen_hash` etc.); `std::hash::sha256`, `std::keccak256`,
-`std::hash::poseidon2` all fail to resolve — the byte-oriented crypto hashes
-moved to external crates. MD5/SHA-1 are also cryptographically broken and must
-not be hand-rolled. Implemented instead:
+**Hash** (`hash.nr`, new) — at the time of this record, SPARQL
+`MD5/SHA1/SHA256/SHA384/SHA512` were **NOT** provided. Verified by probe that
+the pinned toolchain's stdlib (`nargo 1.0.0-beta.21`) exposes only the
+algebraic Pedersen hashes (`std::hash::pedersen_hash` etc.);
+`std::hash::sha256`, `std::keccak256`, `std::hash::poseidon2` all fail to
+resolve — the byte-oriented crypto hashes moved to external crates. MD5/SHA-1
+are also cryptographically broken and must not be hand-rolled.
+**UPDATE (sq-3kd2g.4, v0.3.0):** `SHA256/SHA384/SHA512` are now provided
+(`sha256_hex`/`sha384_hex`/`sha512_hex` + `*_hex_bytes`) on the vendored
+noir-lang cores — see `vendor/sha256/VENDOR-PROVENANCE.md` and
+`vendor/sha512/VENDOR-PROVENANCE.md`; MD5/SHA-1 remain deliberately omitted.
+Implemented in the sq-y73 change itself:
 
 - `string_pedersen_hash<N, LIMBS>` — domain-separated, length-prefixed Pedersen
   content hash of a string's bytes → `Field`. The circuit-native primitive for
@@ -442,11 +447,12 @@ The new public API is re-exported from `lib.nr` and mapped in `xpath_fn.nr`
   `jeswr/zkp-sparql-workspace:circuits/noir_XPath` branch
   `refactor/new-ieee754-api` was used as a reference only, not copied
   wholesale.)
-- **SPARQL crypto hashes (MD5/SHA*):** out of scope here — needs a
-  dependency-policy decision to vendor an external Noir SHA-256/keccak crate
-  (no stdlib digest at beta.21). Once vendored, the `SHA256(?s)` facade is
-  `bytes_to_lower_hex::<32, 64>(sha256(...))`. MD5/SHA-1 should stay unimplemented
-  (broken hashes).
+- **SPARQL crypto hashes (SHA-2):** ✅ DONE (sq-3kd2g.4, v0.3.0) — vendored
+  `noir-lang/sha256` v0.3.0 + `noir-lang/sha512` (SHA-384/512) under `vendor/`,
+  exposed as `sha256_hex`/`sha384_hex`/`sha512_hex` in exactly the predicted
+  `bytes_to_lower_hex`-wrapping shape. MD5/SHA-1 stay unimplemented (broken
+  hashes), recorded as a deliberate permanent omission in SPARQL_COVERAGE.md
+  17.4.6.
 - **Regex beyond the bounded subset:** a Thompson-NFA-product gadget with an
   a-priori state+step bound could cover more `fn:matches` patterns; full PCRE
   (backreferences, `\p{...}`) remains infeasible. Track as a composition-layer

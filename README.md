@@ -4,12 +4,11 @@ A Noir library implementing XPath 2.0 functions and operators required by SPARQL
 targeting zero-knowledge query proofs.
 
 > [!IMPORTANT]
-> **This repository is the published standalone face of the library.**
-> Active development happens in the sparq monorepo:
-> **https://github.com/sparq-org/sparq** under `zk/xpath`.
-> Please open issues and pull requests there, not here. This repo is
-> periodically re-published from that source of truth and its `main` may be
-> force-updated to match.
+> **This repository is the source of truth for noir_XPath** (since v0.2.0).
+> The library was originally developed in the
+> [sparq-org/sparq](https://github.com/sparq-org/sparq) monorepo under
+> `zk/xpath` and externalized here; the in-monorepo copy has been removed.
+> Open issues and pull requests **here**.
 
 ## 📚 Documentation
 
@@ -49,12 +48,14 @@ Add to your `Nargo.toml`:
 
 ```toml
 [dependencies]
-xpath = { git = "https://github.com/sparq-org/noir_XPath", tag = "v0.1.0", directory = "xpath" }
+xpath = { git = "https://github.com/sparq-org/noir_XPath", tag = "v0.3.0", directory = "xpath" }
 ```
 
-The `xpath` package depends on `sparq_ieee754` (vendored under `vendor/ieee754/`)
-and a vendored `json_parser` (under `vendor/json_parser/`); both resolve as path
-dependencies inside this repository.
+The `xpath` package depends on `sparq_ieee754` (vendored under
+`vendor/ieee754/`), a vendored `json_parser` (under `vendor/json_parser/`),
+and the vendored noir-lang `sha256` / `sha512` digest crates (under
+`vendor/sha256/` and `vendor/sha512/`); all resolve as path dependencies
+inside this repository.
 
 ## Features
 
@@ -93,23 +94,31 @@ dependencies inside this repository.
   circuit-friendly regex subset (`matches_literal/anchored/prefix`,
   char-class matchers, `replace_literal`) — full `fn:matches`/`fn:replace`
   remain stubbed (infeasible as fixed-size data-oblivious circuits)
+- **SPARQL-namespace builtins**: `lang_matches` (RFC 4647 basic filtering),
+  `sha256_hex` / `sha384_hex` / `sha512_hex` (canonical lowercase-hex digests
+  on the vendored noir-lang cores; MD5/SHA-1 deliberately omitted as broken),
+  `tz_from_datetime` (TZ() lexical part: `"Z"` / `"±HH:MM"` / `""`),
+  `group_concat` (bounded GROUP_CONCAT string core), and `sample_int`
+  (deterministic SAMPLE)
 
 ### 🔮 Future (Planned)
 
-- Advanced string functions (langMatches — RDF-term layer concern)
-- Full regex functions (REGEX, REPLACE — needs a ZK-regex strategy)
-- Crypto hash functions (SHA-256, etc. — needs a vendored digest crate; MD5/SHA-1 excluded as broken)
-- Decimal type support
+- Full regex functions (REGEX, REPLACE — needs a bounded-NFA ZK-regex
+  strategy; tracked as sq-j8shy)
+- Decimal type support (`xsd:decimal` exact arithmetic — tracked as sq-n5e7p;
+  currently approximated in IEEE 754 double precision)
+- Codepoint-positional `SUBSTR` for multi-byte UTF-8 (tracked as sq-hjvte)
 
 ## SPARQL 1.1 Coverage
 
 This library implements XPath 2.0 functions and operators required by SPARQL 1.1.
 
 **Quick Summary:**
-- ✅ **60+ functions fully implemented** (boolean, integer numeric, datetime, duration, aggregates, string functions)
-- ✅ **String operations fully implemented** (string-length, starts-with, ends-with, contains, substring, substring-before, substring-after, upper-case, lower-case, concat, normalize-space, translate, encode-for-uri, etc. — all return byte array tuples)
-- ⚠️ **Float support partial** (requires noir_IEEE754 integration)
-- 🔮 **Regex/hash deferred** (complex in ZK circuits)
+- ✅ **60+ functions fully implemented** (boolean, numeric, datetime, duration, aggregates, string functions)
+- ✅ **String operations fully implemented** (string-length, starts-with, ends-with, contains, substring, substring-before, substring-after, upper-case, lower-case, concat, normalize-space, translate, encode-for-uri, langMatches, etc. — builders return byte array tuples)
+- ✅ **Float/double support** on the vendored `sparq_ieee754` IEEE 754 library
+- ✅ **SHA256/SHA384/SHA512** with lowercase-hex output (vendored noir-lang cores); ❌ MD5/SHA1 deliberately omitted (broken)
+- 🔮 **Full regex deferred** (bounded subset implemented; sq-j8shy)
 - ❌ **RAND/NOW not feasible** (non-deterministic in ZK)
 
 For complete function mapping, see **[SPARQL_COVERAGE.md](./SPARQL_COVERAGE.md)**
@@ -118,30 +127,26 @@ For complete function mapping, see **[SPARQL_COVERAGE.md](./SPARQL_COVERAGE.md)*
 - **Boolean operations**: All boolean functions and operators (fn:not, logical-and, logical-or, comparisons)
 - **Integer numeric operations**: All arithmetic and comparison operators for integers
 - **String operations**: All XPath string functions including substring extraction (substring, substring-before, substring-after), case conversion (upper-case, lower-case), comparison (starts-with, ends-with, contains), and manipulation (concat, normalize-space, translate, encode-for-uri). All return byte array tuples `([u8; N], u32)` instead of string types.
-- **DateTime operations**: Component extraction (year, month, day, hours, minutes, seconds, timezone), comparisons, and arithmetic
+- **DateTime operations**: Component extraction (year, month, day, hours, minutes, seconds, timezone, TZ), comparisons, and arithmetic
 - **Duration operations**: All dayTimeDuration operations including arithmetic and comparisons
-- **Aggregate functions**: COUNT, SUM, AVG, MIN, MAX for integer sequences
+- **Aggregate functions**: COUNT, SUM, AVG, MIN, MAX, SAMPLE for integer sequences; GROUP_CONCAT string-join core
+- **SPARQL hash digests**: SHA256, SHA384, SHA512 with canonical lowercase-hex output (MD5/SHA1 deliberately omitted as broken)
+- **langMatches**: RFC 4647 basic filtering
 
 ### ⚠️ Partial Support
-- **Numeric operations**: Integer-only (float/double requires noir_IEEE754 dependency)
-- **Timezone**: TIMEZONE() function implemented; TZ() requires string formatting (deferred)
+- **Aggregates**: integer sequences only (float/double aggregate lanes not yet provided)
+- **Regex**: bounded circuit-friendly subset (`matches_literal/anchored/prefix`, char-class matchers, `replace_literal`); full `fn:matches`/`fn:replace` deferred (sq-j8shy)
+- **TZ()**: implemented, with a representation caveat — `XsdDateTime` has no absent-timezone flag, so absence must be encoded as the `TZ_OFFSET_NONE` sentinel (see SPARQL_COVERAGE.md §17.4.5)
 
-### ❌ Not Implemented (Deferred)
-The following SPARQL 1.1 functions are deferred due to complexity in zero-knowledge circuits:
-
-- **Advanced string functions**: ENCODE_FOR_URI, langMatches
-  - Reason: Require complex encoding/matching logic
-- **Regex functions**: REGEX, REPLACE
-  - Reason: Regular expression engines are complex in ZK circuits
-- **Hash functions**: MD5, SHA1, SHA256, SHA384, SHA512
-  - Reason: Require string output formatting
+### ❌ Not Implemented
+- **Hash functions MD5, SHA1**: deliberately omitted, permanently — both are
+  cryptographically broken and there is no sound Noir implementation to vendor
+  (SHA256/SHA384/SHA512 ARE implemented; see SPARQL_COVERAGE.md §17.4.6)
 - **RDF term functions**: isIRI, isBlank, isLiteral, str, lang, datatype, IRI, BNODE, etc.
   - Reason: Out of scope for XPath function library
 - **Non-deterministic functions**: RAND(), NOW()
   - Reason: Not meaningful in deterministic zero-knowledge proof context
   - Alternative: These values should be provided as inputs to the circuit
-- **Advanced aggregates**: GROUP_CONCAT, SAMPLE
-  - Reason: Require string support or more complex logic
 
 For a complete mapping of all SPARQL 1.1 functions to their implementation status, see [SPARQL_COVERAGE.md](./SPARQL_COVERAGE.md). Remaining deferred features are tracked as issues rather than an in-repo roadmap document.
 
@@ -311,7 +316,9 @@ noir_XPath/
 │       ├── duration.nr      # Duration operations
 │       ├── sequence.nr      # Sequence/aggregate functions
 │       ├── comparison.nr    # Comparison utilities
-│       └── string.nr        # String operations
+│       ├── string.nr        # String operations
+│       ├── regex.nr         # Bounded regex subset
+│       └── hash.nr          # SHA-2 digests + Pedersen content hash
 ├── xpath_unit_tests/        # Unit tests
 ├── test_packages/           # Auto-generated tests from qt3tests
 └── scripts/                 # Test generation scripts
@@ -327,7 +334,7 @@ Requires the pinned toolchain **nargo 1.0.0-beta.21**.
 # Run the REAL suite: library inline tests + unit-test bin + the real
 # (non-stub) test_packages, honoring the KNOWN_FAILING skip list.
 # (Do NOT run `nargo test --workspace` from the root: it would include the
-# ~257 stub-wired packages that assert(false) BY DESIGN and always fail.)
+# ~247 stub-wired packages that assert(false) BY DESIGN and always fail.)
 bash scripts/run_real_tests.sh
 
 # Or run individual real targets directly:
@@ -354,7 +361,7 @@ See [scripts/README.md](./scripts/README.md) for details.
 
 ## Dependencies
 
-Both are vendored in-repo (path dependencies) so the workspace builds hermetically:
+All are vendored in-repo (path dependencies) so the workspace builds hermetically:
 
 - `sparq_ieee754` (`vendor/ieee754/`) - IEEE 754 f32/f64 operations; developed in
   [sparq-org/sparq](https://github.com/sparq-org/sparq) under `zk/ieee754`. See
@@ -362,6 +369,12 @@ Both are vendored in-repo (path dependencies) so the workspace builds hermetical
 - `json_parser` (`vendor/json_parser/`) - vendored copy of
   `noir-lang/noir_json_parser`. See
   [vendor/json_parser/VENDOR-PROVENANCE.md](./vendor/json_parser/VENDOR-PROVENANCE.md).
+- `sha256` (`vendor/sha256/`) - vendored `noir-lang/sha256` v0.3.0 (SPARQL SHA256
+  digest core). See
+  [vendor/sha256/VENDOR-PROVENANCE.md](./vendor/sha256/VENDOR-PROVENANCE.md).
+- `sha512` (`vendor/sha512/`) - vendored `noir-lang/sha512` (SPARQL SHA384/SHA512
+  digest cores). See
+  [vendor/sha512/VENDOR-PROVENANCE.md](./vendor/sha512/VENDOR-PROVENANCE.md).
 
 ## References
 

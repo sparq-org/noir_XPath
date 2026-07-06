@@ -90,6 +90,27 @@ pub fn max_int_seq<let N: u32>(arr: [i64; N]) -> (i64, bool) {
     (result, present)
 }
 
+/// SPARQL `SAMPLE` for integer arrays -- an arbitrary value from the group.
+///
+/// SPARQL 1.1 (18.5.1.7) defines Sample as ANY value from the multiset,
+/// chosen implementation-dependently. A ZK circuit must be DETERMINISTIC, so
+/// this implementation fixes the choice to the FIRST element (a legal choice;
+/// a prover-chosen nondeterministic sample would not be re-derivable by the
+/// verifier). Returns (value, present) per this crate's emptiness convention:
+/// SAMPLE of an empty group is unbound, so N == 0 yields present == false
+/// (value 0) instead of an unsatisfiable assert. [FABLE-5] sq-3kd2g.4
+pub fn sample_int<let N: u32>(arr: [i64; N]) -> (i64, bool) {
+    let mut result: i64 = 0;
+    let mut present: bool = false;
+    for i in 0..N {
+        if i == 0 {
+            result = arr[i];
+            present = true;
+        }
+    }
+    (result, present)
+}
+
 // ============================================================================
 // Partial Sequence Functions (with explicit length)
 // ============================================================================
@@ -148,6 +169,22 @@ pub fn max_int_partial<let N: u32>(arr: [i64; N], len: u32) -> (i64, bool) {
             if (!present) | (arr[i] > result) {
                 result = arr[i];
             }
+            present = true;
+        }
+    }
+    (result, present)
+}
+
+/// SPARQL `SAMPLE` for arrays with explicit length -- deterministic first
+/// element of the first `len` entries; len == 0 yields present == false.
+/// See sample_int for the determinism rationale. [FABLE-5] sq-3kd2g.4
+pub fn sample_int_partial<let N: u32>(arr: [i64; N], len: u32) -> (i64, bool) {
+    assert(len <= N, "Length exceeds array size");
+    let mut result: i64 = 0;
+    let mut present: bool = false;
+    for i in 0..N {
+        if ((i as u32) == 0) & (len > 0) {
+            result = arr[i];
             present = true;
         }
     }
@@ -893,4 +930,38 @@ fn test_distinct_values() {
     assert(result[0] == 1);
     assert(result[1] == 2);
     assert(result[2] == 3);
+}
+
+// ============================================================================
+// [FABLE-5] sq-3kd2g.4: SPARQL SAMPLE (deterministic first element).
+// ============================================================================
+
+#[test]
+fn test_sample_int_first_element() {
+    let arr: [i64; 3] = [42, 7, -3];
+    assert(sample_int(arr) == (42, true));
+}
+
+#[test]
+fn test_sample_int_empty_is_absent() {
+    let arr: [i64; 0] = [];
+    assert(sample_int(arr) == (0, false));
+}
+
+#[test]
+fn test_sample_int_partial_respects_len() {
+    let arr: [i64; 4] = [-9, 5, 6, 7];
+    assert(sample_int_partial(arr, 2) == (-9, true));
+}
+
+#[test]
+fn test_sample_int_partial_zero_len_is_absent() {
+    let arr: [i64; 4] = [1, 2, 3, 4];
+    assert(sample_int_partial(arr, 0) == (0, false));
+}
+
+#[test(should_fail_with = "Length exceeds array size")]
+fn test_sample_int_partial_len_over_capacity_fails() {
+    let arr: [i64; 2] = [1, 2];
+    let _ = sample_int_partial(arr, 3);
 }

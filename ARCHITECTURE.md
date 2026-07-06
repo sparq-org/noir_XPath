@@ -70,7 +70,7 @@ noir_XPath/
 | XSD Type | Noir Representation | Status | Notes |
 |----------|---------------------|--------|-------|
 | `xsd:integer` | `i128` or `Field` | ✅ Supported | Arbitrary precision integers |
-| `xsd:decimal` | - | 🔮 Future | Deferred for complexity |
+| `xsd:decimal` | - | 🔮 Future | Deferred for complexity (tracked sq-n5e7p); currently approximated in IEEE 754 double precision where xs:decimal results arise |
 | `xsd:float` | `u32` (IEEE 754 bits) | ✅ Supported | Via noir_IEEE754 |
 | `xsd:double` | `u64` (IEEE 754 bits) | ✅ Supported | Via noir_IEEE754 |
 | `xsd:string` | `([u8; N], u32)` byte-array tuple | ✅ Supported | See `string.nr`; codepoint-vs-byte substring caveat tracked in sq-hjvte |
@@ -111,7 +111,7 @@ Noir is a proving language where constraint count directly impacts performance. 
 
 The tradeoff is that component extraction requires division/modulo operations, but these are computed once when needed rather than stored redundantly.
 
-> **🔮 Future Work**: `XsdDecimal` for fixed-point decimal arithmetic
+> **🔮 Future Work**: `XsdDecimal` for fixed-point decimal arithmetic (tracked sq-n5e7p)
 
 ## Module Organization
 
@@ -222,13 +222,18 @@ fn datetime_greater_than(a: XsdDateTime, b: XsdDateTime) -> bool {
 
 > **Note**: The XPath `fn:seconds-from-dateTime` returns a decimal including fractional seconds. Since decimals are deferred, we provide integer seconds + separate microseconds accessor.
 
-### 5. Hash Module (`hash.nr`) — partial
+### 5. Hash Module (`hash.nr`)
 
-`hash.nr` provides a circuit-native content hash (`string_pedersen_hash`) plus a
-`bytes_to_lower_hex` hex formatter (sq-y73). The SPARQL-named cryptographic digest
-functions (`MD5`, `SHA1`, `SHA256`, `SHA384`, `SHA512`) with their canonical
-hex-string output are **deferred** — see SPARQL_COVERAGE.md. When added they will
-leverage Noir's stdlib hash primitives over the byte-array string representation.
+`hash.nr` provides the SPARQL cryptographic digest functions `SHA256`, `SHA384`,
+`SHA512` (`sha256_hex` / `sha384_hex` / `sha512_hex`, plus `*_hex_bytes`
+byte-tuple variants) with their canonical lowercase hex-string output, on the
+vendored noir-lang digest cores (`vendor/sha256/`, `vendor/sha512/` — sq-3kd2g.4).
+`MD5` and `SHA1` are **deliberately omitted** (cryptographically broken; no
+sound implementation to vendor — see the module's honesty note and
+SPARQL_COVERAGE.md §17.4.6). The module also provides the circuit-native
+content hash (`string_pedersen_hash`) — far cheaper than a SHA-2 lane when the
+goal is in-proof string identity rather than the SPARQL hex digest — plus the
+shared `bytes_to_lower_hex` formatter (sq-y73).
 
 ### 6. Comparison Module (`comparison.nr`)
 
@@ -241,7 +246,13 @@ fn value_less_than<T>(a: T, b: T) -> bool where T: Ord
 fn value_greater_than<T>(a: T, b: T) -> bool where T: Ord
 ```
 
-> **🔮 Future**: String collation comparisons (depends on string module)
+> **Collations (resolved scope)**: string comparison is Unicode codepoint
+> order over the byte representation (`compare` in `string.nr`) — the only
+> collation SPARQL requires engines to support
+> (`http://www.w3.org/2005/xpath-functions/collation/codepoint`). Locale /
+> UCA-tailored collations are out of scope: collation tables are large,
+> locale-dependent inputs with no data-oblivious fixed-size circuit
+> representation, and SPARQL does not require them.
 
 ## Test Infrastructure
 

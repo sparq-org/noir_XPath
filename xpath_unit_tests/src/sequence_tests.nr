@@ -119,3 +119,22 @@ fn test_fn_data_identity_u32() {
     let result = fn_data_identity(value);
     assert(result == 12345);
 }
+
+// ============================================================================
+// [FABLE-5] sq-3kd2g.4: SPARQL SAMPLE via the public API.
+// ============================================================================
+
+#[test]
+fn test_sample_int_via_api() {
+    let values: [i64; 4] = [10, 20, 30, 40];
+    assert(dep::xpath::sample_int(values) == (10, true));
+    let empty: [i64; 0] = [];
+    assert(dep::xpath::sample_int(empty) == (0, false));
+}
+
+#[test]
+fn test_sample_int_partial_via_api() {
+    let values: [i64; 4] = [7, 8, 9, 10];
+    assert(dep::xpath::sample_int_partial(values, 3) == (7, true));
+    assert(dep::xpath::sample_int_partial(values, 0) == (0, false));
+}

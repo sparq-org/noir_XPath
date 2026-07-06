@@ -1061,6 +1061,132 @@ pub fn fn_string_from_boolean<let N: u32>(value: bool) -> ([u8; N], u32) {
     (result, result_len)
 }
 
+/// ASCII case-fold: 'A'-'Z' -> 'a'-'z', all other bytes unchanged.
+/// Language tags/ranges are ASCII by construction (RFC 5646 sec.2.1), so the
+/// ASCII fold IS the case-insensitivity RFC 4647 requires. [FABLE-5]
+fn ascii_lower(b: u8) -> u8 {
+    if (b >= 65) & (b <= 90) {
+        b + 32
+    } else {
+        b
+    }
+}
+
+/// SPARQL `langMatches(?tag, ?range)` -- RFC 4647 sec.3.3.1 basic filtering.
+///
+/// Both arguments follow the crate's logical-content convention (bytes before
+/// the first NUL). Semantics, matching SPARQL 1.1 17.4.3.6:
+///
+/// - The range `"*"` matches any NON-EMPTY language tag (an empty `?tag` --
+///   SPARQL's "no language tag" -- matches nothing, including `"*"`).
+/// - Otherwise the range matches iff, ASCII-case-insensitively, it equals the
+///   tag exactly OR it is a prefix of the tag whose next byte is `'-'`
+///   ("en" matches "en", "en-GB", "en-gb-oed"; it does NOT match "enx").
+/// - An empty (or all-NUL) range matches nothing: "" is not a valid basic
+///   language range, and returning false is the standard engine behaviour
+///   (Jena/Oxigraph agree).
+///
+/// Case-insensitivity is the ASCII A-Z fold -- exact per RFC 5646, which
+/// restricts tags and ranges to ASCII letters/digits/hyphen. No extended
+/// filtering (RFC 4647 sec.3.3.2, ranges like "*-CH") -- SPARQL specifies
+/// BASIC filtering only. Straight-line O(N+M); data-oblivious. [FABLE-5]
+/// sq-3kd2g.4
+pub fn lang_matches<let N: u32, let M: u32>(tag: str<N>, range: str<M>) -> bool {
+    let tag_bytes = tag.as_bytes();
+    let range_bytes = range.as_bytes();
+    let tag_len = logical_len_bytes(tag_bytes);
+    let range_len = logical_len_bytes(range_bytes);
+
+    // "*" matches any non-empty tag. (First-byte read is loop-guarded so the
+    // function stays well-typed for a zero-capacity range buffer.)
+    let mut range_first_byte: u8 = 0;
+    for i in 0..M {
+        if i == 0 {
+            range_first_byte = range_bytes[i];
+        }
+    }
+    let is_wildcard = (range_len == 1) & (range_first_byte == 42); // '*'
+
+    // Basic filtering: range must be non-empty, fit within the tag, byte-match
+    // case-insensitively over its logical length, and end at a subtag boundary
+    // (end of tag, or a '-' immediately after the matched prefix).
+    let fits = (range_len > 0) & (range_len <= tag_len);
+    let mut prefix_match = fits;
+    for i in 0..M {
+        let in_range = ((i as u32) < range_len) & fits;
+        // Clamped static read; when in_range holds, i < range_len <= tag_len
+        // <= N, so safe_tag_idx == i (same idiom as starts_with).
+        let safe_tag_idx = if i < N { i } else { 0 };
+        if in_range & (ascii_lower(tag_bytes[safe_tag_idx]) != ascii_lower(range_bytes[i])) {
+            prefix_match = false;
+        }
+    }
+
+    // Boundary byte: tag ends exactly at range_len, or the next byte is '-'.
+    let mut boundary = tag_len == range_len;
+    for i in 0..N {
+        if ((i as u32) == range_len) & ((i as u32) < tag_len) & (tag_bytes[i] == 45) {
+            boundary = true; // '-'
+        }
+    }
+
+    if is_wildcard {
+        tag_len > 0
+    } else {
+        prefix_match & boundary
+    }
+}
+
+/// SPARQL `GROUP_CONCAT` string-join core -- joins the first `count` members
+/// of a bounded sequence of `([u8; N], len)` strings with a separator.
+///
+/// This is the aggregate's STRING core only, following this library's scope:
+/// grouping, DISTINCT, and ORDER BY live in the query engine, which presents
+/// the (already grouped/deduplicated/ordered) member sequence here. The
+/// separator is applied between consecutive MEMBERS (including empty-string
+/// members -- unlike fn:string-join's XPath 1.0 cousin, GROUP_CONCAT keeps
+/// empty members as positions; SPARQL's default separator is a single space,
+/// supplied by the caller).
+///
+/// `values` is a fixed capacity-M array of capacity-N buffers with logical
+/// lengths `lens[i]`; members at index >= count are ignored. Like the other
+/// string builders (concat_bytes, string_join_two), output is truncated at
+/// the result capacity `R`; size `R >= M*N + (M-1)*S` for lossless joins.
+/// Straight-line O(M*(N+S)). [FABLE-5] sq-3kd2g.4
+pub fn group_concat<let N: u32, let M: u32, let S: u32, let R: u32>(
+    values: [[u8; N]; M],
+    lens: [u32; M],
+    count: u32,
+    sep: [u8; S],
+    sep_len: u32,
+) -> ([u8; R], u32) {
+    assert(count <= M, "group_concat: count exceeds member capacity");
+    assert(sep_len <= S, "group_concat: sep_len exceeds separator capacity");
+    let mut result: [u8; R] = [0; R];
+    let mut result_len: u32 = 0;
+
+    for m in 0..M {
+        let member_active = (m as u32) < count;
+        // Separator before every member except the first.
+        if member_active & ((m as u32) > 0) {
+            for i in 0..S {
+                if ((i as u32) < sep_len) & (result_len < R) {
+                    result[result_len] = sep[i];
+                    result_len += 1;
+                }
+            }
+        }
+        for i in 0..N {
+            if member_active & ((i as u32) < lens[m]) & (result_len < R) {
+                result[result_len] = values[m][i];
+                result_len += 1;
+            }
+        }
+    }
+
+    (result, result_len)
+}
+
 // ============================================================================
 // [OPUS-4.8] sq-y73: coverage for previously-untested string transforms.
 // VENDOR.md flagged substring/substring_before/after, upper/lower_case,
@@ -1612,4 +1738,175 @@ fn test_contains_padded_needle_no_match() {
     let s: str<5> = "hello";
     let needle: str<5> = "xyz\0\0";
     assert(!contains::<5, 5>(s, needle));
+}
+
+// ============================================================================
+// [FABLE-5] sq-3kd2g.4: langMatches (RFC 4647 basic filtering) + GROUP_CONCAT
+// string-join core. Expected values cross-checked against RFC 4647 sec.3.3.1
+// examples and the SPARQL 1.1 langMatches definition (17.4.3.6).
+// ============================================================================
+
+#[test]
+fn test_lang_matches_exact_case_insensitive() {
+    // SPARQL 1.1 17.4.3.6 example: langMatches("en", "EN") is true.
+    let tag: str<2> = "en";
+    let range: str<2> = "EN";
+    assert(lang_matches(tag, range));
+}
+
+#[test]
+fn test_lang_matches_prefix_at_subtag_boundary() {
+    // RFC 4647 3.3.1: "de" matches "de-DE" (prefix followed by '-').
+    let tag: str<5> = "de-DE";
+    let range: str<2> = "de";
+    assert(lang_matches(tag, range));
+}
+
+#[test]
+fn test_lang_matches_deep_prefix() {
+    // RFC 4647 3.3.1: "de-*-DE"-family example -- "de" matches "de-Latn-DE".
+    let tag: str<10> = "de-Latn-DE";
+    let range: str<2> = "de";
+    assert(lang_matches(tag, range));
+}
+
+#[test]
+fn test_lang_matches_no_partial_subtag() {
+    // The prefix must end at a subtag boundary: "en" must NOT match "enx".
+    let tag: str<3> = "enx";
+    let range: str<2> = "en";
+    assert(!lang_matches(tag, range));
+}
+
+#[test]
+fn test_lang_matches_range_longer_than_tag() {
+    // "de-DE" does not match the shorter tag "de".
+    let tag: str<2> = "de";
+    let range: str<5> = "de-DE";
+    assert(!lang_matches(tag, range));
+}
+
+#[test]
+fn test_lang_matches_distinct_tags() {
+    let tag: str<2> = "fr";
+    let range: str<2> = "en";
+    assert(!lang_matches(tag, range));
+}
+
+#[test]
+fn test_lang_matches_wildcard() {
+    // "*" matches any non-empty tag ...
+    let tag: str<5> = "en-GB";
+    let range: str<1> = "*";
+    assert(lang_matches(tag, range));
+}
+
+#[test]
+fn test_lang_matches_wildcard_rejects_empty_tag() {
+    // ... but an empty tag (no language) matches nothing, including "*".
+    let tag: str<3> = "\0\0\0";
+    let range: str<1> = "*";
+    assert(!lang_matches(tag, range));
+}
+
+#[test]
+fn test_lang_matches_empty_range_matches_nothing() {
+    let tag: str<2> = "en";
+    let range: str<2> = "\0\0";
+    assert(!lang_matches(tag, range));
+}
+
+#[test]
+fn test_lang_matches_padded_logical_content() {
+    // NUL-padded buffers compare on logical content: "en-GB\0\0" vs "EN\0".
+    let tag: str<7> = "en-GB\0\0";
+    let range: str<3> = "EN\0";
+    assert(lang_matches(tag, range));
+}
+
+#[test]
+fn test_group_concat_three_members() {
+    // GROUP_CONCAT(("a","b","c"); separator=", ") = "a, b, c"
+    let values: [[u8; 3]; 3] = [[97, 0, 0], [98, 0, 0], [99, 0, 0]];
+    let lens: [u32; 3] = [1, 1, 1];
+    let sep: [u8; 2] = [44, 32]; // ", "
+    let (out, len) = group_concat::<3, 3, 2, 13>(values, lens, 3, sep, 2);
+    assert(len == 7);
+    let expected = "a, b, c".as_bytes();
+    for i in 0..7 {
+        assert(out[i] == expected[i]);
+    }
+}
+
+#[test]
+fn test_group_concat_default_space_separator() {
+    // SPARQL default separator is a single space: "ab cd".
+    let values: [[u8; 2]; 2] = [[97, 98], [99, 100]];
+    let lens: [u32; 2] = [2, 2];
+    let sep: [u8; 1] = [32];
+    let (out, len) = group_concat::<2, 2, 1, 5>(values, lens, 2, sep, 1);
+    assert(len == 5);
+    let expected = "ab cd".as_bytes();
+    for i in 0..5 {
+        assert(out[i] == expected[i]);
+    }
+}
+
+#[test]
+fn test_group_concat_keeps_empty_members() {
+    // Empty members remain positions: ("a", "", "b") with "-" -> "a--b".
+    let values: [[u8; 1]; 3] = [[97], [0], [98]];
+    let lens: [u32; 3] = [1, 0, 1];
+    let sep: [u8; 1] = [45]; // '-'
+    let (out, len) = group_concat::<1, 3, 1, 6>(values, lens, 3, sep, 1);
+    assert(len == 4);
+    let expected = "a--b".as_bytes();
+    for i in 0..4 {
+        assert(out[i] == expected[i]);
+    }
+}
+
+#[test]
+fn test_group_concat_count_limits_members() {
+    // Only the first `count` members join: count=2 of 3 -> "a,b".
+    let values: [[u8; 1]; 3] = [[97], [98], [99]];
+    let lens: [u32; 3] = [1, 1, 1];
+    let sep: [u8; 1] = [44]; // ','
+    let (out, len) = group_concat::<1, 3, 1, 5>(values, lens, 2, sep, 1);
+    assert(len == 3);
+    let expected = "a,b".as_bytes();
+    for i in 0..3 {
+        assert(out[i] == expected[i]);
+    }
+}
+
+#[test]
+fn test_group_concat_empty_group() {
+    // GROUP_CONCAT over an empty group is "".
+    let values: [[u8; 2]; 2] = [[97, 98], [99, 100]];
+    let lens: [u32; 2] = [2, 2];
+    let sep: [u8; 1] = [32];
+    let (_, len) = group_concat::<2, 2, 1, 5>(values, lens, 0, sep, 1);
+    assert(len == 0);
+}
+
+#[test]
+fn test_group_concat_single_member_no_separator() {
+    let values: [[u8; 2]; 2] = [[97, 98], [99, 100]];
+    let lens: [u32; 2] = [2, 2];
+    let sep: [u8; 1] = [32];
+    let (out, len) = group_concat::<2, 2, 1, 5>(values, lens, 1, sep, 1);
+    assert(len == 2);
+    let expected = "ab".as_bytes();
+    for i in 0..2 {
+        assert(out[i] == expected[i]);
+    }
+}
+
+#[test(should_fail_with = "count exceeds member capacity")]
+fn test_group_concat_count_over_capacity_fails() {
+    let values: [[u8; 1]; 2] = [[97], [98]];
+    let lens: [u32; 2] = [1, 1];
+    let sep: [u8; 1] = [32];
+    let _ = group_concat::<1, 2, 1, 5>(values, lens, 3, sep, 1);
 }

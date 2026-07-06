@@ -292,3 +292,54 @@ fn test_fn_string_from_boolean_false() {
 // NOTE: Tests for substring, upper_case, lower_case, concat, substring_before,
 // substring_after are not included because these functions cannot work correctly
 // in Noir due to the inability to convert byte arrays back to strings at runtime.
+
+// ============================================================================
+// [FABLE-5] sq-3kd2g.4: SPARQL langMatches + GROUP_CONCAT via the public API.
+// ============================================================================
+
+#[test]
+fn test_lang_matches_via_api() {
+    // SPARQL 1.1 17.4.3.6: langMatches("en-GB", "en") / case-insensitive.
+    let tag: str<5> = "en-GB";
+    let range: str<2> = "en";
+    assert(dep::xpath::lang_matches(tag, range));
+
+    let upper_range: str<5> = "EN-gb";
+    assert(dep::xpath::lang_matches(tag, upper_range));
+
+    // "en" must not match tag "enx" (no subtag boundary).
+    let tag_enx: str<3> = "enx";
+    assert(!dep::xpath::lang_matches(tag_enx, range));
+}
+
+#[test]
+fn test_lang_matches_wildcard_via_api() {
+    let tag: str<2> = "fr";
+    let star: str<1> = "*";
+    assert(dep::xpath::lang_matches(tag, star));
+    // Empty tag (plain literal, no language) matches nothing.
+    let no_lang: str<2> = "\0\0";
+    assert(!dep::xpath::lang_matches(no_lang, star));
+}
+
+#[test]
+fn test_group_concat_via_api() {
+    // GROUP_CONCAT over ("red", "green") with SEPARATOR="; " -> "red; green".
+    let mut values: [[u8; 5]; 2] = [[0; 5]; 2];
+    let red = "red".as_bytes();
+    for i in 0..3 {
+        values[0][i] = red[i];
+    }
+    let green = "green".as_bytes();
+    for i in 0..5 {
+        values[1][i] = green[i];
+    }
+    let lens: [u32; 2] = [3, 5];
+    let sep = "; ".as_bytes();
+    let (out, len) = dep::xpath::group_concat::<5, 2, 2, 12>(values, lens, 2, sep, 2);
+    assert(len == 10);
+    let expected = "red; green".as_bytes();
+    for i in 0..10 {
+        assert(out[i] == expected[i]);
+    }
+}

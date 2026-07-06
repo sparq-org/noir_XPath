@@ -180,15 +180,18 @@ pub use crate::string::string_to_codepoints;
 
 // ============================================================================
 // [OPUS-4.8] sq-y73: regex (bounded subset) + hash (circuit-native).
+// [FABLE-5] sq-3kd2g.4: SPARQL SHA-2 digests added on vendored cores.
 //
 // NOTE: `fn:matches` / `fn:replace` proper (full XML-Schema regex) remain
 // STUBS (see stubs.nr) because full PCRE is not circuit-feasible. The bounded
 // circuit-friendly primitives are exposed under explicit `matches_*` /
 // `replace_literal` names so a code generator picks the bounded semantics
-// deliberately, never mistaking them for full regex. Similarly the SPARQL
-// MD5/SHA* hash builtins are NOT provided (no stdlib digest at this toolchain
-// pin); `string_pedersen_hash` is the circuit-native content hash. See the
-// regex.nr / hash.nr module headers for the full scope rationale.
+// deliberately, never mistaking them for full regex. The SPARQL
+// SHA256/SHA384/SHA512 builtins ARE provided (`sha256_hex` etc., lowercase-hex
+// output on the vendored noir-lang digest cores); MD5/SHA1 are deliberately
+// omitted (cryptographically broken, no sound implementation to vendor).
+// `string_pedersen_hash` remains the cheap circuit-native content hash. See
+// the regex.nr / hash.nr module headers for the full scope rationale.
 // ============================================================================
 
 // fn:matches (bounded: literal / char-class / anchored subset)
@@ -202,9 +205,27 @@ pub use crate::regex::matches_prefix;
 // fn:replace (bounded: literal pattern + literal replacement)
 pub use crate::regex::replace_literal;
 
-// hash: circuit-native content hash (NOT SPARQL MD5/SHA*)
+// hash: circuit-native content hash (cheap commitment primitive)
 pub use crate::hash::bytes_to_lower_hex;
 pub use crate::hash::string_pedersen_hash;
+
+// SPARQL SHA256 / SHA384 / SHA512 (17.4.6) -- canonical lowercase-hex output.
+// SPARQL-namespace builtins (no fn: equivalent); exposed here for generators.
+pub use crate::hash::{
+    sha256_hex, sha256_hex_bytes, sha384_hex, sha384_hex_bytes, sha512_hex, sha512_hex_bytes,
+};
+
+// SPARQL langMatches (17.4.3.6) -- RFC 4647 basic filtering.
+pub use crate::string::lang_matches;
+
+// SPARQL GROUP_CONCAT string-join core (grouping/DISTINCT are engine-side).
+pub use crate::string::group_concat;
+
+// SPARQL TZ (17.4.5.9) -- timezone lexical part as a byte tuple.
+pub use crate::datetime::{tz_from_datetime, tz_string_from_offset_minutes};
+
+// SPARQL SAMPLE (18.5.1.7) -- deterministic first element.
+pub use crate::sequence::{sample_int, sample_int_partial};
 
 // ============================================================================
 // Float/Double variants
