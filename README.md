@@ -48,7 +48,7 @@ Add to your `Nargo.toml`:
 
 ```toml
 [dependencies]
-xpath = { git = "https://github.com/sparq-org/noir_XPath", tag = "v0.3.0", directory = "xpath" }
+xpath = { git = "https://github.com/sparq-org/noir_XPath", tag = "v0.3.1", directory = "xpath" }
 ```
 
 The `xpath` package depends on `sparq_ieee754` (vendored under
