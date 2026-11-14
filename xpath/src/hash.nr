@@ -180,7 +180,7 @@ pub fn bytes_to_lower_hex<let N: u32, let OUT: u32>(digest: [u8; N]) -> ([u8; OU
 /// as a canonical lowercase-hex `([u8; 64], 64)` tuple.
 pub fn sha256_hex_bytes<let N: u32>(bytes: [u8; N], len: u32) -> ([u8; 64], u32) {
     assert(len <= N, "sha256_hex_bytes: len exceeds buffer capacity");
-    let digest: [u8; 32] = dep::sha256::sha256_var(bytes, len);
+    let digest: [u8; 32] = dep::hash_sha256::sha256_var(bytes, len);
     bytes_to_lower_hex::<32, 64>(digest)
 }
 
