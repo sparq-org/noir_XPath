@@ -1,6 +1,6 @@
 [package]
 name = "xpath"
-version = "0.3.0"
+version = "0.3.1"
 type = "lib"
 authors = ["jeswr"]
 # compiler_version omitted: nargo only accepts full release versions (not beta)
@@ -16,5 +16,5 @@ json_parser = { path = "../vendor/json_parser" }
 # SPARQL hash digests (SHA256/SHA384/SHA512 -- see xpath/src/hash.nr and
 # SPARQL_COVERAGE.md 17.4.6). Vendored noir-lang crates; provenance + license
 # + verification in ../vendor/sha256/ and ../vendor/sha512/ VENDOR-PROVENANCE.md.
-sha256 = { path = "../vendor/sha256" }
+hash_sha256 = { path = "../vendor/sha256" }
 sha512 = { path = "../vendor/sha512" }
